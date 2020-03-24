@@ -1,5 +1,5 @@
 [package]
-name = "colang-rust"
+name = "colang"
 version = "0.1.0"
 authors = ["Pavel Senchanka <pavel.senchanka@gmail.com>"]
 edition = "2018"

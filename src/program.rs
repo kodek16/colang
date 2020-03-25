@@ -3,12 +3,17 @@
 //! backends.
 
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::rc::Rc;
+
+/// Every distinct named entity in the program receives a unique ID.
+pub type SymbolId = u32;
 
 #[derive(Debug)]
 pub struct Program {
     variables: Vec<Rc<RefCell<Variable>>>,
     statements: Vec<Statement>,
+    next_variable_id: SymbolId,
 }
 
 impl Program {
@@ -17,11 +22,19 @@ impl Program {
         Program {
             variables: vec![],
             statements: vec![],
+            next_variable_id: 0,
         }
+    }
+
+    /// Returns an iterator over program statements.
+    pub fn statements<'a>(&'a self) -> impl Iterator<Item = &Statement> + 'a {
+        self.statements.iter()
     }
 
     /// Adds a new variable to the symbol table.
     pub fn add_variable(&mut self, variable: Rc<RefCell<Variable>>) {
+        variable.borrow_mut().set_id(self.next_variable_id);
+        self.next_variable_id += 1;
         self.variables.push(variable);
     }
 
@@ -34,12 +47,23 @@ impl Program {
 #[derive(Debug)]
 pub struct Variable {
     pub name: String,
+    id: Option<SymbolId>,
 }
 
 impl Variable {
     /// Creates a new variable with a given name.
+    /// Calling `id()` is invalid before the variable is added to a `Program`.
     pub fn new(name: String) -> Variable {
-        Variable { name }
+        Variable { name, id: None }
+    }
+
+    /// A unique ID defined in the context of the entire `Program`.
+    pub fn id(&self) -> SymbolId {
+        self.id.expect("Attempted to access ID of unbound variable")
+    }
+
+    fn set_id(&mut self, new_id: SymbolId) {
+        self.id = Some(new_id)
     }
 }
 
@@ -63,6 +87,15 @@ impl VarDeclStmt {
             initializer,
         })
     }
+
+    /// Borrow the variable immutably.
+    pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
+        (*self.variable).borrow()
+    }
+
+    pub fn initializer(&self) -> Option<&Expression> {
+        self.initializer.as_ref()
+    }
 }
 
 #[derive(Debug)]
@@ -76,6 +109,11 @@ impl ReadStmt {
             variable: Rc::clone(variable),
         })
     }
+
+    /// Borrow the variable immutably.
+    pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
+        (*self.variable).borrow()
+    }
 }
 
 #[derive(Debug)]
@@ -86,6 +124,10 @@ pub struct WriteStmt {
 impl WriteStmt {
     pub fn new(expression: Expression) -> Statement {
         Statement::Write(WriteStmt { expression })
+    }
+
+    pub fn expression(&self) -> &Expression {
+        &self.expression
     }
 }
 
@@ -108,11 +150,16 @@ impl VariableExpr {
             variable: Rc::clone(variable),
         })
     }
+
+    /// Borrow the variable immutably.
+    pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
+        (*self.variable).borrow()
+    }
 }
 
 #[derive(Debug)]
 pub struct IntLiteralExpr {
-    value: i32,
+    pub value: i32,
 }
 
 impl IntLiteralExpr {
@@ -133,5 +180,13 @@ impl AddExpr {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
         })
+    }
+
+    pub fn lhs(&self) -> &Expression {
+        &self.lhs
+    }
+
+    pub fn rhs(&self) -> &Expression {
+        &self.rhs
     }
 }

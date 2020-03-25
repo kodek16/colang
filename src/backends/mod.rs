@@ -5,6 +5,7 @@
 use crate::program::Program;
 use std::error::Error;
 
+pub mod debug;
 pub mod interpreter;
 
 /// Common backend interface.

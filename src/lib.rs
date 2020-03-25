@@ -14,6 +14,7 @@ use std::env::Args;
 use std::fs;
 use std::rc::Rc;
 
+use crate::backends::debug::DebugBackend;
 use backends::interpreter::InterpreterBackend;
 use backends::Backend;
 use errors::CompilationError;
@@ -28,13 +29,23 @@ pub struct Config {
 
 impl Config {
     /// Parse command line arguments.
-    pub fn new(mut args: Args) -> Result<Config, &'static str> {
-        args.next();
+    pub fn new(args: Args) -> Result<Config, &'static str> {
+        // TODO use a command line parser library.
+        let mut args: Vec<String> = args.skip(1).collect();
+        let backend: Box<dyn Backend> = if args.iter().any(|a| a == "--debug") {
+            Box::new(DebugBackend)
+        } else {
+            Box::new(InterpreterBackend)
+        };
 
-        if let Some(source_path) = args.next() {
+        // Drop flags.
+        args.retain(|f| !f.starts_with("--"));
+
+        if args.len() >= 1 {
+            let source_path = args[0].to_owned();
             Ok(Config {
                 source_path,
-                backend: Box::new(InterpreterBackend),
+                backend,
             })
         } else {
             return Err("Missing path to source file");

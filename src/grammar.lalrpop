@@ -32,19 +32,32 @@ Stmt: Statement = {
 
 // Expressions are ordered from lowest to highest precedence.
 Expr: Expression = {
-    <Expr1> => <>,
+    <Expr2> => <>,
 };
 
-Expr1: Expression = {
-    <start: @L> <lhs:Expr1> "+" <rhs:Expr0> <end: @R> => {
-        Expression::Add(AddExpr {
+// Macro for a left-associative binary operator expression tier.
+LeftAssocBinaryOpExprTier<Ops, PrevTier>: Expression = {
+    <start: @L> <lhs:LeftAssocBinaryOpExprTier<Ops, PrevTier>> <operator:Ops> <rhs:PrevTier> <end: @R> => {
+        Expression::BinaryOp(BinaryOperatorExpr {
+            operator,
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
             span: InputSpan { start, end },
         })
     },
-    <Expr0> => <>,
-};
+    PrevTier,
+}
+
+Expr2 = LeftAssocBinaryOpExprTier<Expr2Op, Expr1>;
+Expr2Op: BinaryOperator = {
+    "+" => BinaryOperator::Add,
+    "-" => BinaryOperator::Sub,
+}
+
+Expr1 = LeftAssocBinaryOpExprTier<Expr1Op, Expr0>;
+Expr1Op: BinaryOperator = {
+    "*" => BinaryOperator::Mul,
+}
 
 Expr0: Expression = {
     <start: @L> <name:Ident> <end: @R> => {
@@ -60,6 +73,10 @@ Expr0: Expression = {
             span: InputSpan { start, end },
         })
     },
+
+    <start: @L> "(" <e:Expr> ")" <end: @R> => {
+        e.map_span(|_| InputSpan { start, end })
+    }
 }
 
 Ident: String = {

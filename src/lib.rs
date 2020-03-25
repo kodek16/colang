@@ -207,7 +207,7 @@ fn compile_expression(
     match expression {
         ast::Expression::Variable(e) => compile_variable_expr(e, context),
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
-        ast::Expression::Add(e) => compile_add_expr(e, context),
+        ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
     }
 }
 
@@ -232,11 +232,16 @@ fn compile_int_literal_expr(
     program::IntLiteralExpr::new(expression.value)
 }
 
-fn compile_add_expr(
-    expression: ast::AddExpr,
+fn compile_binary_op_expr(
+    expression: ast::BinaryOperatorExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
+    let operator = match expression.operator {
+        ast::BinaryOperator::Add => program::BinaryOperator::Add,
+        ast::BinaryOperator::Sub => program::BinaryOperator::Sub,
+        ast::BinaryOperator::Mul => program::BinaryOperator::Mul,
+    };
     let lhs = compile_expression(*expression.lhs, context);
     let rhs = compile_expression(*expression.rhs, context);
-    program::AddExpr::new(lhs, rhs)
+    program::BinaryOpExpr::new(operator, lhs, rhs)
 }

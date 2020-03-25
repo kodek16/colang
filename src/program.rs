@@ -135,7 +135,7 @@ impl WriteStmt {
 pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
-    Add(AddExpr),
+    BinaryOp(BinaryOpExpr),
     Error,
 }
 
@@ -169,14 +169,23 @@ impl IntLiteralExpr {
 }
 
 #[derive(Debug)]
-pub struct AddExpr {
+pub enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+}
+
+#[derive(Debug)]
+pub struct BinaryOpExpr {
+    pub operator: BinaryOperator,
     lhs: Box<Expression>,
     rhs: Box<Expression>,
 }
 
-impl AddExpr {
-    pub fn new(lhs: Expression, rhs: Expression) -> Expression {
-        Expression::Add(AddExpr {
+impl BinaryOpExpr {
+    pub fn new(operator: BinaryOperator, lhs: Expression, rhs: Expression) -> Expression {
+        Expression::BinaryOp(BinaryOpExpr {
+            operator,
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
         })

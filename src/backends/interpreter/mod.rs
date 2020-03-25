@@ -5,8 +5,8 @@ mod cin;
 use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
-    AddExpr, Expression, IntLiteralExpr, Program, ReadStmt, Statement, SymbolId, VarDeclStmt,
-    VariableExpr, WriteStmt,
+    BinaryOpExpr, BinaryOperator, Expression, IntLiteralExpr, Program, ReadStmt, Statement,
+    SymbolId, VarDeclStmt, VariableExpr, WriteStmt,
 };
 use std::collections::HashMap;
 use std::error::Error;
@@ -81,7 +81,7 @@ fn run_expr(expression: &Expression, state: &mut State) -> Value {
     match expression {
         Expression::Variable(e) => run_variable_expr(e, state),
         Expression::IntLiteral(e) => run_int_literal_expr(e, state),
-        Expression::Add(e) => run_add_expr(e, state),
+        Expression::BinaryOp(e) => run_binary_op_expr(e, state),
         Expression::Error => panic!("Error-containing program passed to interpreter backend."),
     }
 }
@@ -95,8 +95,13 @@ fn run_int_literal_expr(expression: &IntLiteralExpr, _: &State) -> Value {
     expression.value
 }
 
-fn run_add_expr(expression: &AddExpr, state: &mut State) -> Value {
+fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> Value {
     let lhs = run_expr(expression.lhs(), state);
     let rhs = run_expr(expression.rhs(), state);
-    lhs + rhs
+
+    match expression.operator {
+        BinaryOperator::Add => lhs + rhs,
+        BinaryOperator::Sub => lhs - rhs,
+        BinaryOperator::Mul => lhs * rhs,
+    }
 }

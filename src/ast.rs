@@ -42,7 +42,29 @@ pub struct WriteStmt {
 pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
-    Add(AddExpr),
+    BinaryOp(BinaryOperatorExpr),
+}
+
+impl Expression {
+    pub fn map_span<F>(self, f: F) -> Expression
+    where
+        F: FnOnce(&InputSpan) -> InputSpan,
+    {
+        match self {
+            Expression::Variable(e) => Expression::Variable(VariableExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::IntLiteral(e) => Expression::IntLiteral(IntLiteralExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::BinaryOp(e) => Expression::BinaryOp(BinaryOperatorExpr {
+                span: f(&e.span),
+                ..e
+            }),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -59,8 +81,16 @@ pub struct IntLiteralExpr {
     pub span: InputSpan,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+}
+
 #[derive(Debug)]
-pub struct AddExpr {
+pub struct BinaryOperatorExpr {
+    pub operator: BinaryOperator,
     pub lhs: Box<Expression>,
     pub rhs: Box<Expression>,
 

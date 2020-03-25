@@ -1,0 +1,8 @@
+var x;
+var y;
+var z;
+read x;
+read y;
+read z;
+write x + y * z;
+write (x + y) * z;

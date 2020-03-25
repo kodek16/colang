@@ -7,11 +7,27 @@ pub Program: Program = {
 };
 
 Stmt: Statement = {
-    "var" <variable_name:Ident> <initializer:("=" <Expr>)?> => {
-        Statement::VarDecl(VarDeclStmt {<>})
+    <start: @L> "var" <variable_name:Ident> <initializer:("=" <Expr>)?> <end: @R> => {
+        Statement::VarDecl(VarDeclStmt {
+            variable_name,
+            initializer,
+            span: InputSpan { start, end },
+        })
     },
-    "read" <variable_name:Ident> => Statement::Read(ReadStmt {<>}),
-    "write" <expression:Expr> => Statement::Write(WriteStmt {<>}),
+
+    <start: @L> "read" <variable_name:Ident> <end: @R> => {
+        Statement::Read(ReadStmt {
+            variable_name,
+            span: InputSpan { start, end },
+        })
+    },
+
+    <start: @L> "write" <expression:Expr> <end: @R> => {
+        Statement::Write(WriteStmt {
+            expression,
+            span: InputSpan { start, end },
+        })
+    },
 };
 
 // Expressions are ordered from lowest to highest precedence.
@@ -20,13 +36,30 @@ Expr: Expression = {
 };
 
 Expr1: Expression = {
-    <lhs:Expr1> "+" <rhs:Expr0> => Expression::Add(AddExpr(Box::new(lhs), Box::new(rhs))),
+    <start: @L> <lhs:Expr1> "+" <rhs:Expr0> <end: @R> => {
+        Expression::Add(AddExpr {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            span: InputSpan { start, end },
+        })
+    },
     <Expr0> => <>,
 };
 
 Expr0: Expression = {
-    <Ident> => Expression::Variable(VariableExpr(<>)),
-    <IntLiteral> => Expression::IntLiteral(IntLiteralExpr(<>)),
+    <start: @L> <name:Ident> <end: @R> => {
+        Expression::Variable(VariableExpr {
+            name,
+            span: InputSpan { start, end },
+        })
+    },
+
+    <start: @L> <value:IntLiteral> <end: @R> => {
+        Expression::IntLiteral(IntLiteralExpr {
+            value,
+            span: InputSpan { start, end },
+        })
+    },
 }
 
 Ident: String = {

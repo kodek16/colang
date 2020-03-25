@@ -11,5 +11,6 @@ lalrpop = { version = "0.18.1", features = ["lexer"] }
 
 
 [dependencies]
+codespan-reporting = "0.9.1"
 lalrpop-util = "0.18.1"
 regex = "1"

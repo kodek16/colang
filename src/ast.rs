@@ -1,6 +1,9 @@
 //! Abstract syntax tree representation. This is the interface
 //! between the parser (LALRPOP) and the rest of the front-end.
 
+pub type ParseError<'a> =
+    lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'a>, &'static str>;
+
 #[derive(Debug)]
 pub struct Program {
     pub statements: Vec<Statement>,
@@ -17,16 +20,22 @@ pub enum Statement {
 pub struct VarDeclStmt {
     pub variable_name: String,
     pub initializer: Option<Expression>,
+
+    pub span: InputSpan,
 }
 
 #[derive(Debug)]
 pub struct ReadStmt {
     pub variable_name: String,
+
+    pub span: InputSpan,
 }
 
 #[derive(Debug)]
 pub struct WriteStmt {
     pub expression: Expression,
+
+    pub span: InputSpan,
 }
 
 #[derive(Debug)]
@@ -37,16 +46,29 @@ pub enum Expression {
 }
 
 #[derive(Debug)]
-pub struct VariableExpr(pub String);
+pub struct VariableExpr {
+    pub name: String,
+
+    pub span: InputSpan,
+}
 
 #[derive(Debug)]
-pub struct IntLiteralExpr(pub i32);
+pub struct IntLiteralExpr {
+    pub value: i32,
+
+    pub span: InputSpan,
+}
 
 #[derive(Debug)]
-pub struct AddExpr(pub Box<Expression>, pub Box<Expression>);
+pub struct AddExpr {
+    pub lhs: Box<Expression>,
+    pub rhs: Box<Expression>,
+
+    pub span: InputSpan,
+}
 
 #[derive(Debug)]
-pub struct Identifier(pub String);
-
-#[derive(Debug)]
-pub struct IntegerLiteral(pub i32);
+pub struct InputSpan {
+    pub start: usize,
+    pub end: usize,
+}

@@ -1,6 +1,7 @@
 use lalrpop_util::lalrpop_mod;
 
 mod ast;
+mod backends;
 mod errors;
 mod program;
 lalrpop_mod!(pub grammar);
@@ -13,6 +14,8 @@ use std::env::Args;
 use std::fs;
 use std::rc::Rc;
 
+use backends::interpreter::InterpreterBackend;
+use backends::Backend;
 use errors::CompilationError;
 use program::Program;
 use program::Variable;
@@ -20,6 +23,7 @@ use std::error::Error;
 
 pub struct Config {
     source_path: String,
+    backend: Box<dyn Backend>,
 }
 
 impl Config {
@@ -28,7 +32,10 @@ impl Config {
         args.next();
 
         if let Some(source_path) = args.next() {
-            Ok(Config { source_path })
+            Ok(Config {
+                source_path,
+                backend: Box::new(InterpreterBackend),
+            })
         } else {
             return Err("Missing path to source file");
         }
@@ -39,22 +46,24 @@ impl Config {
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let source_code = fs::read_to_string(&config.source_path)?;
 
-    if let Err(errors) = run_frontend(&source_code) {
-        report_compilation_errors(&config.source_path, &source_code, &errors)?;
-        // TODO exit non-zero
-    }
+    let program = match run_frontend(&source_code) {
+        Ok(program) => program,
+        Err(errors) => {
+            report_compilation_errors(&config.source_path, &source_code, &errors)?;
+            return Err("compilation did not succeed".to_string().into());
+        }
+    };
 
+    config.backend.run(program)?;
     Ok(())
 }
 
-fn run_frontend(source_code: &str) -> Result<(), Vec<CompilationError>> {
+fn run_frontend(source_code: &str) -> Result<Program, Vec<CompilationError>> {
     let program_ast =
         parse(&source_code).map_err(|err| vec![CompilationError::syntax_error(err)])?;
 
     let program = compile(program_ast)?;
-    println!("Compiled! Program: {:#?}", program);
-
-    Ok(())
+    Ok(program)
 }
 
 fn report_compilation_errors(

@@ -1,10 +1,14 @@
-#[derive(Debug)]
-pub struct Program;
+use lalrpop_util::lalrpop_mod;
+
+mod ast;
+mod program;
+lalrpop_mod!(pub grammar);
 
 use std::env::Args;
 use std::error::Error;
 use std::fs;
-use std::io;
+
+use program::Program;
 
 pub struct Config {
     source_path: String,
@@ -26,13 +30,24 @@ impl Config {
 /// Executes the program.
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let source_code = fs::read_to_string(config.source_path)?;
-    let program = compile(&source_code);
 
+    let program_ast = parse(&source_code)?;
+    println!("Parsed! Program: {:#?}", program_ast);
+
+    let program = compile(program_ast);
     println!("Compiled! Program: {:#?}", program);
+
     Ok(())
 }
 
+/// Parses the source code and returns an AST root.
+fn parse(source_code: &str) -> Result<ast::Program, String> {
+    grammar::ProgramParser::new()
+        .parse(source_code)
+        .map_err(|err| err.to_string())
+}
+
 /// Compiles a CO program.
-fn compile(_source_code: &str) -> Program {
-    Program
+fn compile(_program_ast: ast::Program) -> Program {
+    Program::new()
 }

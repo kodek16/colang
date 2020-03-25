@@ -1,0 +1,38 @@
+use crate::ast::*;
+
+grammar;
+
+pub Program: Program = {
+    (<Stmt> ";")* => Program { statements: <> },
+};
+
+Stmt: Statement = {
+    "var" <variable_name:Ident> <initializer:("=" <Expr>)?> => {
+        Statement::VarDecl(VarDeclStmt {<>})
+    },
+    "read" <variable_name:Ident> => Statement::Read(ReadStmt {<>}),
+    "write" <expression:Expr> => Statement::Write(WriteStmt {<>}),
+};
+
+// Expressions are ordered from lowest to highest precedence.
+Expr: Expression = {
+    <Expr1> => <>,
+};
+
+Expr1: Expression = {
+    <lhs:Expr1> "+" <rhs:Expr0> => Expression::Add(AddExpr(Box::new(lhs), Box::new(rhs))),
+    <Expr0> => <>,
+};
+
+Expr0: Expression = {
+    <Ident> => Expression::Variable(VariableExpr(<>)),
+    <IntLiteral> => Expression::IntLiteral(IntLiteralExpr(<>)),
+}
+
+Ident: String = {
+    r"[_a-zA-Z][_a-zA-Z0-9]*" => String::from(<>)
+};
+
+IntLiteral: i32 = {
+    r"-?[0-9]+" => <>.parse().unwrap(),
+};

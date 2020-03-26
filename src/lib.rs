@@ -299,10 +299,33 @@ fn compile_binary_op_expr(
         ast::BinaryOperator::Add => program::BinaryOperator::AddInt,
         ast::BinaryOperator::Sub => program::BinaryOperator::SubInt,
         ast::BinaryOperator::Mul => program::BinaryOperator::MulInt,
+        ast::BinaryOperator::Less => program::BinaryOperator::LessInt,
+        ast::BinaryOperator::Greater => program::BinaryOperator::GreaterInt,
+        ast::BinaryOperator::LessEq => program::BinaryOperator::LessEqInt,
+        ast::BinaryOperator::GreaterEq => program::BinaryOperator::GreaterEqInt,
+        ast::BinaryOperator::Eq => program::BinaryOperator::EqInt,
+        ast::BinaryOperator::NotEq => program::BinaryOperator::NotEqInt,
     };
+    let lhs_location = expression.lhs.span();
+    let rhs_location = expression.rhs.span();
     let lhs = compile_expression(*expression.lhs, context);
     let rhs = compile_expression(*expression.rhs, context);
-    program::BinaryOpExpr::new(operator, lhs, rhs)
+
+    let result = program::BinaryOpExpr::new(
+        operator,
+        lhs,
+        rhs,
+        &context.program,
+        lhs_location,
+        rhs_location,
+    );
+    match result {
+        Ok(expr) => expr,
+        Err(error) => {
+            context.errors.push(error);
+            program::Expression::Error
+        }
+    }
 }
 
 fn compile_if_expr(expression: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {

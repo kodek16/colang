@@ -124,6 +124,7 @@ fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> Value {
         BinaryOperator::AddInt => lhs + rhs,
         BinaryOperator::SubInt => lhs - rhs,
         BinaryOperator::MulInt => lhs * rhs,
+        _ => panic!(),
     }
 }
 

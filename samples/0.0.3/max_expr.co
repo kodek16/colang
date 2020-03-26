@@ -4,7 +4,7 @@ read x;
 read y;
 var m = if (x >= y) {
     x
-else {
+} else {
     y
 };
 write m;

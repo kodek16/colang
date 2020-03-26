@@ -124,6 +124,14 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn operand_is_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9009",
+            message: format!("operand must have type `int`, not `{}`", actual_type),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

@@ -63,11 +63,11 @@ BlockStmt: Statement = {
 
 // Expressions are ordered from lowest to highest precedence.
 Expr: Expression = {
-    <Expr3> => <>,
+    <Expr5> => <>,
 };
 
-// Expr3 handles if-expressions.
-Expr3: Expression = {
+// Highest tier handles if-expressions.
+Expr5: Expression = {
     <start: @L> "if" "(" <cond:Expr> ")" <then:Expr> "else" <else_:Expr> <end: @R> => {
         Expression::If(IfExpr {
             cond: Box::new(cond),
@@ -76,7 +76,7 @@ Expr3: Expression = {
             span: InputSpan { start, end },
         })
     },
-    Expr2,
+    Expr4,
 }
 
 // Macro for a left-associative binary operator expression tier.
@@ -90,6 +90,20 @@ LeftAssocBinaryOpExprTier<Ops, PrevTier>: Expression = {
         })
     },
     PrevTier,
+}
+
+Expr4 = LeftAssocBinaryOpExprTier<Expr4Op, Expr3>;
+Expr4Op: BinaryOperator = {
+    "==" => BinaryOperator::Eq,
+    "!=" => BinaryOperator::NotEq,
+}
+
+Expr3 = LeftAssocBinaryOpExprTier<Expr3Op, Expr2>;
+Expr3Op: BinaryOperator = {
+    "<" => BinaryOperator::Less,
+    ">" => BinaryOperator::Greater,
+    "<=" => BinaryOperator::LessEq,
+    ">=" => BinaryOperator::GreaterEq,
 }
 
 Expr2 = LeftAssocBinaryOpExprTier<Expr2Op, Expr1>;

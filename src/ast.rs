@@ -134,6 +134,12 @@ pub enum BinaryOperator {
     Add,
     Sub,
     Mul,
+    Less,
+    Greater,
+    LessEq,
+    GreaterEq,
+    Eq,
+    NotEq,
 }
 
 #[derive(Debug)]

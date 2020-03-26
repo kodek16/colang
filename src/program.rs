@@ -255,6 +255,12 @@ impl Expression {
                     BinaryOperator::AddInt => program.int(),
                     BinaryOperator::SubInt => program.int(),
                     BinaryOperator::MulInt => program.int(),
+                    BinaryOperator::LessInt => program.bool(),
+                    BinaryOperator::GreaterInt => program.bool(),
+                    BinaryOperator::LessEqInt => program.bool(),
+                    BinaryOperator::GreaterEqInt => program.bool(),
+                    BinaryOperator::EqInt => program.bool(),
+                    BinaryOperator::NotEqInt => program.bool(),
                 };
                 Rc::clone(type_)
             }
@@ -299,6 +305,12 @@ pub enum BinaryOperator {
     AddInt,
     SubInt,
     MulInt,
+    LessInt,
+    GreaterInt,
+    LessEqInt,
+    GreaterEqInt,
+    EqInt,
+    NotEqInt,
 }
 
 #[derive(Debug)]
@@ -309,12 +321,22 @@ pub struct BinaryOpExpr {
 }
 
 impl BinaryOpExpr {
-    pub fn new(operator: BinaryOperator, lhs: Expression, rhs: Expression) -> Expression {
-        Expression::BinaryOp(BinaryOpExpr {
+    pub fn new(
+        operator: BinaryOperator,
+        lhs: Expression,
+        rhs: Expression,
+        program: &Program,
+        lhs_location: InputSpan,
+        rhs_location: InputSpan,
+    ) -> Result<Expression, CompilationError> {
+        check_operand_is_int(&lhs, program, lhs_location)?;
+        check_operand_is_int(&rhs, program, rhs_location)?;
+
+        Ok(Expression::BinaryOp(BinaryOpExpr {
             operator,
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
-        })
+        }))
     }
 
     pub fn lhs(&self) -> &Expression {
@@ -374,8 +396,21 @@ fn check_condition_is_bool(
 ) -> Result<(), CompilationError> {
     let cond_type = condition.type_(program);
     if cond_type != *program.bool() {
-        let error =
-            CompilationError::condition_is_not_bool(&(*cond_type).borrow().name(), location);
+        let error = CompilationError::condition_is_not_bool(&cond_type.borrow().name(), location);
+        Err(error)
+    } else {
+        Ok(())
+    }
+}
+
+fn check_operand_is_int(
+    operand: &Expression,
+    program: &Program,
+    location: InputSpan,
+) -> Result<(), CompilationError> {
+    let operand_type = operand.type_(program);
+    if operand_type != *program.int() {
+        let error = CompilationError::operand_is_not_int(&operand_type.borrow().name(), location);
         Err(error)
     } else {
         Ok(())

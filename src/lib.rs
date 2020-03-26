@@ -126,11 +126,8 @@ fn compile(program_ast: ast::Program) -> Result<Program, Vec<CompilationError>> 
     let mut context = CompilerContext::new();
 
     for statement in program_ast.statements {
-        match statement {
-            ast::Statement::VarDecl(s) => compile_var_decl(s, &mut context),
-            ast::Statement::Read(s) => compile_read(s, &mut context),
-            ast::Statement::Write(s) => compile_write(s, &mut context),
-        }
+        let statement = compile_statement(statement, &mut context);
+        context.program.add_statement(statement)
     }
 
     if context.errors.is_empty() {
@@ -140,7 +137,27 @@ fn compile(program_ast: ast::Program) -> Result<Program, Vec<CompilationError>> 
     }
 }
 
-fn compile_var_decl(statement: ast::VarDeclStmt, context: &mut CompilerContext) {
+/// Compiles a single statement. If compilation succeeds, returns the resulting
+/// statement as Some. If any errors occur, they are added to `context`, and
+/// the function result is None.
+fn compile_statement(
+    statement: ast::Statement,
+    context: &mut CompilerContext,
+) -> program::Statement {
+    match statement {
+        ast::Statement::VarDecl(s) => compile_var_decl_stmt(s, context),
+        ast::Statement::Read(s) => compile_read_stmt(s, context),
+        ast::Statement::Write(s) => compile_write_stmt(s, context),
+        ast::Statement::If(s) => compile_if_stmt(s, context),
+        ast::Statement::Block(s) => compile_block_stmt(s, context),
+        ast::Statement::Expr(s) => compile_expr_stmt(s, context),
+    }
+}
+
+fn compile_var_decl_stmt(
+    statement: ast::VarDeclStmt,
+    context: &mut CompilerContext,
+) -> program::Statement {
     let name = &statement.variable_name;
 
     // Compile the variable type and the initializer expression
@@ -171,33 +188,71 @@ fn compile_var_decl(statement: ast::VarDeclStmt, context: &mut CompilerContext) 
     context.program.add_variable(Rc::clone(&variable));
     if let Err(error) = context.scope.add_variable(&variable) {
         context.errors.push(error);
-        return;
+        return program::Statement::Error;
     }
 
-    let statement = program::VarDeclStmt::new(&variable, initializer);
-    context.program.add_statement(statement);
+    program::VarDeclStmt::new(&variable, initializer)
 }
 
-fn compile_read(statement: ast::ReadStmt, context: &mut CompilerContext) {
+fn compile_read_stmt(
+    statement: ast::ReadStmt,
+    context: &mut CompilerContext,
+) -> program::Statement {
     let name = &statement.variable_name;
 
+    // TODO here and in var_decl: span should be limited to variable name only.
     let variable = context.scope.lookup_variable(&name, statement.span);
     match variable {
-        Ok(variable) => {
-            let statement = program::ReadStmt::new(&variable);
-            context.program.add_statement(statement);
-        }
+        Ok(variable) => program::ReadStmt::new(&variable),
         Err(error) => {
-            // TODO here and in var_decl: span should be limited to variable name only.
             context.errors.push(error);
+            program::Statement::Error
         }
     }
 }
 
-fn compile_write(statement: ast::WriteStmt, context: &mut CompilerContext) {
+fn compile_write_stmt(
+    statement: ast::WriteStmt,
+    context: &mut CompilerContext,
+) -> program::Statement {
     let expression = compile_expression(statement.expression, context);
-    let statement = program::WriteStmt::new(expression);
-    context.program.add_statement(statement);
+    if let program::Expression::Error = expression {
+        program::Statement::Error
+    } else {
+        program::WriteStmt::new(expression)
+    }
+}
+
+fn compile_if_stmt(statement: ast::IfStmt, context: &mut CompilerContext) -> program::Statement {
+    let cond_span = statement.cond.span();
+    let cond = compile_expression(*statement.cond, context);
+    let then = compile_statement(*statement.then, context);
+    let else_ = statement
+        .else_
+        .map(|stmt| compile_statement(*stmt, context));
+
+    let result = program::IfStmt::new(cond, then, else_, &context.program, cond_span);
+    match result {
+        Ok(statement) => statement,
+        Err(error) => {
+            context.errors.push(error);
+            program::Statement::Error
+        }
+    }
+}
+
+fn compile_block_stmt(block: ast::BlockStmt, context: &mut CompilerContext) -> program::Statement {
+    // TODO block nested scopes
+    let statements = compile_statement_vec(block.statements, context);
+    program::BlockStmt::new(statements)
+}
+
+fn compile_expr_stmt(
+    statement: ast::ExprStmt,
+    context: &mut CompilerContext,
+) -> program::Statement {
+    let expression = compile_expression(statement.expression, context);
+    program::ExprStmt::new(expression)
 }
 
 fn compile_expression(
@@ -208,6 +263,8 @@ fn compile_expression(
         ast::Expression::Variable(e) => compile_variable_expr(e, context),
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
+        ast::Expression::If(e) => compile_if_expr(e, context),
+        ast::Expression::Block(e) => compile_block_expr(e, context),
     }
 }
 
@@ -248,6 +305,31 @@ fn compile_binary_op_expr(
     program::BinaryOpExpr::new(operator, lhs, rhs)
 }
 
+fn compile_if_expr(expression: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
+    let cond_span = expression.cond.span();
+    let cond = compile_expression(*expression.cond, context);
+    let then = compile_expression(*expression.then, context);
+    let else_ = compile_expression(*expression.else_, context);
+
+    let result = program::IfExpr::new(cond, then, else_, &context.program, cond_span);
+    match result {
+        Ok(expr) => expr,
+        Err(error) => {
+            context.errors.push(error);
+            program::Expression::Error
+        }
+    }
+}
+
+fn compile_block_expr(
+    expression: ast::BlockExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let statements = compile_statement_vec(expression.statements, context);
+    let final_expr = compile_expression(*expression.final_expr, context);
+    program::BlockExpr::new(statements, final_expr)
+}
+
 fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) -> Rc<RefCell<Type>> {
     let name = &type_expr.name;
     let type_ = context.scope.lookup_type(name, type_expr.span);
@@ -259,4 +341,15 @@ fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) ->
             Type::error()
         }
     }
+}
+
+fn compile_statement_vec(
+    statements: Vec<ast::Statement>,
+    context: &mut CompilerContext,
+) -> Vec<program::Statement> {
+    statements
+        .into_iter()
+        .map(|stmt| compile_statement(stmt, context))
+        .filter(|stmt| !stmt.is_error())
+        .collect()
 }

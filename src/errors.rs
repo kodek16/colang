@@ -116,6 +116,14 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn condition_is_not_bool(actual_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9008",
+            message: format!("condition must have type `bool`, not `{}`", actual_type),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

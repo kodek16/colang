@@ -3,6 +3,7 @@
 //! backends.
 
 use crate::ast::InputSpan;
+use crate::errors::CompilationError;
 use crate::typing::Type;
 use std::cell::RefCell;
 use std::ops::Deref;
@@ -108,6 +109,20 @@ pub enum Statement {
     VarDecl(VarDeclStmt),
     Read(ReadStmt),
     Write(WriteStmt),
+    If(IfStmt),
+    Block(BlockStmt),
+    Expr(ExprStmt),
+
+    Error,
+}
+
+impl Statement {
+    pub fn is_error(&self) -> bool {
+        match self {
+            Statement::Error => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -168,10 +183,64 @@ impl WriteStmt {
 }
 
 #[derive(Debug)]
+pub struct IfStmt {
+    cond: Box<Expression>,
+    then: Box<Statement>,
+    else_: Option<Box<Statement>>,
+}
+
+impl IfStmt {
+    pub fn new(
+        cond: Expression,
+        then: Statement,
+        else_: Option<Statement>,
+        program: &Program,
+        cond_location: InputSpan,
+    ) -> Result<Statement, CompilationError> {
+        check_condition_is_bool(&cond, program, cond_location).map(|_| {
+            Statement::If(IfStmt {
+                cond: Box::new(cond),
+                then: Box::new(then),
+                else_: else_.map(Box::new),
+            })
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct BlockStmt {
+    statements: Vec<Statement>,
+}
+
+impl BlockStmt {
+    pub fn new(statements: Vec<Statement>) -> Statement {
+        Statement::Block(BlockStmt { statements })
+    }
+}
+
+#[derive(Debug)]
+pub struct ExprStmt {
+    expression: Box<Expression>,
+}
+
+impl ExprStmt {
+    pub fn new(expression: Expression) -> Statement {
+        match expression {
+            Expression::Error => Statement::Error,
+            _ => Statement::Expr(ExprStmt {
+                expression: Box::new(expression),
+            }),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
     BinaryOp(BinaryOpExpr),
+    If(IfExpr),
+    Block(BlockExpr),
     Error,
 }
 
@@ -189,6 +258,8 @@ impl Expression {
                 };
                 Rc::clone(type_)
             }
+            If(e) => e.then.type_(program),
+            Block(e) => e.final_expr.type_(program),
             Error => Type::error(),
         }
     }
@@ -252,5 +323,61 @@ impl BinaryOpExpr {
 
     pub fn rhs(&self) -> &Expression {
         &self.rhs
+    }
+}
+
+#[derive(Debug)]
+pub struct IfExpr {
+    cond: Box<Expression>,
+    then: Box<Expression>,
+    else_: Box<Expression>,
+}
+
+impl IfExpr {
+    pub fn new(
+        cond: Expression,
+        then: Expression,
+        else_: Expression,
+        program: &Program,
+        cond_location: InputSpan,
+    ) -> Result<Expression, CompilationError> {
+        check_condition_is_bool(&cond, program, cond_location).map(|_| {
+            Expression::If(IfExpr {
+                cond: Box::new(cond),
+                then: Box::new(then),
+                else_: Box::new(else_),
+            })
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct BlockExpr {
+    statements: Vec<Statement>,
+    final_expr: Box<Expression>,
+}
+
+impl BlockExpr {
+    pub fn new(statements: Vec<Statement>, final_expr: Expression) -> Expression {
+        Expression::Block(BlockExpr {
+            statements,
+            final_expr: Box::new(final_expr),
+        })
+    }
+}
+
+/// Convenience function for checking condition type.
+fn check_condition_is_bool(
+    condition: &Expression,
+    program: &Program,
+    location: InputSpan,
+) -> Result<(), CompilationError> {
+    let cond_type = condition.type_(program);
+    if cond_type != *program.bool() {
+        let error =
+            CompilationError::condition_is_not_bool(&(*cond_type).borrow().name(), location);
+        Err(error)
+    } else {
+        Ok(())
     }
 }

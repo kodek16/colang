@@ -3,11 +3,11 @@ use crate::ast::*;
 grammar;
 
 pub Program: Program = {
-    (<Stmt> ";")* => Program { statements: <> },
+    (<Stmt>)* => Program { statements: <> },
 };
 
 Stmt: Statement = {
-    <start: @L> "var" <name:Ident> <type_:(":" <TypeExpr>)?> <initializer:("=" <Expr>)?> <end: @R> => {
+    <start: @L> "var" <name:Ident> <type_:(":" <TypeExpr>)?> <initializer:("=" <Expr>)?> ";" <end: @R> => {
         Statement::VarDecl(VarDeclStmt {
             variable_name: name,
             variable_type: type_,
@@ -16,16 +16,46 @@ Stmt: Statement = {
         })
     },
 
-    <start: @L> "read" <variable_name:Ident> <end: @R> => {
+    <start: @L> "read" <variable_name:Ident> ";" <end: @R> => {
         Statement::Read(ReadStmt {
             variable_name,
             span: InputSpan { start, end },
         })
     },
 
-    <start: @L> "write" <expression:Expr> <end: @R> => {
+    <start: @L> "write" <expression:Expr> ";" <end: @R> => {
         Statement::Write(WriteStmt {
             expression,
+            span: InputSpan { start, end },
+        })
+    },
+
+    // If-statements are different from if-expressions: they are allowed to not have an `else` branch.
+    // Splitting the two syntactically also helps to solve the dangling else issue.
+    <start: @L> "if" "(" <cond:Expr> ")" <then:BlockStmt> <else_:("else" <BlockStmt>)?> <end: @R> => {
+        Statement::If(IfStmt {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            else_: else_.map(Box::new),
+
+            span: InputSpan { start, end },
+        })
+    },
+
+    <start: @L> <expression:Expr> ";" <end: @R> => {
+        Statement::Expr(ExprStmt {
+            expression,
+            span: InputSpan { start, end },
+        })
+    },
+
+    BlockStmt
+};
+
+BlockStmt: Statement = {
+    <start: @L> "{" <statements:(<Stmt>)*> "}" <end: @R> => {
+        Statement::Block(BlockStmt {
+            statements,
             span: InputSpan { start, end },
         })
     },
@@ -33,8 +63,21 @@ Stmt: Statement = {
 
 // Expressions are ordered from lowest to highest precedence.
 Expr: Expression = {
-    <Expr2> => <>,
+    <Expr3> => <>,
 };
+
+// Expr3 handles if-expressions.
+Expr3: Expression = {
+    <start: @L> "if" "(" <cond:Expr> ")" <then:Expr> "else" <else_:Expr> <end: @R> => {
+        Expression::If(IfExpr {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            else_: Box::new(else_),
+            span: InputSpan { start, end },
+        })
+    },
+    Expr2,
+}
 
 // Macro for a left-associative binary operator expression tier.
 LeftAssocBinaryOpExprTier<Ops, PrevTier>: Expression = {
@@ -77,6 +120,14 @@ Expr0: Expression = {
 
     <start: @L> "(" <e:Expr> ")" <end: @R> => {
         e.map_span(|_| InputSpan { start, end })
+    },
+
+    <start: @L> "{" <statements:(<Stmt>)*> <final_expr:Expr> "}" <end: @R> => {
+        Expression::Block(BlockExpr {
+            statements,
+            final_expr: Box::new(final_expr),
+            span: InputSpan { start, end },
+        })
     }
 }
 

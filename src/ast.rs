@@ -14,6 +14,9 @@ pub enum Statement {
     VarDecl(VarDeclStmt),
     Read(ReadStmt),
     Write(WriteStmt),
+    If(IfStmt),
+    Expr(ExprStmt),
+    Block(BlockStmt),
 }
 
 #[derive(Debug)]
@@ -40,13 +43,49 @@ pub struct WriteStmt {
 }
 
 #[derive(Debug)]
+pub struct IfStmt {
+    pub cond: Box<Expression>,
+    pub then: Box<Statement>,
+    pub else_: Option<Box<Statement>>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct ExprStmt {
+    pub expression: Expression,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct BlockStmt {
+    pub statements: Vec<Statement>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
 pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
     BinaryOp(BinaryOperatorExpr),
+    If(IfExpr),
+    Block(BlockExpr),
 }
 
 impl Expression {
+    pub fn span(&self) -> InputSpan {
+        use Expression::*;
+        match self {
+            Variable(e) => e.span,
+            IntLiteral(e) => e.span,
+            BinaryOp(e) => e.span,
+            If(e) => e.span,
+            Block(e) => e.span,
+        }
+    }
+
     pub fn map_span<F>(self, f: F) -> Expression
     where
         F: FnOnce(&InputSpan) -> InputSpan,
@@ -61,6 +100,14 @@ impl Expression {
                 ..e
             }),
             Expression::BinaryOp(e) => Expression::BinaryOp(BinaryOperatorExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::If(e) => Expression::If(IfExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::Block(e) => Expression::Block(BlockExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -94,6 +141,23 @@ pub struct BinaryOperatorExpr {
     pub operator: BinaryOperator,
     pub lhs: Box<Expression>,
     pub rhs: Box<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct IfExpr {
+    pub cond: Box<Expression>,
+    pub then: Box<Expression>,
+    pub else_: Box<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct BlockExpr {
+    pub statements: Vec<Statement>,
+    pub final_expr: Box<Expression>,
 
     pub span: InputSpan,
 }

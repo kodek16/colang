@@ -7,7 +7,7 @@ use std::rc::Rc;
 // int, int8, int16, int64, int128
 // float, double
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Type {
     Int,
     Bool,

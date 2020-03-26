@@ -5,8 +5,8 @@ mod cin;
 use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
-    BinaryOpExpr, BinaryOperator, Expression, IntLiteralExpr, Program, ReadStmt, Statement,
-    SymbolId, VarDeclStmt, VariableExpr, WriteStmt,
+    BinaryOpExpr, BinaryOperator, BlockExpr, BlockStmt, ExprStmt, Expression, IfExpr, IfStmt,
+    IntLiteralExpr, Program, ReadStmt, Statement, SymbolId, VarDeclStmt, VariableExpr, WriteStmt,
 };
 use std::collections::HashMap;
 use std::error::Error;
@@ -23,6 +23,13 @@ impl Backend for InterpreterBackend {
                 Statement::VarDecl(ref s) => run_var_decl(s, &mut state),
                 Statement::Read(ref s) => run_read(s, &mut state),
                 Statement::Write(ref s) => run_write(s, &mut state),
+                Statement::Block(ref s) => run_block(s, &mut state),
+                Statement::If(ref s) => run_if(s, &mut state),
+                Statement::Expr(ref s) => run_expr_stmt(s, &mut state),
+
+                Statement::Error => {
+                    panic!("Error-containing program passed to interpreter backend.")
+                }
             };
             if let Err(err) = result {
                 eprintln!("Error: {}", err);
@@ -77,11 +84,25 @@ fn run_write(statement: &WriteStmt, state: &mut State) -> Result<(), Box<dyn Err
     Ok(())
 }
 
+fn run_if(_statement: &IfStmt, _state: &mut State) -> Result<(), Box<dyn Error>> {
+    panic!()
+}
+
+fn run_block(_statement: &BlockStmt, _state: &mut State) -> Result<(), Box<dyn Error>> {
+    panic!()
+}
+
+fn run_expr_stmt(_statement: &ExprStmt, _state: &mut State) -> Result<(), Box<dyn Error>> {
+    panic!()
+}
+
 fn run_expr(expression: &Expression, state: &mut State) -> Value {
     match expression {
         Expression::Variable(e) => run_variable_expr(e, state),
         Expression::IntLiteral(e) => run_int_literal_expr(e, state),
         Expression::BinaryOp(e) => run_binary_op_expr(e, state),
+        Expression::If(e) => run_if_expr(e, state),
+        Expression::Block(e) => run_block_expr(e, state),
         Expression::Error => panic!("Error-containing program passed to interpreter backend."),
     }
 }
@@ -104,4 +125,12 @@ fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> Value {
         BinaryOperator::SubInt => lhs - rhs,
         BinaryOperator::MulInt => lhs * rhs,
     }
+}
+
+fn run_if_expr(_expression: &IfExpr, _state: &mut State) -> Value {
+    panic!()
+}
+
+fn run_block_expr(_expression: &BlockExpr, _state: &mut State) -> Value {
+    panic!()
 }

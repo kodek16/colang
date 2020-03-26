@@ -25,18 +25,43 @@ impl Symbol {
 }
 
 pub struct Scope {
-    symbols: HashMap<String, Symbol>,
+    // `symbols` should always be Some, Option is for interior mutability.
+    symbols: Option<HashMap<String, Symbol>>,
+
+    // `parent` can be None for root scope.
+    parent: Option<Box<Scope>>,
 }
 
 impl Scope {
     /// Creates a new, root scope.
     pub fn new(program: &Program) -> Scope {
         let mut scope = Scope {
-            symbols: HashMap::new(),
+            symbols: Some(HashMap::new()),
+            parent: None,
         };
         scope.add_type(program.int()).unwrap();
         scope.add_type(program.bool()).unwrap();
         scope
+    }
+
+    /// Creates a new "scope frame", pushing the existing frame below it.
+    /// Symbols in the upper frames can shadow symbols with same names in lower frames.
+    pub fn push(&mut self) {
+        self.parent = Some(Box::new(Scope {
+            symbols: self.symbols.take(),
+            parent: self.parent.take(),
+        }));
+        self.symbols = Some(HashMap::new());
+    }
+
+    /// Restores previous "scope frame". Has to called after `push`.
+    pub fn pop(&mut self) {
+        let parent = self
+            .parent
+            .as_deref_mut()
+            .expect("Attempted to pop root scope.");
+        self.symbols = parent.symbols.take();
+        self.parent = parent.parent.take();
     }
 
     #[must_use]
@@ -45,11 +70,11 @@ impl Scope {
         variable: &Rc<RefCell<Variable>>,
     ) -> Result<(), CompilationError> {
         let (name, definition_site) = {
-            let variable = (**variable).borrow();
+            let variable = variable.borrow();
             (variable.name.to_string(), variable.definition_site)
         };
 
-        let existing = self.symbols.get(&name);
+        let existing = self.lookup_self(&name);
         match existing {
             Some(existing) => {
                 let error = CompilationError::symbol_already_exists(
@@ -60,7 +85,7 @@ impl Scope {
                 Err(error)
             }
             None => {
-                self.symbols
+                self.symbols_mut()
                     .insert(name.to_string(), Symbol::Variable(Rc::clone(variable)));
                 Ok(())
             }
@@ -69,14 +94,14 @@ impl Scope {
 
     #[must_use]
     pub fn add_type(&mut self, type_: &Rc<RefCell<Type>>) -> Result<(), CompilationError> {
-        let name = (**type_).borrow().name();
+        let name = type_.borrow().name();
 
-        if self.symbols.contains_key(&name) {
+        if self.contains_self(&name) {
             // TODO produce actual errors when type collisions become possible (user types).
             panic!("Type name collision");
         }
 
-        self.symbols
+        self.symbols_mut()
             .insert(name.to_string(), Symbol::Type(Rc::clone(type_)));
         Ok(())
     }
@@ -86,7 +111,7 @@ impl Scope {
         name: &str,
         reference_location: InputSpan,
     ) -> Result<&Rc<RefCell<Variable>>, CompilationError> {
-        match self.symbols.get(name) {
+        match self.lookup(name) {
             Some(Symbol::Variable(variable)) => Ok(&variable),
             Some(other) => {
                 let error = CompilationError::symbol_kind_mismatch(
@@ -110,7 +135,7 @@ impl Scope {
         name: &str,
         reference_location: InputSpan,
     ) -> Result<&Rc<RefCell<Type>>, CompilationError> {
-        match self.symbols.get(name) {
+        match self.lookup(name) {
             Some(Symbol::Type(type_)) => Ok(type_),
             Some(other) => {
                 let error = CompilationError::symbol_kind_mismatch(
@@ -127,5 +152,26 @@ impl Scope {
                 Err(error)
             }
         }
+    }
+
+    /// Convenience method for mutator access.
+    fn symbols_mut(&mut self) -> &mut HashMap<String, Symbol> {
+        self.symbols.as_mut().unwrap()
+    }
+
+    fn contains_self(&self, name: &str) -> bool {
+        self.symbols.as_ref().unwrap().contains_key(name)
+    }
+
+    fn lookup_self(&self, name: &str) -> Option<&Symbol> {
+        self.symbols.as_ref().unwrap().get(name)
+    }
+
+    fn lookup(&self, name: &str) -> Option<&Symbol> {
+        self.symbols
+            .as_ref()
+            .unwrap()
+            .get(name)
+            .or_else(|| self.parent.as_ref().and_then(|parent| parent.lookup(name)))
     }
 }

@@ -244,9 +244,11 @@ fn compile_if_stmt(statement: ast::IfStmt, context: &mut CompilerContext) -> pro
 }
 
 fn compile_block_stmt(block: ast::BlockStmt, context: &mut CompilerContext) -> program::Statement {
-    // TODO block nested scopes
+    context.scope.push();
     let statements = compile_statement_vec(block.statements, context);
-    program::BlockStmt::new(statements)
+    let result = program::BlockStmt::new(statements);
+    context.scope.pop();
+    result
 }
 
 fn compile_expr_stmt(
@@ -350,9 +352,12 @@ fn compile_block_expr(
     expression: ast::BlockExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
+    context.scope.push();
     let statements = compile_statement_vec(expression.statements, context);
     let final_expr = compile_expression(*expression.final_expr, context);
-    program::BlockExpr::new(statements, final_expr)
+    let result = program::BlockExpr::new(statements, final_expr);
+    context.scope.pop();
+    result
 }
 
 fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) -> Rc<RefCell<Type>> {

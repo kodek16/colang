@@ -1,0 +1,5 @@
+var x: int;
+if (x > 0) {
+    var y = 10;
+}
+write y;

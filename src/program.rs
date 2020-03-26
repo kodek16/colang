@@ -73,8 +73,8 @@ impl Program {
 #[derive(Debug)]
 pub struct Variable {
     pub name: String,
-    pub type_: Rc<RefCell<Type>>,
     pub definition_site: Option<InputSpan>,
+    type_: Rc<RefCell<Type>>,
     id: Option<SymbolId>,
 }
 
@@ -97,6 +97,10 @@ impl Variable {
     /// A unique ID defined in the context of the entire `Program`.
     pub fn id(&self) -> SymbolId {
         self.id.expect("Attempted to access ID of unbound variable")
+    }
+
+    pub fn type_(&self) -> impl Deref<Target = Type> + '_ {
+        self.type_.borrow()
     }
 
     fn set_id(&mut self, new_id: SymbolId) {
@@ -155,10 +159,23 @@ pub struct ReadStmt {
 }
 
 impl ReadStmt {
-    pub fn new(variable: &Rc<RefCell<Variable>>) -> Statement {
-        Statement::Read(ReadStmt {
+    pub fn new(
+        variable: &Rc<RefCell<Variable>>,
+        program: &Program,
+        location: InputSpan,
+    ) -> Result<Statement, CompilationError> {
+        {
+            let variable = variable.borrow();
+            let variable_type = variable.type_();
+            if *variable_type != *program.int().borrow() {
+                let error = CompilationError::read_target_not_int(&variable_type.name(), location);
+                return Err(error);
+            }
+        }
+
+        Ok(Statement::Read(ReadStmt {
             variable: Rc::clone(variable),
-        })
+        }))
     }
 
     /// Borrow the variable immutably.
@@ -205,6 +222,18 @@ impl IfStmt {
             })
         })
     }
+
+    pub fn cond(&self) -> &Expression {
+        &self.cond
+    }
+
+    pub fn then(&self) -> &Statement {
+        &self.then
+    }
+
+    pub fn else_(&self) -> Option<&Statement> {
+        self.else_.as_deref()
+    }
 }
 
 #[derive(Debug)]
@@ -215,6 +244,10 @@ pub struct BlockStmt {
 impl BlockStmt {
     pub fn new(statements: Vec<Statement>) -> Statement {
         Statement::Block(BlockStmt { statements })
+    }
+
+    pub fn statements(&self) -> impl Iterator<Item = &Statement> {
+        self.statements.iter()
     }
 }
 
@@ -231,6 +264,10 @@ impl ExprStmt {
                 expression: Box::new(expression),
             }),
         }
+    }
+
+    pub fn expression(&self) -> &Expression {
+        &self.expression
     }
 }
 
@@ -371,6 +408,18 @@ impl IfExpr {
             })
         })
     }
+
+    pub fn cond(&self) -> &Expression {
+        &self.cond
+    }
+
+    pub fn then(&self) -> &Expression {
+        &self.then
+    }
+
+    pub fn else_(&self) -> &Expression {
+        &self.else_
+    }
 }
 
 #[derive(Debug)]
@@ -385,6 +434,14 @@ impl BlockExpr {
             statements,
             final_expr: Box::new(final_expr),
         })
+    }
+
+    pub fn statements<'a>(&'a self) -> impl Iterator<Item = &Statement> + 'a {
+        self.statements.iter()
+    }
+
+    pub fn final_expr(&self) -> &Expression {
+        &self.final_expr
     }
 }
 

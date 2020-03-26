@@ -202,8 +202,10 @@ fn compile_read_stmt(
 
     // TODO here and in var_decl: span should be limited to variable name only.
     let variable = context.scope.lookup_variable(&name, statement.span);
-    match variable {
-        Ok(variable) => program::ReadStmt::new(&variable),
+    let result =
+        variable.and_then(|var| program::ReadStmt::new(&var, &context.program, statement.span));
+    match result {
+        Ok(statement) => statement,
         Err(error) => {
             context.errors.push(error);
             program::Statement::Error

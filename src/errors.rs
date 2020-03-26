@@ -132,6 +132,17 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn read_target_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9010",
+            message: format!(
+                "can only read variables of type `int`, not `{}`",
+                actual_type
+            ),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

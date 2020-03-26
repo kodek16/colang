@@ -8,8 +8,10 @@ use crate::program::{
     BinaryOpExpr, BinaryOperator, BlockExpr, BlockStmt, ExprStmt, Expression, IfExpr, IfStmt,
     IntLiteralExpr, Program, ReadStmt, Statement, SymbolId, VarDeclStmt, VariableExpr, WriteStmt,
 };
+use crate::typing::Type;
 use std::collections::HashMap;
 use std::error::Error;
+use std::ops::Deref;
 use std::process;
 
 pub struct InterpreterBackend;
@@ -19,18 +21,7 @@ impl Backend for InterpreterBackend {
         let mut state = State::new();
 
         for statement in program.statements() {
-            let result = match statement {
-                Statement::VarDecl(ref s) => run_var_decl(s, &mut state),
-                Statement::Read(ref s) => run_read(s, &mut state),
-                Statement::Write(ref s) => run_write(s, &mut state),
-                Statement::Block(ref s) => run_block(s, &mut state),
-                Statement::If(ref s) => run_if(s, &mut state),
-                Statement::Expr(ref s) => run_expr_stmt(s, &mut state),
-
-                Statement::Error => {
-                    panic!("Error-containing program passed to interpreter backend.")
-                }
-            };
+            let result = run_statement(statement, &mut state);
             if let Err(err) = result {
                 eprintln!("Error: {}", err);
                 process::exit(1);
@@ -42,7 +33,35 @@ impl Backend for InterpreterBackend {
 }
 
 /// Every value that exists in the program belongs to this type.
-type Value = i32;
+#[derive(Clone, Debug)]
+enum Value {
+    Int(i32),
+    Bool(bool),
+}
+
+impl Value {
+    pub fn as_int(&self) -> i32 {
+        match self {
+            Value::Int(x) => *x,
+            _ => panic_wrong_type("int", self.type_()),
+        }
+    }
+
+    pub fn as_bool(&self) -> bool {
+        match self {
+            Value::Bool(b) => *b,
+            _ => panic_wrong_type("bool", self.type_()),
+        }
+    }
+
+    pub fn type_(&self) -> &'static str {
+        use Value::*;
+        match self {
+            Int(_) => "int",
+            Bool(_) => "bool",
+        }
+    }
+}
 
 struct State {
     variables: HashMap<SymbolId, Value>,
@@ -58,80 +77,148 @@ impl State {
     }
 }
 
-fn run_var_decl(statement: &VarDeclStmt, state: &mut State) -> Result<(), Box<dyn Error>> {
+type RunResult<T> = Result<T, Box<dyn Error>>;
+
+fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
+    match statement {
+        Statement::VarDecl(ref s) => run_var_decl(s, state),
+        Statement::Read(ref s) => run_read(s, state),
+        Statement::Write(ref s) => run_write(s, state),
+        Statement::Block(ref s) => run_block(s, state),
+        Statement::If(ref s) => run_if(s, state),
+        Statement::Expr(ref s) => run_expr_stmt(s, state),
+        Statement::Error => panic_error(),
+    }
+}
+
+fn run_var_decl(statement: &VarDeclStmt, state: &mut State) -> RunResult<()> {
     let variable_id = statement.variable().id();
-    let initial_value = statement
-        .initializer()
-        .map(|i| run_expr(i, state))
-        .unwrap_or(0);
+
+    let initial_value = match statement.initializer() {
+        Some(initializer) => run_expression(initializer, state)?,
+        None => {
+            let variable = statement.variable();
+            let variable_type = variable.type_();
+            default_value_for_type(variable_type)
+        }
+    };
+
     state.variables.insert(variable_id, initial_value);
     Ok(())
 }
 
-fn run_read(statement: &ReadStmt, state: &mut State) -> Result<(), Box<dyn Error>> {
+fn run_read(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
     let variable_id = statement.variable().id();
     let word = state.cin.read_word()?;
     let new_value: i32 = word
         .parse()
         .map_err(|_| format!("Could not parse `{}` to an integer.", word))?;
-    state.variables.insert(variable_id, new_value);
+    state.variables.insert(variable_id, Value::Int(new_value));
     Ok(())
 }
 
-fn run_write(statement: &WriteStmt, state: &mut State) -> Result<(), Box<dyn Error>> {
-    let value = run_expr(statement.expression(), state);
-    println!("{}", value);
+fn run_write(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
+    let value = run_expression(statement.expression(), state)?;
+    match value {
+        Value::Int(x) => println!("{}", x),
+        Value::Bool(b) => println!("{}", b),
+    }
     Ok(())
 }
 
-fn run_if(_statement: &IfStmt, _state: &mut State) -> Result<(), Box<dyn Error>> {
-    panic!()
+fn run_if(statement: &IfStmt, state: &mut State) -> RunResult<()> {
+    let cond = run_expression(statement.cond(), state)?.as_bool();
+
+    if cond {
+        run_statement(statement.then(), state)?;
+    } else if let Some(else_) = statement.else_() {
+        run_statement(else_, state)?;
+    }
+    Ok(())
 }
 
-fn run_block(_statement: &BlockStmt, _state: &mut State) -> Result<(), Box<dyn Error>> {
-    panic!()
+fn run_block(block: &BlockStmt, state: &mut State) -> RunResult<()> {
+    for statement in block.statements() {
+        run_statement(statement, state)?
+    }
+    Ok(())
 }
 
-fn run_expr_stmt(_statement: &ExprStmt, _state: &mut State) -> Result<(), Box<dyn Error>> {
-    panic!()
+fn run_expr_stmt(statement: &ExprStmt, state: &mut State) -> RunResult<()> {
+    let _ = run_expression(statement.expression(), state)?;
+    Ok(())
 }
 
-fn run_expr(expression: &Expression, state: &mut State) -> Value {
+fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value> {
     match expression {
         Expression::Variable(e) => run_variable_expr(e, state),
         Expression::IntLiteral(e) => run_int_literal_expr(e, state),
         Expression::BinaryOp(e) => run_binary_op_expr(e, state),
         Expression::If(e) => run_if_expr(e, state),
         Expression::Block(e) => run_block_expr(e, state),
-        Expression::Error => panic!("Error-containing program passed to interpreter backend."),
+        Expression::Error => panic_error(),
     }
 }
 
-fn run_variable_expr(expression: &VariableExpr, state: &State) -> Value {
+fn run_variable_expr(expression: &VariableExpr, state: &State) -> RunResult<Value> {
     let variable_id = expression.variable().id();
-    *state.variables.get(&variable_id).unwrap()
+    let result = state.variables.get(&variable_id).unwrap().clone();
+    Ok(result)
 }
 
-fn run_int_literal_expr(expression: &IntLiteralExpr, _: &State) -> Value {
-    expression.value
+fn run_int_literal_expr(expression: &IntLiteralExpr, _: &State) -> RunResult<Value> {
+    Ok(Value::Int(expression.value))
 }
 
-fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> Value {
-    let lhs = run_expr(expression.lhs(), state);
-    let rhs = run_expr(expression.rhs(), state);
+fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> RunResult<Value> {
+    let lhs = run_expression(expression.lhs(), state)?.as_int();
+    let rhs = run_expression(expression.rhs(), state)?.as_int();
 
-    match expression.operator {
-        BinaryOperator::AddInt => lhs + rhs,
-        BinaryOperator::SubInt => lhs - rhs,
-        BinaryOperator::MulInt => lhs * rhs,
-        _ => panic!(),
+    let result = match expression.operator {
+        BinaryOperator::AddInt => Value::Int(lhs + rhs),
+        BinaryOperator::SubInt => Value::Int(lhs - rhs),
+        BinaryOperator::MulInt => Value::Int(lhs * rhs),
+        BinaryOperator::LessInt => Value::Bool(lhs < rhs),
+        BinaryOperator::GreaterInt => Value::Bool(lhs > rhs),
+        BinaryOperator::LessEqInt => Value::Bool(lhs <= rhs),
+        BinaryOperator::GreaterEqInt => Value::Bool(lhs >= rhs),
+        BinaryOperator::EqInt => Value::Bool(lhs == rhs),
+        BinaryOperator::NotEqInt => Value::Bool(lhs != rhs),
+    };
+    Ok(result)
+}
+
+fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {
+    let cond = run_expression(expression.cond(), state)?.as_bool();
+    if cond {
+        run_expression(expression.then(), state)
+    } else {
+        run_expression(expression.else_(), state)
     }
 }
 
-fn run_if_expr(_expression: &IfExpr, _state: &mut State) -> Value {
-    panic!()
+fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
+    for statement in block.statements() {
+        run_statement(statement, state)?;
+    }
+    run_expression(block.final_expr(), state)
 }
 
-fn run_block_expr(_expression: &BlockExpr, _state: &mut State) -> Value {
-    panic!()
+fn default_value_for_type(type_: impl Deref<Target = Type>) -> Value {
+    match *type_ {
+        Type::Int => Value::Int(0),
+        Type::Bool => Value::Bool(false),
+        Type::Error => panic_error(),
+    }
+}
+
+fn panic_error() -> ! {
+    panic!("Error-containing program passed to interpreter backend.")
+}
+
+fn panic_wrong_type(expected_type: &str, actual_type: &str) -> ! {
+    panic!(
+        "Runtime type mismatch: expected `{}`, got `{}`",
+        expected_type, actual_type
+    )
 }

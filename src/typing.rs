@@ -31,4 +31,11 @@ impl Type {
             Error => "<error>".to_string(),
         }
     }
+
+    pub fn is_error(&self) -> bool {
+        match self {
+            Type::Error => true,
+            _ => false,
+        }
+    }
 }

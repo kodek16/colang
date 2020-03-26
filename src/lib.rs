@@ -233,6 +233,16 @@ fn compile_if_stmt(statement: ast::IfStmt, context: &mut CompilerContext) -> pro
         .else_
         .map(|stmt| compile_statement(*stmt, context));
 
+    if cond.is_error()
+        || then.is_error()
+        || else_
+            .as_ref()
+            .map(program::Statement::is_error)
+            .unwrap_or(false)
+    {
+        return program::Statement::Error;
+    }
+
     let result = program::IfStmt::new(cond, then, else_, &context.program, cond_span);
     match result {
         Ok(statement) => statement,
@@ -280,6 +290,7 @@ fn compile_variable_expr(
 
     let variable = context.scope.lookup_variable(&name, expression.span);
     match variable {
+        Ok(variable) if variable.borrow().type_().is_error() => program::Expression::Error,
         Ok(variable) => program::VariableExpr::new(variable),
         Err(error) => {
             context.errors.push(error);
@@ -314,6 +325,10 @@ fn compile_binary_op_expr(
     let rhs_location = expression.rhs.span();
     let lhs = compile_expression(*expression.lhs, context);
     let rhs = compile_expression(*expression.rhs, context);
+
+    if lhs.is_error() || rhs.is_error() {
+        return program::Expression::Error;
+    }
 
     let result = program::BinaryOpExpr::new(
         operator,

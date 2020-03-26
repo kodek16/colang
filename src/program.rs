@@ -306,6 +306,13 @@ impl Expression {
             Error => Type::error(),
         }
     }
+
+    pub fn is_error(&self) -> bool {
+        match self {
+            Expression::Error => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]

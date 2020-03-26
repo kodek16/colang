@@ -7,9 +7,10 @@ pub Program: Program = {
 };
 
 Stmt: Statement = {
-    <start: @L> "var" <variable_name:Ident> <initializer:("=" <Expr>)?> <end: @R> => {
+    <start: @L> "var" <name:Ident> <type_:(":" <TypeExpr>)?> <initializer:("=" <Expr>)?> <end: @R> => {
         Statement::VarDecl(VarDeclStmt {
-            variable_name,
+            variable_name: name,
+            variable_type: type_,
             initializer,
             span: InputSpan { start, end },
         })
@@ -77,6 +78,10 @@ Expr0: Expression = {
     <start: @L> "(" <e:Expr> ")" <end: @R> => {
         e.map_span(|_| InputSpan { start, end })
     }
+}
+
+TypeExpr: TypeExpr = {
+    <start: @L> <name:Ident> <end: @R> => TypeExpr { name, span: InputSpan { start, end } }
 }
 
 Ident: String = {

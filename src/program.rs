@@ -2,6 +2,8 @@
 //! This is the interface between the front-end and various
 //! backends.
 
+use crate::ast::InputSpan;
+use crate::typing::Type;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -12,17 +14,30 @@ pub type SymbolId = u32;
 #[derive(Debug)]
 pub struct Program {
     variables: Vec<Rc<RefCell<Variable>>>,
+    types: Vec<Rc<RefCell<Type>>>,
     statements: Vec<Statement>,
-    next_variable_id: SymbolId,
+    next_symbol_id: SymbolId,
+
+    // Internal types can be accessed bypassing the scope mechanism.
+    // Their canonical instances are referenced here.
+    int_type: Rc<RefCell<Type>>,
+    bool_type: Rc<RefCell<Type>>,
 }
 
 impl Program {
-    /// Creates a new, empty program.
+    /// Creates a new program, populated with some internal symbols.
     pub fn new() -> Program {
+        let int_type = Rc::new(RefCell::new(Type::Int));
+        let bool_type = Rc::new(RefCell::new(Type::Bool));
+
         Program {
+            int_type: Rc::clone(&int_type),
+            bool_type: Rc::clone(&bool_type),
+
             variables: vec![],
+            types: vec![int_type, bool_type],
             statements: vec![],
-            next_variable_id: 0,
+            next_symbol_id: 0,
         }
     }
 
@@ -33,8 +48,8 @@ impl Program {
 
     /// Adds a new variable to the symbol table.
     pub fn add_variable(&mut self, variable: Rc<RefCell<Variable>>) {
-        variable.borrow_mut().set_id(self.next_variable_id);
-        self.next_variable_id += 1;
+        variable.borrow_mut().set_id(self.next_symbol_id);
+        self.next_symbol_id += 1;
         self.variables.push(variable);
     }
 
@@ -42,19 +57,40 @@ impl Program {
     pub fn add_statement(&mut self, statement: Statement) {
         self.statements.push(statement);
     }
+
+    /// The canonical `int` type reference.
+    pub fn int(&self) -> &Rc<RefCell<Type>> {
+        &self.int_type
+    }
+
+    /// The canonical `bool` type reference.
+    pub fn bool(&self) -> &Rc<RefCell<Type>> {
+        &self.bool_type
+    }
 }
 
 #[derive(Debug)]
 pub struct Variable {
     pub name: String,
+    pub type_: Rc<RefCell<Type>>,
+    pub definition_site: Option<InputSpan>,
     id: Option<SymbolId>,
 }
 
 impl Variable {
-    /// Creates a new variable with a given name.
+    /// Creates a new variable with a given name and type.
     /// Calling `id()` is invalid before the variable is added to a `Program`.
-    pub fn new(name: String) -> Variable {
-        Variable { name, id: None }
+    pub fn new(
+        name: String,
+        type_: &Rc<RefCell<Type>>,
+        definition_site: Option<InputSpan>,
+    ) -> Variable {
+        Variable {
+            name,
+            type_: Rc::clone(type_),
+            definition_site,
+            id: None,
+        }
     }
 
     /// A unique ID defined in the context of the entire `Program`.
@@ -139,6 +175,25 @@ pub enum Expression {
     Error,
 }
 
+impl Expression {
+    pub fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
+        use Expression::*;
+        match self {
+            Variable(e) => Rc::clone(&e.variable.borrow().type_),
+            IntLiteral(_) => Rc::clone(program.int()),
+            BinaryOp(e) => {
+                let type_ = match e.operator {
+                    BinaryOperator::AddInt => program.int(),
+                    BinaryOperator::SubInt => program.int(),
+                    BinaryOperator::MulInt => program.int(),
+                };
+                Rc::clone(type_)
+            }
+            Error => Type::error(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct VariableExpr {
     variable: Rc<RefCell<Variable>>,
@@ -170,9 +225,9 @@ impl IntLiteralExpr {
 
 #[derive(Debug)]
 pub enum BinaryOperator {
-    Add,
-    Sub,
-    Mul,
+    AddInt,
+    SubInt,
+    MulInt,
 }
 
 #[derive(Debug)]

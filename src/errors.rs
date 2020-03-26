@@ -63,23 +63,84 @@ impl CompilationError {
         }
     }
 
-    // TODO: add previous declaration site note.
-    pub fn variable_already_exists(name: &str, location: InputSpan) -> CompilationError {
+    pub fn variable_type_omitted(variable_name: &str, location: InputSpan) -> CompilationError {
         CompilationError {
-            code: "E9001",
+            code: "E9004",
             message: format!(
-                "variable with name `{}` is already defined in this scope",
+                "variable `{}` can't be declared without either a type or an initializer expression",
+                variable_name
+            ),
+            location: Some(location),
+        }
+    }
+
+    pub fn symbol_kind_mismatch(
+        name: &str,
+        expected: Word,
+        actual: Word,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9005",
+            message: format!(
+                "`{}` is not {}, but a {}",
+                name,
+                expected.text_with_indefinite_article(),
+                actual.text_with_indefinite_article(),
+            ),
+            location: Some(location),
+        }
+    }
+
+    pub fn symbol_not_found(name: &str, kind: Word, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9006",
+            message: format!(
+                "no {} named `{}` could be found in the current scope",
+                kind.text(),
                 name
             ),
             location: Some(location),
         }
     }
 
-    pub fn variable_not_found(name: &str, location: InputSpan) -> CompilationError {
+    // TODO: add previous declaration site note.
+    pub fn symbol_already_exists(name: &str, kind: Word, location: InputSpan) -> CompilationError {
         CompilationError {
-            code: "E9002",
-            message: format!("no variable named `{}` could be found in this scope", name),
+            code: "E9007",
+            message: format!(
+                "{} with name `{}` is already defined in this scope",
+                kind.text(),
+                name
+            ),
             location: Some(location),
         }
+    }
+}
+
+/// Words that are commonly used as parameters for generic error types.
+pub enum Word {
+    Variable,
+    Type,
+}
+
+impl Word {
+    fn text(&self) -> &'static str {
+        use Word::*;
+        match self {
+            Variable => "variable",
+            Type => "type",
+        }
+    }
+
+    fn indefinite_article(&self) -> &'static str {
+        use Word::*;
+        match self {
+            Variable | Type => "a",
+        }
+    }
+
+    fn text_with_indefinite_article(&self) -> String {
+        format!("{} {}", self.indefinite_article(), self.text())
     }
 }

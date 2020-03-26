@@ -19,6 +19,7 @@ pub enum Statement {
 #[derive(Debug)]
 pub struct VarDeclStmt {
     pub variable_name: String,
+    pub variable_type: Option<TypeExpr>,
     pub initializer: Option<Expression>,
 
     pub span: InputSpan,
@@ -98,6 +99,13 @@ pub struct BinaryOperatorExpr {
 }
 
 #[derive(Debug)]
+pub struct TypeExpr {
+    pub name: String,
+
+    pub span: InputSpan,
+}
+
+#[derive(Copy, Clone, Debug)]
 pub struct InputSpan {
     pub start: usize,
     pub end: usize,

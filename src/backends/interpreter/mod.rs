@@ -100,8 +100,8 @@ fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> Value {
     let rhs = run_expr(expression.rhs(), state);
 
     match expression.operator {
-        BinaryOperator::Add => lhs + rhs,
-        BinaryOperator::Sub => lhs - rhs,
-        BinaryOperator::Mul => lhs * rhs,
+        BinaryOperator::AddInt => lhs + rhs,
+        BinaryOperator::SubInt => lhs - rhs,
+        BinaryOperator::MulInt => lhs * rhs,
     }
 }

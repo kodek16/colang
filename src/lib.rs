@@ -4,22 +4,25 @@ mod ast;
 mod backends;
 mod errors;
 mod program;
+mod scope;
+mod typing;
 lalrpop_mod!(pub grammar);
 
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::env::Args;
 use std::fs;
 use std::rc::Rc;
 
 use crate::backends::debug::DebugBackend;
+use crate::typing::Type;
 use backends::interpreter::InterpreterBackend;
 use backends::Backend;
 use errors::CompilationError;
 use program::Program;
 use program::Variable;
+use scope::Scope;
 use std::error::Error;
 
 pub struct Config {
@@ -98,28 +101,6 @@ fn parse(source_code: &str) -> Result<ast::Program, ast::ParseError> {
     grammar::ProgramParser::new().parse(source_code)
 }
 
-struct Scope {
-    variables: HashMap<String, Rc<RefCell<Variable>>>,
-}
-
-impl Scope {
-    /// Creates a new, empty scope.
-    fn new() -> Scope {
-        Scope {
-            variables: HashMap::new(),
-        }
-    }
-
-    fn add(&mut self, variable: Rc<RefCell<Variable>>) {
-        let name = variable.borrow().name.to_string();
-        self.variables.insert(name, variable);
-    }
-
-    fn lookup(&self, name: &str) -> Option<&Rc<RefCell<Variable>>> {
-        self.variables.get(name)
-    }
-}
-
 /// Context that gets passed along to various compiler routines.
 struct CompilerContext {
     program: Program,
@@ -128,11 +109,13 @@ struct CompilerContext {
 }
 
 impl CompilerContext {
-    /// Creates an empty, initial context.
+    /// Creates the initial root context.
     pub fn new() -> CompilerContext {
+        let program = Program::new();
+        let scope = Scope::new(&program);
         CompilerContext {
-            program: Program::new(),
-            scope: Scope::new(),
+            program,
+            scope,
             errors: vec![],
         }
     }
@@ -160,22 +143,36 @@ fn compile(program_ast: ast::Program) -> Result<Program, Vec<CompilationError>> 
 fn compile_var_decl(statement: ast::VarDeclStmt, context: &mut CompilerContext) {
     let name = &statement.variable_name;
 
-    // Compile the initializer expression even if the variable produces an error.
+    // Compile the variable type and the initializer expression
+    // even if the variable produces an error.
+    let type_ = statement
+        .variable_type
+        .map(|type_| compile_type_expr(type_, context));
     let initializer = statement
         .initializer
         .map(|initializer| compile_expression(initializer, context));
 
-    if let Some(_) = context.scope.lookup(name) {
-        let error = CompilationError::variable_already_exists(name, statement.span);
-        context.errors.push(error);
-        return;
-    }
+    // Possibly infer type from the initializer expression.
+    let type_ = match type_ {
+        Some(t) => t,
+        None => match initializer {
+            Some(ref expr) => expr.type_(&context.program),
+            None => {
+                let error = CompilationError::variable_type_omitted(&name, statement.span);
+                context.errors.push(error);
+                Type::error()
+            }
+        },
+    };
 
-    let variable = Variable::new(name.to_string());
+    let variable = Variable::new(name.to_string(), &type_, Some(statement.span));
     let variable = Rc::new(RefCell::new(variable));
 
     context.program.add_variable(Rc::clone(&variable));
-    context.scope.add(Rc::clone(&variable));
+    if let Err(error) = context.scope.add_variable(&variable) {
+        context.errors.push(error);
+        return;
+    }
 
     let statement = program::VarDeclStmt::new(&variable, initializer);
     context.program.add_statement(statement);
@@ -184,13 +181,16 @@ fn compile_var_decl(statement: ast::VarDeclStmt, context: &mut CompilerContext) 
 fn compile_read(statement: ast::ReadStmt, context: &mut CompilerContext) {
     let name = &statement.variable_name;
 
-    if let Some(variable) = context.scope.lookup(&name) {
-        let statement = program::ReadStmt::new(&variable);
-        context.program.add_statement(statement);
-    } else {
-        // TODO here and in var_decl: span should be limited to variable name only.
-        let error = CompilationError::variable_not_found(name, statement.span);
-        context.errors.push(error);
+    let variable = context.scope.lookup_variable(&name, statement.span);
+    match variable {
+        Ok(variable) => {
+            let statement = program::ReadStmt::new(&variable);
+            context.program.add_statement(statement);
+        }
+        Err(error) => {
+            // TODO here and in var_decl: span should be limited to variable name only.
+            context.errors.push(error);
+        }
     }
 }
 
@@ -216,12 +216,14 @@ fn compile_variable_expr(
     context: &mut CompilerContext,
 ) -> program::Expression {
     let name = expression.name;
-    if let Some(variable) = context.scope.lookup(&name) {
-        program::VariableExpr::new(variable)
-    } else {
-        let error = CompilationError::variable_not_found(&name, expression.span);
-        context.errors.push(error);
-        program::Expression::Error
+
+    let variable = context.scope.lookup_variable(&name, expression.span);
+    match variable {
+        Ok(variable) => program::VariableExpr::new(variable),
+        Err(error) => {
+            context.errors.push(error);
+            program::Expression::Error
+        }
     }
 }
 
@@ -237,11 +239,24 @@ fn compile_binary_op_expr(
     context: &mut CompilerContext,
 ) -> program::Expression {
     let operator = match expression.operator {
-        ast::BinaryOperator::Add => program::BinaryOperator::Add,
-        ast::BinaryOperator::Sub => program::BinaryOperator::Sub,
-        ast::BinaryOperator::Mul => program::BinaryOperator::Mul,
+        ast::BinaryOperator::Add => program::BinaryOperator::AddInt,
+        ast::BinaryOperator::Sub => program::BinaryOperator::SubInt,
+        ast::BinaryOperator::Mul => program::BinaryOperator::MulInt,
     };
     let lhs = compile_expression(*expression.lhs, context);
     let rhs = compile_expression(*expression.rhs, context);
     program::BinaryOpExpr::new(operator, lhs, rhs)
+}
+
+fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) -> Rc<RefCell<Type>> {
+    let name = &type_expr.name;
+    let type_ = context.scope.lookup_type(name, type_expr.span);
+
+    match type_ {
+        Ok(type_) => Rc::clone(type_),
+        Err(error) => {
+            context.errors.push(error);
+            Type::error()
+        }
+    }
 }

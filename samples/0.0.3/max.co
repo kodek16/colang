@@ -1,0 +1,9 @@
+var x: int;
+var y: int;
+read x;
+read y;
+if (x >= y) {
+    write x;
+} else {
+    write y;
+}

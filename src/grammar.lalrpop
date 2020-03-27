@@ -7,37 +7,23 @@ pub Program: Program = {
 };
 
 Stmt: Statement = {
-    <start: @L> "var" <name:Ident> <type_:(":" <TypeExpr>)?> <initializer:("=" <Expr>)?> ";" <end: @R> => {
+    <start: @L> KwVar <entries:CommaSeparatedNotEmpty<VarDeclEntry>> ";" <end: @R> => {
         Statement::VarDecl(VarDeclStmt {
-            variable_name: name,
-            variable_type: type_,
-            initializer,
+            entries,
             span: InputSpan { start, end },
         })
     },
 
-    <start: @L> "read" <variable_name:Ident> ";" <end: @R> => {
+    <start: @L> KwRead <entries:CommaSeparatedNotEmpty<ReadEntry>> ";" <end: @R> => {
         Statement::Read(ReadStmt {
-            variable_name,
+            entries,
             span: InputSpan { start, end },
         })
     },
 
-    <start: @L> "write" <expression:Expr> ";" <end: @R> => {
+    <start: @L> KwWrite <expression:Expr> ";" <end: @R> => {
         Statement::Write(WriteStmt {
             expression,
-            span: InputSpan { start, end },
-        })
-    },
-
-    // If-statements are different from if-expressions: they are allowed to not have an `else` branch.
-    // Splitting the two syntactically also helps to solve the dangling else issue.
-    <start: @L> "if" "(" <cond:Expr> ")" <then:BlockStmt> <else_:("else" <BlockStmt>)?> <end: @R> => {
-        Statement::If(IfStmt {
-            cond: Box::new(cond),
-            then: Box::new(then),
-            else_: else_.map(Box::new),
-
             span: InputSpan { start, end },
         })
     },
@@ -49,7 +35,53 @@ Stmt: Statement = {
         })
     },
 
+    IfStmt,
     BlockStmt
+};
+
+VarDeclEntry: VarDeclEntry = {
+    <start: @L> <name: Ident> <type_:(":" <TypeExpr>)?> <initializer:("=" <Expr>)?> <end: @R> => {
+        VarDeclEntry {
+            variable_name: name,
+            variable_type: type_,
+            initializer,
+            span: InputSpan { start, end },
+        }
+    }
+};
+
+ReadEntry: ReadEntry = {
+    <start: @L> <name: Ident> <end: @R> => {
+        ReadEntry {
+            variable_name: name,
+            span: InputSpan { start, end },
+        }
+    }
+}
+
+// If-statements are different from if-expressions: they are allowed to not have an `else` branch.
+// Splitting the two syntactically also helps to solve the dangling else issue.
+IfStmt: Statement = {
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:BlockStmt> <else_:(KwElse <BlockStmt>)?> <end: @R> => {
+        Statement::If(IfStmt {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            else_: else_.map(Box::new),
+
+            span: InputSpan { start, end },
+        })
+    },
+
+    // if-else-if is handled separately.
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:BlockStmt> KwElse <else_: IfStmt> <end: @R> => {
+        Statement::If(IfStmt {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            else_: Some(Box::new(else_)),
+
+            span: InputSpan { start, end },
+        })
+    }
 };
 
 BlockStmt: Statement = {
@@ -68,7 +100,7 @@ Expr: Expression = {
 
 // Highest tier handles if-expressions.
 Expr5: Expression = {
-    <start: @L> "if" "(" <cond:Expr> ")" <then:Expr> "else" <else_:Expr> <end: @R> => {
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:Expr> KwElse <else_:Expr> <end: @R> => {
         Expression::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
@@ -155,4 +187,20 @@ Ident: String = {
 
 IntLiteral: i32 = {
     r"-?[0-9]+" => <>.parse().unwrap(),
+};
+
+// Keywords:
+KwVar: () = { "var" }
+KwRead: () = { "read" }
+KwWrite: () = { "write" }
+KwIf: () = { "if" }
+KwElse: () = { "else" }
+
+// Macros:
+CommaSeparatedNotEmpty<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T> => {
+        let mut v = v;
+        v.push(e);
+        v
+    }
 };

@@ -87,7 +87,6 @@ fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
         Statement::Block(ref s) => run_block(s, state),
         Statement::If(ref s) => run_if(s, state),
         Statement::Expr(ref s) => run_expr_stmt(s, state),
-        Statement::Error => panic_error(),
     }
 }
 

@@ -1,0 +1,10 @@
+var x: int, y: int;
+read x, y;
+
+if (x < y) {
+  write -1;
+} else if (x == y) {
+  write 0;
+} else {
+  write 1;
+}

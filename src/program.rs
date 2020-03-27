@@ -116,17 +116,6 @@ pub enum Statement {
     If(IfStmt),
     Block(BlockStmt),
     Expr(ExprStmt),
-
-    Error,
-}
-
-impl Statement {
-    pub fn is_error(&self) -> bool {
-        match self {
-            Statement::Error => true,
-            _ => false,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -258,12 +247,9 @@ pub struct ExprStmt {
 
 impl ExprStmt {
     pub fn new(expression: Expression) -> Statement {
-        match expression {
-            Expression::Error => Statement::Error,
-            _ => Statement::Expr(ExprStmt {
-                expression: Box::new(expression),
-            }),
-        }
+        Statement::Expr(ExprStmt {
+            expression: Box::new(expression),
+        })
     }
 
     pub fn expression(&self) -> &Expression {

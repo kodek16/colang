@@ -21,6 +21,13 @@ pub enum Statement {
 
 #[derive(Debug)]
 pub struct VarDeclStmt {
+    pub entries: Vec<VarDeclEntry>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct VarDeclEntry {
     pub variable_name: String,
     pub variable_type: Option<TypeExpr>,
     pub initializer: Option<Expression>,
@@ -30,6 +37,13 @@ pub struct VarDeclStmt {
 
 #[derive(Debug)]
 pub struct ReadStmt {
+    pub entries: Vec<ReadEntry>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct ReadEntry {
     pub variable_name: String,
 
     pub span: InputSpan,

@@ -125,10 +125,12 @@ impl CompilerContext {
 fn compile(program_ast: ast::Program) -> Result<Program, Vec<CompilationError>> {
     let mut context = CompilerContext::new();
 
+    let mut builder = BlockBuilder::new();
     for statement in program_ast.statements {
-        let statement = compile_statement(statement, &mut context);
-        context.program.add_statement(statement)
+        compile_statement(statement, &mut builder, &mut context);
     }
+
+    context.program.add_statement(builder.into_stmt());
 
     if context.errors.is_empty() {
         Ok(context.program)
@@ -137,35 +139,70 @@ fn compile(program_ast: ast::Program) -> Result<Program, Vec<CompilationError>> 
     }
 }
 
+/// Represents an object that expects statements to be written into it.
+trait StatementSink {
+    fn emit(&mut self, statement: program::Statement);
+}
+
+impl StatementSink for Program {
+    fn emit(&mut self, statement: program::Statement) {
+        self.add_statement(statement)
+    }
+}
+
+impl StatementSink for BlockBuilder {
+    fn emit(&mut self, statement: program::Statement) {
+        self.append_statement(statement)
+    }
+}
+
+impl StatementSink for Option<program::Statement> {
+    fn emit(&mut self, statement: program::Statement) {
+        *self = Some(statement);
+    }
+}
+
 /// Compiles a single statement. If compilation succeeds, returns the resulting
 /// statement as Some. If any errors occur, they are added to `context`, and
 /// the function result is None.
 fn compile_statement(
     statement: ast::Statement,
+    sink: &mut impl StatementSink,
     context: &mut CompilerContext,
-) -> program::Statement {
+) {
     match statement {
-        ast::Statement::VarDecl(s) => compile_var_decl_stmt(s, context),
-        ast::Statement::Read(s) => compile_read_stmt(s, context),
-        ast::Statement::Write(s) => compile_write_stmt(s, context),
-        ast::Statement::If(s) => compile_if_stmt(s, context),
-        ast::Statement::Block(s) => compile_block_stmt(s, context),
-        ast::Statement::Expr(s) => compile_expr_stmt(s, context),
+        ast::Statement::VarDecl(s) => compile_var_decl_stmt(s, sink, context),
+        ast::Statement::Read(s) => compile_read_stmt(s, sink, context),
+        ast::Statement::Write(s) => compile_write_stmt(s, sink, context),
+        ast::Statement::If(s) => compile_if_stmt(s, sink, context),
+        ast::Statement::Block(s) => compile_block_stmt(s, sink, context),
+        ast::Statement::Expr(s) => compile_expr_stmt(s, sink, context),
     }
 }
 
 fn compile_var_decl_stmt(
     statement: ast::VarDeclStmt,
+    sink: &mut impl StatementSink,
     context: &mut CompilerContext,
-) -> program::Statement {
-    let name = &statement.variable_name;
+) {
+    for declaration in statement.entries {
+        compile_var_decl_entry(declaration, sink, context);
+    }
+}
+
+fn compile_var_decl_entry(
+    declaration: ast::VarDeclEntry,
+    sink: &mut impl StatementSink,
+    context: &mut CompilerContext,
+) {
+    let name = &declaration.variable_name;
 
     // Compile the variable type and the initializer expression
     // even if the variable produces an error.
-    let type_ = statement
+    let type_ = declaration
         .variable_type
         .map(|type_| compile_type_expr(type_, context));
-    let initializer = statement
+    let initializer = declaration
         .initializer
         .map(|initializer| compile_expression(initializer, context));
 
@@ -175,98 +212,121 @@ fn compile_var_decl_stmt(
         None => match initializer {
             Some(ref expr) => expr.type_(&context.program),
             None => {
-                let error = CompilationError::variable_type_omitted(&name, statement.span);
+                let error = CompilationError::variable_type_omitted(&name, declaration.span);
                 context.errors.push(error);
                 Type::error()
             }
         },
     };
 
-    let variable = Variable::new(name.to_string(), &type_, Some(statement.span));
+    let variable = Variable::new(name.to_string(), &type_, Some(declaration.span));
     let variable = Rc::new(RefCell::new(variable));
 
     context.program.add_variable(Rc::clone(&variable));
     if let Err(error) = context.scope.add_variable(&variable) {
         context.errors.push(error);
-        return program::Statement::Error;
+        return;
     }
 
-    program::VarDeclStmt::new(&variable, initializer)
+    let statement = program::VarDeclStmt::new(&variable, initializer);
+    sink.emit(statement);
 }
 
 fn compile_read_stmt(
     statement: ast::ReadStmt,
+    sink: &mut impl StatementSink,
     context: &mut CompilerContext,
-) -> program::Statement {
-    let name = &statement.variable_name;
+) {
+    for entry in statement.entries {
+        compile_read_entry(entry, sink, context);
+    }
+}
 
-    // TODO here and in var_decl: span should be limited to variable name only.
-    let variable = context.scope.lookup_variable(&name, statement.span);
+fn compile_read_entry(
+    entry: ast::ReadEntry,
+    sink: &mut impl StatementSink,
+    context: &mut CompilerContext,
+) {
+    let name = &entry.variable_name;
+    let variable = context.scope.lookup_variable(&name, entry.span);
     let result =
-        variable.and_then(|var| program::ReadStmt::new(&var, &context.program, statement.span));
+        variable.and_then(|var| program::ReadStmt::new(&var, &context.program, entry.span));
     match result {
-        Ok(statement) => statement,
-        Err(error) => {
-            context.errors.push(error);
-            program::Statement::Error
-        }
+        Ok(statement) => sink.emit(statement),
+        Err(error) => context.errors.push(error),
     }
 }
 
 fn compile_write_stmt(
     statement: ast::WriteStmt,
+    sink: &mut impl StatementSink,
     context: &mut CompilerContext,
-) -> program::Statement {
+) {
     let expression = compile_expression(statement.expression, context);
     if let program::Expression::Error = expression {
-        program::Statement::Error
-    } else {
-        program::WriteStmt::new(expression)
+        return;
     }
+
+    let statement = program::WriteStmt::new(expression);
+    sink.emit(statement);
 }
 
-fn compile_if_stmt(statement: ast::IfStmt, context: &mut CompilerContext) -> program::Statement {
+fn compile_if_stmt(
+    statement: ast::IfStmt,
+    sink: &mut impl StatementSink,
+    context: &mut CompilerContext,
+) {
     let cond_span = statement.cond.span();
     let cond = compile_expression(*statement.cond, context);
-    let then = compile_statement(*statement.then, context);
-    let else_ = statement
-        .else_
-        .map(|stmt| compile_statement(*stmt, context));
 
-    if cond.is_error()
-        || then.is_error()
-        || else_
-            .as_ref()
-            .map(program::Statement::is_error)
-            .unwrap_or(false)
-    {
-        return program::Statement::Error;
+    let mut then: Option<program::Statement> = None;
+    let mut else_: Option<program::Statement> = None;
+
+    compile_statement(*statement.then, &mut then, context);
+    statement
+        .else_
+        .map(|stmt| compile_statement(*stmt, &mut else_, context));
+
+    if cond.is_error() {
+        return;
     }
 
-    let result = program::IfStmt::new(cond, then, else_, &context.program, cond_span);
-    match result {
-        Ok(statement) => statement,
-        Err(error) => {
-            context.errors.push(error);
-            program::Statement::Error
+    if let Some(then) = then {
+        let result = program::IfStmt::new(cond, then, else_, &context.program, cond_span);
+        match result {
+            Ok(statement) => sink.emit(statement),
+            Err(error) => context.errors.push(error),
         }
     }
 }
 
-fn compile_block_stmt(block: ast::BlockStmt, context: &mut CompilerContext) -> program::Statement {
+fn compile_block_stmt(
+    block: ast::BlockStmt,
+    sink: &mut impl StatementSink,
+    context: &mut CompilerContext,
+) {
     context.scope.push();
-    let statements = compile_statement_vec(block.statements, context);
-    let result = program::BlockStmt::new(statements);
+    let mut builder = BlockBuilder::new();
+    for statement in block.statements {
+        compile_statement(statement, &mut builder, context);
+    }
+    let result = builder.into_stmt();
     context.scope.pop();
-    result
+    sink.emit(result);
 }
 
 fn compile_expr_stmt(
     statement: ast::ExprStmt,
+    sink: &mut impl StatementSink,
     context: &mut CompilerContext,
-) -> program::Statement {
+) {
     let expression = compile_expression(statement.expression, context);
-    program::ExprStmt::new(expression)
+    if expression.is_error() {
+        return;
+    }
+
+    let result = program::ExprStmt::new(expression);
+    sink.emit(result);
 }
 
 fn compile_expression(
@@ -368,9 +428,12 @@ fn compile_block_expr(
     context: &mut CompilerContext,
 ) -> program::Expression {
     context.scope.push();
-    let statements = compile_statement_vec(expression.statements, context);
+    let mut builder = BlockBuilder::new();
+    for statement in expression.statements {
+        compile_statement(statement, &mut builder, context);
+    }
     let final_expr = compile_expression(*expression.final_expr, context);
-    let result = program::BlockExpr::new(statements, final_expr);
+    let result = builder.into_expr(final_expr);
     context.scope.pop();
     result
 }
@@ -388,13 +451,25 @@ fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) ->
     }
 }
 
-fn compile_statement_vec(
-    statements: Vec<ast::Statement>,
-    context: &mut CompilerContext,
-) -> Vec<program::Statement> {
-    statements
-        .into_iter()
-        .map(|stmt| compile_statement(stmt, context))
-        .filter(|stmt| !stmt.is_error())
-        .collect()
+/// Incremental interface for building block statements and expressions.
+struct BlockBuilder {
+    statements: Vec<program::Statement>,
+}
+
+impl BlockBuilder {
+    fn new() -> BlockBuilder {
+        BlockBuilder { statements: vec![] }
+    }
+
+    fn append_statement(&mut self, statement: program::Statement) {
+        self.statements.push(statement)
+    }
+
+    fn into_stmt(self) -> program::Statement {
+        program::BlockStmt::new(self.statements)
+    }
+
+    fn into_expr(self, final_expr: program::Expression) -> program::Expression {
+        program::BlockExpr::new(self.statements, final_expr)
+    }
 }

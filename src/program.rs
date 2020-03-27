@@ -114,6 +114,7 @@ pub enum Statement {
     Read(ReadStmt),
     Write(WriteStmt),
     If(IfStmt),
+    While(WhileStmt),
     Block(BlockStmt),
     Expr(ExprStmt),
 }
@@ -222,6 +223,36 @@ impl IfStmt {
 
     pub fn else_(&self) -> Option<&Statement> {
         self.else_.as_deref()
+    }
+}
+
+#[derive(Debug)]
+pub struct WhileStmt {
+    cond: Box<Expression>,
+    body: Box<Statement>,
+}
+
+impl WhileStmt {
+    pub fn new(
+        cond: Expression,
+        body: Statement,
+        program: &Program,
+        cond_location: InputSpan,
+    ) -> Result<Statement, CompilationError> {
+        check_condition_is_bool(&cond, program, cond_location)?;
+
+        Ok(Statement::While(WhileStmt {
+            cond: Box::new(cond),
+            body: Box::new(body),
+        }))
+    }
+
+    pub fn cond(&self) -> &Expression {
+        &self.cond
+    }
+
+    pub fn body(&self) -> &Statement {
+        &self.body
     }
 }
 

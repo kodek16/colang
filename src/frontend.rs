@@ -86,9 +86,9 @@ impl StatementSink for Option<program::Statement> {
     }
 }
 
-/// Compiles a single statement. If compilation succeeds, returns the resulting
-/// statement as Some. If any errors occur, they are added to `context`, and
-/// the function result is None.
+/// Compiles a single statement in the syntax sense. If compilation succeeds,
+/// resulting target program statements are emitted to `sink`. If any errors
+/// occur, they are added to `context`.
 fn compile_statement(
     statement: ast::Statement,
     sink: &mut impl StatementSink,
@@ -99,6 +99,7 @@ fn compile_statement(
         ast::Statement::Read(s) => compile_read_stmt(s, sink, context),
         ast::Statement::Write(s) => compile_write_stmt(s, sink, context),
         ast::Statement::If(s) => compile_if_stmt(s, sink, context),
+        ast::Statement::While(s) => compile_while_stmt(s, sink, context),
         ast::Statement::Block(s) => compile_block_stmt(s, sink, context),
         ast::Statement::Expr(s) => compile_expr_stmt(s, sink, context),
     }
@@ -217,6 +218,30 @@ fn compile_if_stmt(
 
     if let Some(then) = then {
         let result = program::IfStmt::new(cond, then, else_, &context.program, cond_span);
+        match result {
+            Ok(statement) => sink.emit(statement),
+            Err(error) => context.errors.push(error),
+        }
+    }
+}
+
+fn compile_while_stmt(
+    statement: ast::WhileStmt,
+    sink: &mut impl StatementSink,
+    context: &mut CompilerContext,
+) {
+    let cond_span = statement.cond.span();
+    let cond = compile_expression(*statement.cond, context);
+
+    let mut body: Option<program::Statement> = None;
+    compile_statement(*statement.body, &mut body, context);
+
+    if cond.is_error() {
+        return;
+    }
+
+    if let Some(body) = body {
+        let result = program::WhileStmt::new(cond, body, &context.program, cond_span);
         match result {
             Ok(statement) => sink.emit(statement),
             Err(error) => context.errors.push(error),

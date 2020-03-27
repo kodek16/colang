@@ -28,6 +28,14 @@ Stmt: Statement = {
         })
     },
 
+    <start: @L> KwWhile <cond:Expr> <body:BlockStmt> <end: @R> => {
+        Statement::While(WhileStmt {
+            cond: Box::new(cond),
+            body: Box::new(body),
+            span: InputSpan { start, end },
+        })
+    },
+
     <start: @L> <expression:Expr> ";" <end: @R> => {
         Statement::Expr(ExprStmt {
             expression,
@@ -195,6 +203,7 @@ KwRead: () = { "read" }
 KwWrite: () = { "write" }
 KwIf: () = { "if" }
 KwElse: () = { "else" }
+KwWhile: () = { "while" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {

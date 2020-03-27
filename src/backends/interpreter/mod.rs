@@ -6,7 +6,8 @@ use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
     BinaryOpExpr, BinaryOperator, BlockExpr, BlockStmt, ExprStmt, Expression, IfExpr, IfStmt,
-    IntLiteralExpr, Program, ReadStmt, Statement, SymbolId, VarDeclStmt, VariableExpr, WriteStmt,
+    IntLiteralExpr, Program, ReadStmt, Statement, SymbolId, VarDeclStmt, VariableExpr, WhileStmt,
+    WriteStmt,
 };
 use crate::typing::Type;
 use std::collections::HashMap;
@@ -86,6 +87,7 @@ fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
         Statement::Write(ref s) => run_write(s, state),
         Statement::Block(ref s) => run_block(s, state),
         Statement::If(ref s) => run_if(s, state),
+        Statement::While(ref s) => run_while(s, state),
         Statement::Expr(ref s) => run_expr_stmt(s, state),
     }
 }
@@ -132,6 +134,15 @@ fn run_if(statement: &IfStmt, state: &mut State) -> RunResult<()> {
         run_statement(statement.then(), state)?;
     } else if let Some(else_) = statement.else_() {
         run_statement(else_, state)?;
+    }
+    Ok(())
+}
+
+fn run_while(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
+    let mut cond = run_expression(statement.cond(), state)?.as_bool();
+    while cond {
+        run_statement(statement.body(), state)?;
+        cond = run_expression(statement.cond(), state)?.as_bool();
     }
     Ok(())
 }

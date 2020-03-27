@@ -1,0 +1,2 @@
+var n: int;
+n = n < n;

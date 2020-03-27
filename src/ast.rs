@@ -16,6 +16,7 @@ pub enum Statement {
     Write(WriteStmt),
     If(IfStmt),
     While(WhileStmt),
+    Assign(AssignStmt),
     Expr(ExprStmt),
     Block(BlockStmt),
 }
@@ -70,6 +71,14 @@ pub struct IfStmt {
 pub struct WhileStmt {
     pub cond: Box<Expression>,
     pub body: Box<Statement>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct AssignStmt {
+    pub lhs: Box<Expression>,
+    pub rhs: Box<Expression>,
 
     pub span: InputSpan,
 }

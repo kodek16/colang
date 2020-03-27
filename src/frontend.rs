@@ -101,6 +101,7 @@ fn compile_statement(
         ast::Statement::If(s) => compile_if_stmt(s, sink, context),
         ast::Statement::While(s) => compile_while_stmt(s, sink, context),
         ast::Statement::Block(s) => compile_block_stmt(s, sink, context),
+        ast::Statement::Assign(s) => compile_assign_stmt(s, sink, context),
         ast::Statement::Expr(s) => compile_expr_stmt(s, sink, context),
     }
 }
@@ -262,6 +263,31 @@ fn compile_block_stmt(
     let result = builder.into_stmt();
     context.scope.pop();
     sink.emit(result);
+}
+
+fn compile_assign_stmt(
+    statement: ast::AssignStmt,
+    sink: &mut impl StatementSink,
+    context: &mut CompilerContext,
+) {
+    let lhs_span = statement.lhs.span();
+    let lhs = compile_expression(*statement.lhs, context);
+    let rhs = compile_expression(*statement.rhs, context);
+    if lhs.is_error() || rhs.is_error() {
+        return;
+    }
+
+    if let program::Expression::Variable(var_expr) = lhs {
+        let variable = var_expr.variable_owned();
+        let result = program::AssignStmt::new(&variable, rhs, &context.program, statement.span);
+        match result {
+            Ok(statement) => sink.emit(statement),
+            Err(error) => context.errors.push(error),
+        }
+    } else {
+        let error = CompilationError::assignment_target_not_variable(lhs_span);
+        context.errors.push(error)
+    }
 }
 
 fn compile_expr_stmt(

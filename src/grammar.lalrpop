@@ -36,6 +36,14 @@ Stmt: Statement = {
         })
     },
 
+    <start: @L> <lhs:Expr> "=" <rhs:Expr> ";" <end: @R> => {
+        Statement::Assign(AssignStmt {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            span: InputSpan { start, end },
+        })
+    },
+
     <start: @L> <expression:Expr> ";" <end: @R> => {
         Statement::Expr(ExprStmt {
             expression,

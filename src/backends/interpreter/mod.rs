@@ -5,9 +5,9 @@ mod cin;
 use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
-    BinaryOpExpr, BinaryOperator, BlockExpr, BlockStmt, ExprStmt, Expression, IfExpr, IfStmt,
-    IntLiteralExpr, Program, ReadStmt, Statement, SymbolId, VarDeclStmt, VariableExpr, WhileStmt,
-    WriteStmt,
+    AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, BlockStmt, ExprStmt, Expression, IfExpr,
+    IfStmt, IntLiteralExpr, Program, ReadStmt, Statement, SymbolId, VarDeclStmt, VariableExpr,
+    WhileStmt, WriteStmt,
 };
 use crate::typing::Type;
 use std::collections::HashMap;
@@ -88,6 +88,7 @@ fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
         Statement::Block(ref s) => run_block(s, state),
         Statement::If(ref s) => run_if(s, state),
         Statement::While(ref s) => run_while(s, state),
+        Statement::Assign(ref s) => run_assign(s, state),
         Statement::Expr(ref s) => run_expr_stmt(s, state),
     }
 }
@@ -151,6 +152,13 @@ fn run_block(block: &BlockStmt, state: &mut State) -> RunResult<()> {
     for statement in block.statements() {
         run_statement(statement, state)?
     }
+    Ok(())
+}
+
+fn run_assign(statement: &AssignStmt, state: &mut State) -> RunResult<()> {
+    let target_id = statement.target().id();
+    let new_value = run_expression(statement.value(), state)?;
+    state.variables.insert(target_id, new_value);
     Ok(())
 }
 

@@ -143,6 +143,29 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn assignment_target_not_variable(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9011",
+            message: "assignment target must be a variable".to_string(),
+            location: Some(location),
+        }
+    }
+
+    pub fn assignment_type_mismatch(
+        target_type: &str,
+        value_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9012",
+            message: format!(
+                "cannot assign value of type `{}` to a variable of type `{}`",
+                value_type, target_type
+            ),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

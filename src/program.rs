@@ -116,6 +116,7 @@ pub enum Statement {
     If(IfStmt),
     While(WhileStmt),
     Block(BlockStmt),
+    Assign(AssignStmt),
     Expr(ExprStmt),
 }
 
@@ -272,6 +273,47 @@ impl BlockStmt {
 }
 
 #[derive(Debug)]
+pub struct AssignStmt {
+    target: Rc<RefCell<Variable>>,
+    value: Box<Expression>,
+}
+
+impl AssignStmt {
+    pub fn new(
+        target: &Rc<RefCell<Variable>>,
+        value: Expression,
+        program: &Program,
+        location: InputSpan,
+    ) -> Result<Statement, CompilationError> {
+        let variable = target.borrow();
+        let variable_type = variable.type_();
+        let value_type = value.type_(program);
+
+        if *variable_type != *value_type.borrow() {
+            let error = CompilationError::assignment_type_mismatch(
+                &variable_type.name(),
+                &value_type.borrow().name(),
+                location,
+            );
+            return Err(error);
+        }
+
+        Ok(Statement::Assign(AssignStmt {
+            target: Rc::clone(target),
+            value: Box::new(value),
+        }))
+    }
+
+    pub fn target(&self) -> impl Deref<Target = Variable> + '_ {
+        (*self.target).borrow()
+    }
+
+    pub fn value(&self) -> &Expression {
+        &self.value
+    }
+}
+
+#[derive(Debug)]
 pub struct ExprStmt {
     expression: Box<Expression>,
 }
@@ -347,6 +389,11 @@ impl VariableExpr {
     /// Borrow the variable immutably.
     pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
         (*self.variable).borrow()
+    }
+
+    /// This should only be used in the frontend.
+    pub fn variable_owned(&self) -> Rc<RefCell<Variable>> {
+        Rc::clone(&self.variable)
     }
 }
 

@@ -12,39 +12,47 @@ use std::rc::Rc;
 /// Every distinct named entity in the program receives a unique ID.
 pub type SymbolId = u32;
 
+/// Public trait for all symbols in the program that have a unique ID.
+pub trait Symbol {
+    fn id(&self) -> SymbolId;
+}
+
+use private::SymbolImpl;
+
 #[derive(Debug)]
 pub struct Program {
     variables: Vec<Rc<RefCell<Variable>>>,
+    functions: Vec<Rc<RefCell<Function>>>,
     types: Vec<Rc<RefCell<Type>>>,
-    statements: Vec<Statement>,
     next_symbol_id: SymbolId,
+
+    main_function: Option<Rc<RefCell<Function>>>,
 
     // Internal types can be accessed bypassing the scope mechanism.
     // Their canonical instances are referenced here.
     int_type: Rc<RefCell<Type>>,
     bool_type: Rc<RefCell<Type>>,
+    void_type: Rc<RefCell<Type>>,
 }
 
 impl Program {
     /// Creates a new program, populated with some internal symbols.
     pub fn new() -> Program {
+        let void_type = Rc::new(RefCell::new(Type::Void));
         let int_type = Rc::new(RefCell::new(Type::Int));
         let bool_type = Rc::new(RefCell::new(Type::Bool));
 
         Program {
             int_type: Rc::clone(&int_type),
             bool_type: Rc::clone(&bool_type),
+            void_type: Rc::clone(&void_type),
 
             variables: vec![],
-            types: vec![int_type, bool_type],
-            statements: vec![],
+            functions: vec![],
+            types: vec![void_type, int_type, bool_type],
             next_symbol_id: 0,
+            main_function: None,
         }
-    }
-
-    /// Returns an iterator over program statements.
-    pub fn statements<'a>(&'a self) -> impl Iterator<Item = &Statement> + 'a {
-        self.statements.iter()
     }
 
     /// Adds a new variable to the symbol table.
@@ -54,9 +62,22 @@ impl Program {
         self.variables.push(variable);
     }
 
-    /// Appends a statement to the end of the program.
-    pub fn add_statement(&mut self, statement: Statement) {
-        self.statements.push(statement);
+    /// Adds a new function to the symbol table.
+    pub fn add_function(&mut self, function: Rc<RefCell<Function>>) {
+        function.borrow_mut().set_id(self.next_symbol_id);
+        self.next_symbol_id += 1;
+        self.functions.push(function);
+    }
+
+    pub fn set_main_function(&mut self, main_function: Rc<RefCell<Function>>) {
+        self.main_function = Some(main_function)
+    }
+
+    pub fn main_function(&self) -> impl Deref<Target = Function> + '_ {
+        self.main_function
+            .as_ref()
+            .expect("`main` function has not been specified")
+            .borrow()
     }
 
     /// The canonical `int` type reference.
@@ -67,6 +88,58 @@ impl Program {
     /// The canonical `bool` type reference.
     pub fn bool(&self) -> &Rc<RefCell<Type>> {
         &self.bool_type
+    }
+
+    /// The canonical `void` type reference.
+    pub fn void(&self) -> &Rc<RefCell<Type>> {
+        &self.void_type
+    }
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub name: String,
+    pub definition_site: Option<InputSpan>,
+    return_type: Rc<RefCell<Type>>,
+    body: Option<Expression>,
+    id: Option<SymbolId>,
+}
+
+impl Function {
+    /// Initialize a new, empty function.
+    pub fn new(
+        name: String,
+        return_type: Rc<RefCell<Type>>,
+        definition_site: Option<InputSpan>,
+    ) -> Function {
+        Function {
+            name,
+            definition_site,
+            return_type,
+            body: None,
+            id: None,
+        }
+    }
+
+    pub fn fill_body(&mut self, body: Expression) {
+        self.body = Some(body)
+    }
+
+    pub fn _return_type(&self) -> impl Deref<Target = Type> + '_ {
+        self.return_type.borrow()
+    }
+
+    pub fn body(&self) -> &Expression {
+        &self.body.as_ref().expect("function body was not filled")
+    }
+}
+
+impl SymbolImpl for Function {
+    fn id_option(&self) -> &Option<SymbolId> {
+        &self.id
+    }
+    fn id_option_mut(&mut self) -> &mut Option<SymbolId> {
+        &mut self.id
     }
 }
 
@@ -94,17 +167,17 @@ impl Variable {
         }
     }
 
-    /// A unique ID defined in the context of the entire `Program`.
-    pub fn id(&self) -> SymbolId {
-        self.id.expect("Attempted to access ID of unbound variable")
-    }
-
     pub fn type_(&self) -> impl Deref<Target = Type> + '_ {
         self.type_.borrow()
     }
+}
 
-    fn set_id(&mut self, new_id: SymbolId) {
-        self.id = Some(new_id)
+impl SymbolImpl for Variable {
+    fn id_option(&self) -> &Option<SymbolId> {
+        &self.id
+    }
+    fn id_option_mut(&mut self) -> &mut Option<SymbolId> {
+        &mut self.id
     }
 }
 
@@ -113,9 +186,7 @@ pub enum Statement {
     VarDecl(VarDeclStmt),
     Read(ReadStmt),
     Write(WriteStmt),
-    If(IfStmt),
     While(WhileStmt),
-    Block(BlockStmt),
     Assign(AssignStmt),
     Expr(ExprStmt),
 }
@@ -191,56 +262,20 @@ impl WriteStmt {
 }
 
 #[derive(Debug)]
-pub struct IfStmt {
-    cond: Box<Expression>,
-    then: Box<Statement>,
-    else_: Option<Box<Statement>>,
-}
-
-impl IfStmt {
-    pub fn new(
-        cond: Expression,
-        then: Statement,
-        else_: Option<Statement>,
-        program: &Program,
-        cond_location: InputSpan,
-    ) -> Result<Statement, CompilationError> {
-        check_condition_is_bool(&cond, program, cond_location).map(|_| {
-            Statement::If(IfStmt {
-                cond: Box::new(cond),
-                then: Box::new(then),
-                else_: else_.map(Box::new),
-            })
-        })
-    }
-
-    pub fn cond(&self) -> &Expression {
-        &self.cond
-    }
-
-    pub fn then(&self) -> &Statement {
-        &self.then
-    }
-
-    pub fn else_(&self) -> Option<&Statement> {
-        self.else_.as_deref()
-    }
-}
-
-#[derive(Debug)]
 pub struct WhileStmt {
     cond: Box<Expression>,
-    body: Box<Statement>,
+    body: Box<Expression>,
 }
 
 impl WhileStmt {
     pub fn new(
         cond: Expression,
-        body: Statement,
+        body: Expression,
         program: &Program,
         cond_location: InputSpan,
     ) -> Result<Statement, CompilationError> {
         check_condition_is_bool(&cond, program, cond_location)?;
+        // TODO emit a warning if body is not of type void.
 
         Ok(Statement::While(WhileStmt {
             cond: Box::new(cond),
@@ -252,23 +287,8 @@ impl WhileStmt {
         &self.cond
     }
 
-    pub fn body(&self) -> &Statement {
+    pub fn body(&self) -> &Expression {
         &self.body
-    }
-}
-
-#[derive(Debug)]
-pub struct BlockStmt {
-    statements: Vec<Statement>,
-}
-
-impl BlockStmt {
-    pub fn new(statements: Vec<Statement>) -> Statement {
-        Statement::Block(BlockStmt { statements })
-    }
-
-    pub fn statements(&self) -> impl Iterator<Item = &Statement> {
-        self.statements.iter()
     }
 }
 
@@ -361,7 +381,10 @@ impl Expression {
                 Rc::clone(type_)
             }
             If(e) => e.then.type_(program),
-            Block(e) => e.final_expr.type_(program),
+            Block(e) => match e.final_expr() {
+                Some(final_expr) => final_expr.type_(program),
+                None => Rc::clone(program.void()),
+            },
             Error => Type::error(),
         }
     }
@@ -460,22 +483,23 @@ impl BinaryOpExpr {
 pub struct IfExpr {
     cond: Box<Expression>,
     then: Box<Expression>,
-    else_: Box<Expression>,
+    else_: Option<Box<Expression>>,
 }
 
 impl IfExpr {
     pub fn new(
         cond: Expression,
         then: Expression,
-        else_: Expression,
+        else_: Option<Expression>,
         program: &Program,
         cond_location: InputSpan,
     ) -> Result<Expression, CompilationError> {
         check_condition_is_bool(&cond, program, cond_location).map(|_| {
+            // TODO check that if both branches are not void, their type is the same.
             Expression::If(IfExpr {
                 cond: Box::new(cond),
                 then: Box::new(then),
-                else_: Box::new(else_),
+                else_: else_.map(Box::new),
             })
         })
     }
@@ -488,31 +512,31 @@ impl IfExpr {
         &self.then
     }
 
-    pub fn else_(&self) -> &Expression {
-        &self.else_
+    pub fn else_(&self) -> Option<&Expression> {
+        self.else_.as_deref()
     }
 }
 
 #[derive(Debug)]
 pub struct BlockExpr {
     statements: Vec<Statement>,
-    final_expr: Box<Expression>,
+    final_expr: Option<Box<Expression>>,
 }
 
 impl BlockExpr {
-    pub fn new(statements: Vec<Statement>, final_expr: Expression) -> Expression {
+    pub fn new(statements: Vec<Statement>, final_expr: Option<Expression>) -> Expression {
         Expression::Block(BlockExpr {
             statements,
-            final_expr: Box::new(final_expr),
+            final_expr: final_expr.map(Box::new),
         })
     }
 
-    pub fn statements<'a>(&'a self) -> impl Iterator<Item = &Statement> + 'a {
+    pub fn statements(&self) -> impl Iterator<Item = &Statement> {
         self.statements.iter()
     }
 
-    pub fn final_expr(&self) -> &Expression {
-        &self.final_expr
+    pub fn final_expr(&self) -> Option<&Expression> {
+        self.final_expr.as_deref()
     }
 }
 
@@ -542,5 +566,24 @@ fn check_operand_is_int(
         Err(error)
     } else {
         Ok(())
+    }
+}
+
+mod private {
+    /// Private trait that provides the default behavior for initializing symbol IDs.
+    pub trait SymbolImpl: super::Symbol {
+        fn id_option(&self) -> &Option<super::SymbolId>;
+        fn id_option_mut(&mut self) -> &mut Option<super::SymbolId>;
+
+        fn set_id(&mut self, new_id: super::SymbolId) {
+            *self.id_option_mut() = Some(new_id);
+        }
+    }
+
+    impl<T: SymbolImpl> super::Symbol for T {
+        fn id(&self) -> super::SymbolId {
+            self.id_option()
+                .expect("Attempted to access ID of unbound symbol.")
+        }
     }
 }

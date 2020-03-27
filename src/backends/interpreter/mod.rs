@@ -5,8 +5,8 @@ mod cin;
 use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
-    AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, BlockStmt, ExprStmt, Expression, IfExpr,
-    IfStmt, IntLiteralExpr, Program, ReadStmt, Statement, SymbolId, VarDeclStmt, VariableExpr,
+    AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, ExprStmt, Expression, IfExpr,
+    IntLiteralExpr, Program, ReadStmt, Statement, Symbol, SymbolId, VarDeclStmt, VariableExpr,
     WhileStmt, WriteStmt,
 };
 use crate::typing::Type;
@@ -21,12 +21,13 @@ impl Backend for InterpreterBackend {
     fn run(&self, program: Program) -> Result<(), Box<dyn Error>> {
         let mut state = State::new();
 
-        for statement in program.statements() {
-            let result = run_statement(statement, &mut state);
-            if let Err(err) = result {
-                eprintln!("Error: {}", err);
-                process::exit(1);
-            }
+        let main = program.main_function();
+        let code = main.body();
+
+        let result = run_expression(code, &mut state);
+        if let Err(err) = result {
+            eprintln!("Error: {}", err);
+            process::exit(1);
         }
 
         Ok(())
@@ -38,6 +39,7 @@ impl Backend for InterpreterBackend {
 enum Value {
     Int(i32),
     Bool(bool),
+    Void,
 }
 
 impl Value {
@@ -60,6 +62,7 @@ impl Value {
         match self {
             Int(_) => "int",
             Bool(_) => "bool",
+            Void => "void",
         }
     }
 }
@@ -85,8 +88,6 @@ fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
         Statement::VarDecl(ref s) => run_var_decl(s, state),
         Statement::Read(ref s) => run_read(s, state),
         Statement::Write(ref s) => run_write(s, state),
-        Statement::Block(ref s) => run_block(s, state),
-        Statement::If(ref s) => run_if(s, state),
         Statement::While(ref s) => run_while(s, state),
         Statement::Assign(ref s) => run_assign(s, state),
         Statement::Expr(ref s) => run_expr_stmt(s, state),
@@ -124,17 +125,7 @@ fn run_write(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
     match value {
         Value::Int(x) => println!("{}", x),
         Value::Bool(b) => println!("{}", b),
-    }
-    Ok(())
-}
-
-fn run_if(statement: &IfStmt, state: &mut State) -> RunResult<()> {
-    let cond = run_expression(statement.cond(), state)?.as_bool();
-
-    if cond {
-        run_statement(statement.then(), state)?;
-    } else if let Some(else_) = statement.else_() {
-        run_statement(else_, state)?;
+        Value::Void => panic!("Can't print void!"),
     }
     Ok(())
 }
@@ -142,15 +133,8 @@ fn run_if(statement: &IfStmt, state: &mut State) -> RunResult<()> {
 fn run_while(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
     let mut cond = run_expression(statement.cond(), state)?.as_bool();
     while cond {
-        run_statement(statement.body(), state)?;
+        run_expression(statement.body(), state)?;
         cond = run_expression(statement.cond(), state)?.as_bool();
-    }
-    Ok(())
-}
-
-fn run_block(block: &BlockStmt, state: &mut State) -> RunResult<()> {
-    for statement in block.statements() {
-        run_statement(statement, state)?
     }
     Ok(())
 }
@@ -210,8 +194,10 @@ fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {
     let cond = run_expression(expression.cond(), state)?.as_bool();
     if cond {
         run_expression(expression.then(), state)
+    } else if let Some(else_) = expression.else_() {
+        run_expression(else_, state)
     } else {
-        run_expression(expression.else_(), state)
+        Ok(Value::Void)
     }
 }
 
@@ -219,13 +205,18 @@ fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
     for statement in block.statements() {
         run_statement(statement, state)?;
     }
-    run_expression(block.final_expr(), state)
+    if let Some(final_expr) = block.final_expr() {
+        run_expression(final_expr, state)
+    } else {
+        Ok(Value::Void)
+    }
 }
 
 fn default_value_for_type(type_: impl Deref<Target = Type>) -> Value {
     match *type_ {
         Type::Int => Value::Int(0),
         Type::Bool => Value::Bool(false),
+        Type::Void => panic!("Tried to default-initialize a value of type `void`"),
         Type::Error => panic_error(),
     }
 }

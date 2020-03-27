@@ -9,6 +9,7 @@ use std::rc::Rc;
 
 #[derive(Debug, PartialEq)]
 pub enum Type {
+    Void,
     Int,
     Bool,
 
@@ -25,6 +26,7 @@ impl Type {
     pub fn name(&self) -> String {
         use Type::*;
         match self {
+            Void => "void".to_string(),
             Int => "int".to_string(),
             Bool => "bool".to_string(),
 

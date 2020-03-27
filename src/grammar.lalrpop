@@ -3,10 +3,39 @@ use crate::ast::*;
 grammar;
 
 pub Program: Program = {
-    (<Stmt>)* => Program { statements: <> },
+    (<FunctionDef>)* => Program { functions: <> },
+};
+
+FunctionDef: FunctionDef = {
+    <start: @L> KwFun <name:Ident> "(" ")" <return_type:(":" <TypeExpr>)?> <end: @R> <body:Block> => {
+        FunctionDef {
+            name,
+            return_type,
+            body,
+            signature_span: InputSpan { start, end }
+        }
+    }
 };
 
 Stmt: Statement = {
+    StmtNotExpr,
+
+    <start: @L> <expression:ExprWithoutBlock> ";" <end: @R> => {
+        Statement::Expr(ExprStmt {
+            expression,
+            span: InputSpan { start, end },
+        })
+    },
+
+    <start: @L> <expression:ExprWithBlock> <end: @R> => {
+        Statement::Expr(ExprStmt {
+            expression,
+            span: InputSpan { start, end },
+        })
+    },
+}
+
+StmtNotExpr: Statement = {
     <start: @L> KwVar <entries:CommaSeparatedNotEmpty<VarDeclEntry>> ";" <end: @R> => {
         Statement::VarDecl(VarDeclStmt {
             entries,
@@ -28,7 +57,7 @@ Stmt: Statement = {
         })
     },
 
-    <start: @L> KwWhile <cond:Expr> <body:BlockStmt> <end: @R> => {
+    <start: @L> KwWhile <cond:Expr> <body:Block> <end: @R> => {
         Statement::While(WhileStmt {
             cond: Box::new(cond),
             body: Box::new(body),
@@ -43,16 +72,6 @@ Stmt: Statement = {
             span: InputSpan { start, end },
         })
     },
-
-    <start: @L> <expression:Expr> ";" <end: @R> => {
-        Statement::Expr(ExprStmt {
-            expression,
-            span: InputSpan { start, end },
-        })
-    },
-
-    IfStmt,
-    BlockStmt
 };
 
 VarDeclEntry: VarDeclEntry = {
@@ -75,70 +94,61 @@ ReadEntry: ReadEntry = {
     }
 }
 
-// If-statements are different from if-expressions: they are allowed to not have an `else` branch.
-// Splitting the two syntactically also helps to solve the dangling else issue.
-IfStmt: Statement = {
-    <start: @L> KwIf "(" <cond:Expr> ")" <then:BlockStmt> <else_:(KwElse <BlockStmt>)?> <end: @R> => {
-        Statement::If(IfStmt {
+// Expressions are defined from lowest to highest precedence (Expr0 is highest).
+// The top-level non-terminal structure handles the dangling-else problem.
+// (https://en.wikipedia.org/wiki/Dangling_else)
+Expr: Expression = {
+    OpenExpr,
+    ClosedExpr,
+};
+
+ExprWithBlock: Expression = {
+    OpenExpr,
+    ClosedIfExpr,
+};
+
+OpenExpr: Expression = {
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:Expr> <end: @R> => {
+        Expression::If(If {
             cond: Box::new(cond),
             then: Box::new(then),
-            else_: else_.map(Box::new),
-
+            else_: None,
             span: InputSpan { start, end },
         })
     },
-
-    // if-else-if is handled separately.
-    <start: @L> KwIf "(" <cond:Expr> ")" <then:BlockStmt> KwElse <else_: IfStmt> <end: @R> => {
-        Statement::If(IfStmt {
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:OpenExpr> <end: @R> => {
+        Expression::If(If {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Some(Box::new(else_)),
-
-            span: InputSpan { start, end },
-        })
-    }
-};
-
-BlockStmt: Statement = {
-    <start: @L> "{" <statements:(<Stmt>)*> "}" <end: @R> => {
-        Statement::Block(BlockStmt {
-            statements,
             span: InputSpan { start, end },
         })
     },
 };
 
-// Expressions are ordered from lowest to highest precedence.
-Expr: Expression = {
-    <Expr5> => <>,
-};
+ClosedExpr: Expression = {
+    NonIfExpr,
+    ClosedIfExpr,
+}
 
-// Highest tier handles if-expressions.
-Expr5: Expression = {
-    <start: @L> KwIf "(" <cond:Expr> ")" <then:Expr> KwElse <else_:Expr> <end: @R> => {
-        Expression::If(IfExpr {
+ClosedIfExpr: Expression = {
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:ClosedExpr> <end: @R> => {
+        Expression::If(If {
             cond: Box::new(cond),
             then: Box::new(then),
-            else_: Box::new(else_),
+            else_: Some(Box::new(else_)),
             span: InputSpan { start, end },
         })
     },
-    Expr4,
-}
+};
 
-// Macro for a left-associative binary operator expression tier.
-LeftAssocBinaryOpExprTier<Ops, PrevTier>: Expression = {
-    <start: @L> <lhs:LeftAssocBinaryOpExprTier<Ops, PrevTier>> <operator:Ops> <rhs:PrevTier> <end: @R> => {
-        Expression::BinaryOp(BinaryOperatorExpr {
-            operator,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-            span: InputSpan { start, end },
-        })
-    },
-    PrevTier,
-}
+NonIfExpr: Expression = {
+    ExprWithoutBlock,
+    Block => Expression::Block(<>),
+};
+
+// Lowest precedence level.
+ExprWithoutBlock = Expr4;
 
 Expr4 = LeftAssocBinaryOpExprTier<Expr4Op, Expr3>;
 Expr4Op: BinaryOperator = {
@@ -183,15 +193,35 @@ Expr0: Expression = {
     <start: @L> "(" <e:Expr> ")" <end: @R> => {
         e.map_span(|_| InputSpan { start, end })
     },
+}
+
+Block: BlockExpr = {
+    <start: @L> "{" "}" <end: @R> => {
+        BlockExpr {
+            statements: vec![],
+            final_expr: None,
+            span: InputSpan { start, end },
+        }
+    },
+
+    <start: @L> "{" <statements:(<Stmt>)*> <final_stmt:StmtNotExpr> "}" <end: @R> => {
+        let mut statements = statements;
+        statements.push(final_stmt);
+        BlockExpr {
+            statements,
+            final_expr: None,
+            span: InputSpan { start, end },
+        }
+    },
 
     <start: @L> "{" <statements:(<Stmt>)*> <final_expr:Expr> "}" <end: @R> => {
-        Expression::Block(BlockExpr {
+        BlockExpr {
             statements,
-            final_expr: Box::new(final_expr),
+            final_expr: Some(Box::new(final_expr)),
             span: InputSpan { start, end },
-        })
-    }
-}
+        }
+    },
+};
 
 TypeExpr: TypeExpr = {
     <start: @L> <name:Ident> <end: @R> => TypeExpr { name, span: InputSpan { start, end } }
@@ -212,6 +242,7 @@ KwWrite: () = { "write" }
 KwIf: () = { "if" }
 KwElse: () = { "else" }
 KwWhile: () = { "while" }
+KwFun: () = { "fun" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {
@@ -221,3 +252,15 @@ CommaSeparatedNotEmpty<T>: Vec<T> = {
         v
     }
 };
+
+LeftAssocBinaryOpExprTier<Ops, PrevTier>: Expression = {
+    <start: @L> <lhs:LeftAssocBinaryOpExprTier<Ops, PrevTier>> <operator:Ops> <rhs:PrevTier> <end: @R> => {
+        Expression::BinaryOp(BinaryOperatorExpr {
+            operator,
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            span: InputSpan { start, end },
+        })
+    },
+    PrevTier,
+}

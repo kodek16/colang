@@ -6,27 +6,28 @@ use std::rc::Rc;
 
 use crate::ast::InputSpan;
 use crate::errors::{CompilationError, Word};
-use crate::program::{Program, Variable};
+use crate::program::{Function, Program, Variable};
 use crate::typing::Type;
 
-/// A named entity in the program.
-enum Symbol {
+enum NamedEntity {
     Variable(Rc<RefCell<Variable>>),
+    Function(Rc<RefCell<Function>>),
     Type(Rc<RefCell<Type>>),
 }
 
-impl Symbol {
+impl NamedEntity {
     fn word(&self) -> Word {
         match self {
-            Symbol::Variable(_) => Word::Variable,
-            Symbol::Type(_) => Word::Type,
+            NamedEntity::Variable(_) => Word::Variable,
+            NamedEntity::Function(_) => Word::Function,
+            NamedEntity::Type(_) => Word::Type,
         }
     }
 }
 
 pub struct Scope {
     // `symbols` should always be Some, Option is for interior mutability.
-    symbols: Option<HashMap<String, Symbol>>,
+    symbols: Option<HashMap<String, NamedEntity>>,
 
     // `parent` can be None for root scope.
     parent: Option<Box<Scope>>,
@@ -86,7 +87,35 @@ impl Scope {
             }
             None => {
                 self.symbols_mut()
-                    .insert(name.to_string(), Symbol::Variable(Rc::clone(variable)));
+                    .insert(name.to_string(), NamedEntity::Variable(Rc::clone(variable)));
+                Ok(())
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn add_function(
+        &mut self,
+        function: &Rc<RefCell<Function>>,
+    ) -> Result<(), CompilationError> {
+        let (name, definition_site) = {
+            let function = function.borrow();
+            (function.name.to_string(), function.definition_site)
+        };
+
+        let existing = self.lookup_self(&name);
+        match existing {
+            Some(existing) => {
+                let error = CompilationError::symbol_already_exists(
+                    &name,
+                    existing.word(),
+                    definition_site.expect("Name collision for internal function"),
+                );
+                Err(error)
+            }
+            None => {
+                self.symbols_mut()
+                    .insert(name.to_string(), NamedEntity::Function(Rc::clone(function)));
                 Ok(())
             }
         }
@@ -102,7 +131,7 @@ impl Scope {
         }
 
         self.symbols_mut()
-            .insert(name.to_string(), Symbol::Type(Rc::clone(type_)));
+            .insert(name.to_string(), NamedEntity::Type(Rc::clone(type_)));
         Ok(())
     }
 
@@ -112,7 +141,7 @@ impl Scope {
         reference_location: InputSpan,
     ) -> Result<&Rc<RefCell<Variable>>, CompilationError> {
         match self.lookup(name) {
-            Some(Symbol::Variable(variable)) => Ok(&variable),
+            Some(NamedEntity::Variable(variable)) => Ok(&variable),
             Some(other) => {
                 let error = CompilationError::symbol_kind_mismatch(
                     name,
@@ -130,13 +159,44 @@ impl Scope {
         }
     }
 
+    pub fn _lookup_function(
+        &self,
+        name: &str,
+        reference_location: InputSpan,
+    ) -> Result<&Rc<RefCell<Function>>, CompilationError> {
+        match self.lookup(name) {
+            Some(NamedEntity::Function(function)) => Ok(function),
+            Some(other) => {
+                let error = CompilationError::symbol_kind_mismatch(
+                    name,
+                    Word::Function,
+                    other.word(),
+                    reference_location,
+                );
+                Err(error)
+            }
+            None => {
+                let error =
+                    CompilationError::symbol_not_found(name, Word::Function, reference_location);
+                Err(error)
+            }
+        }
+    }
+
+    pub fn try_lookup_function(&self, name: &str) -> Option<&Rc<RefCell<Function>>> {
+        match self.lookup(name) {
+            Some(NamedEntity::Function(function)) => Some(function),
+            _ => None,
+        }
+    }
+
     pub fn lookup_type(
         &self,
         name: &str,
         reference_location: InputSpan,
     ) -> Result<&Rc<RefCell<Type>>, CompilationError> {
         match self.lookup(name) {
-            Some(Symbol::Type(type_)) => Ok(type_),
+            Some(NamedEntity::Type(type_)) => Ok(type_),
             Some(other) => {
                 let error = CompilationError::symbol_kind_mismatch(
                     name,
@@ -155,7 +215,7 @@ impl Scope {
     }
 
     /// Convenience method for mutator access.
-    fn symbols_mut(&mut self) -> &mut HashMap<String, Symbol> {
+    fn symbols_mut(&mut self) -> &mut HashMap<String, NamedEntity> {
         self.symbols.as_mut().unwrap()
     }
 
@@ -163,11 +223,11 @@ impl Scope {
         self.symbols.as_ref().unwrap().contains_key(name)
     }
 
-    fn lookup_self(&self, name: &str) -> Option<&Symbol> {
+    fn lookup_self(&self, name: &str) -> Option<&NamedEntity> {
         self.symbols.as_ref().unwrap().get(name)
     }
 
-    fn lookup(&self, name: &str) -> Option<&Symbol> {
+    fn lookup(&self, name: &str) -> Option<&NamedEntity> {
         self.symbols
             .as_ref()
             .unwrap()

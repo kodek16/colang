@@ -166,11 +166,20 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn main_function_not_found() -> CompilationError {
+        CompilationError {
+            code: "E9013",
+            message: "`main` function not found: you must define one".to_string(),
+            location: None,
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.
 pub enum Word {
     Variable,
+    Function,
     Type,
 }
 
@@ -179,6 +188,7 @@ impl Word {
         use Word::*;
         match self {
             Variable => "variable",
+            Function => "function",
             Type => "type",
         }
     }
@@ -186,7 +196,7 @@ impl Word {
     fn indefinite_article(&self) -> &'static str {
         use Word::*;
         match self {
-            Variable | Type => "a",
+            Variable | Function | Type => "a",
         }
     }
 

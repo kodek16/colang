@@ -6,7 +6,16 @@ pub type ParseError<'a> =
 
 #[derive(Debug)]
 pub struct Program {
-    pub statements: Vec<Statement>,
+    pub functions: Vec<FunctionDef>,
+}
+
+#[derive(Debug)]
+pub struct FunctionDef {
+    pub name: String,
+    pub return_type: Option<TypeExpr>,
+    pub body: BlockExpr,
+
+    pub signature_span: InputSpan,
 }
 
 #[derive(Debug)]
@@ -14,11 +23,9 @@ pub enum Statement {
     VarDecl(VarDeclStmt),
     Read(ReadStmt),
     Write(WriteStmt),
-    If(IfStmt),
     While(WhileStmt),
     Assign(AssignStmt),
     Expr(ExprStmt),
-    Block(BlockStmt),
 }
 
 #[derive(Debug)]
@@ -59,18 +66,9 @@ pub struct WriteStmt {
 }
 
 #[derive(Debug)]
-pub struct IfStmt {
-    pub cond: Box<Expression>,
-    pub then: Box<Statement>,
-    pub else_: Option<Box<Statement>>,
-
-    pub span: InputSpan,
-}
-
-#[derive(Debug)]
 pub struct WhileStmt {
     pub cond: Box<Expression>,
-    pub body: Box<Statement>,
+    pub body: Box<BlockExpr>,
 
     pub span: InputSpan,
 }
@@ -91,18 +89,11 @@ pub struct ExprStmt {
 }
 
 #[derive(Debug)]
-pub struct BlockStmt {
-    pub statements: Vec<Statement>,
-
-    pub span: InputSpan,
-}
-
-#[derive(Debug)]
 pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
     BinaryOp(BinaryOperatorExpr),
-    If(IfExpr),
+    If(If),
     Block(BlockExpr),
 }
 
@@ -135,7 +126,7 @@ impl Expression {
                 span: f(&e.span),
                 ..e
             }),
-            Expression::If(e) => Expression::If(IfExpr {
+            Expression::If(e) => Expression::If(If {
                 span: f(&e.span),
                 ..e
             }),
@@ -184,10 +175,10 @@ pub struct BinaryOperatorExpr {
 }
 
 #[derive(Debug)]
-pub struct IfExpr {
+pub struct If {
     pub cond: Box<Expression>,
     pub then: Box<Expression>,
-    pub else_: Box<Expression>,
+    pub else_: Option<Box<Expression>>,
 
     pub span: InputSpan,
 }
@@ -195,7 +186,7 @@ pub struct IfExpr {
 #[derive(Debug)]
 pub struct BlockExpr {
     pub statements: Vec<Statement>,
-    pub final_expr: Box<Expression>,
+    pub final_expr: Option<Box<Expression>>,
 
     pub span: InputSpan,
 }

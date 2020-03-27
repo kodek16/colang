@@ -8,7 +8,7 @@ use crate::ast;
 use crate::errors::CompilationError;
 use crate::grammar;
 use crate::program;
-use crate::program::Variable;
+use crate::program::{Function, Variable};
 use crate::scope::Scope;
 use crate::typing::Type;
 
@@ -49,12 +49,16 @@ impl CompilerContext {
 fn compile(program_ast: ast::Program) -> Result<program::Program, Vec<CompilationError>> {
     let mut context = CompilerContext::new();
 
-    let mut builder = BlockBuilder::new();
-    for statement in program_ast.statements {
-        compile_statement(statement, &mut builder, &mut context);
+    for function_def in program_ast.functions {
+        compile_function_def(function_def, &mut context);
     }
 
-    context.program.add_statement(builder.into_stmt());
+    if let Some(main_function) = context.scope.try_lookup_function("main") {
+        context.program.set_main_function(Rc::clone(main_function));
+    } else {
+        let error = CompilationError::main_function_not_found();
+        context.errors.push(error);
+    }
 
     if context.errors.is_empty() {
         Ok(context.program)
@@ -66,12 +70,6 @@ fn compile(program_ast: ast::Program) -> Result<program::Program, Vec<Compilatio
 /// Represents an object that expects statements to be written into it.
 trait StatementSink {
     fn emit(&mut self, statement: program::Statement);
-}
-
-impl StatementSink for program::Program {
-    fn emit(&mut self, statement: program::Statement) {
-        self.add_statement(statement)
-    }
 }
 
 impl StatementSink for BlockBuilder {
@@ -86,6 +84,26 @@ impl StatementSink for Option<program::Statement> {
     }
 }
 
+/// Compiles the given function, adding it to the program symbol table. If any
+/// errors occur, they are added to `context`.
+fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerContext) {
+    let name = function_def.name;
+    let return_type = match function_def.return_type {
+        Some(return_type) => compile_type_expr(return_type, context),
+        None => Rc::clone(context.program.void()),
+    };
+
+    let function = Function::new(name, return_type, Some(function_def.signature_span));
+    let function = Rc::new(RefCell::new(function));
+    context.program.add_function(Rc::clone(&function));
+    if let Err(error) = context.scope.add_function(&function) {
+        context.errors.push(error);
+    }
+
+    let body = compile_block_expr(function_def.body, context);
+    function.borrow_mut().fill_body(body);
+}
+
 /// Compiles a single statement in the syntax sense. If compilation succeeds,
 /// resulting target program statements are emitted to `sink`. If any errors
 /// occur, they are added to `context`.
@@ -98,9 +116,7 @@ fn compile_statement(
         ast::Statement::VarDecl(s) => compile_var_decl_stmt(s, sink, context),
         ast::Statement::Read(s) => compile_read_stmt(s, sink, context),
         ast::Statement::Write(s) => compile_write_stmt(s, sink, context),
-        ast::Statement::If(s) => compile_if_stmt(s, sink, context),
         ast::Statement::While(s) => compile_while_stmt(s, sink, context),
-        ast::Statement::Block(s) => compile_block_stmt(s, sink, context),
         ast::Statement::Assign(s) => compile_assign_stmt(s, sink, context),
         ast::Statement::Expr(s) => compile_expr_stmt(s, sink, context),
     }
@@ -197,35 +213,6 @@ fn compile_write_stmt(
     sink.emit(statement);
 }
 
-fn compile_if_stmt(
-    statement: ast::IfStmt,
-    sink: &mut impl StatementSink,
-    context: &mut CompilerContext,
-) {
-    let cond_span = statement.cond.span();
-    let cond = compile_expression(*statement.cond, context);
-
-    let mut then: Option<program::Statement> = None;
-    let mut else_: Option<program::Statement> = None;
-
-    compile_statement(*statement.then, &mut then, context);
-    statement
-        .else_
-        .map(|stmt| compile_statement(*stmt, &mut else_, context));
-
-    if cond.is_error() {
-        return;
-    }
-
-    if let Some(then) = then {
-        let result = program::IfStmt::new(cond, then, else_, &context.program, cond_span);
-        match result {
-            Ok(statement) => sink.emit(statement),
-            Err(error) => context.errors.push(error),
-        }
-    }
-}
-
 fn compile_while_stmt(
     statement: ast::WhileStmt,
     sink: &mut impl StatementSink,
@@ -233,36 +220,17 @@ fn compile_while_stmt(
 ) {
     let cond_span = statement.cond.span();
     let cond = compile_expression(*statement.cond, context);
-
-    let mut body: Option<program::Statement> = None;
-    compile_statement(*statement.body, &mut body, context);
+    let body = compile_block_expr(*statement.body, context);
 
     if cond.is_error() {
         return;
     }
 
-    if let Some(body) = body {
-        let result = program::WhileStmt::new(cond, body, &context.program, cond_span);
-        match result {
-            Ok(statement) => sink.emit(statement),
-            Err(error) => context.errors.push(error),
-        }
+    let result = program::WhileStmt::new(cond, body, &context.program, cond_span);
+    match result {
+        Ok(statement) => sink.emit(statement),
+        Err(error) => context.errors.push(error),
     }
-}
-
-fn compile_block_stmt(
-    block: ast::BlockStmt,
-    sink: &mut impl StatementSink,
-    context: &mut CompilerContext,
-) {
-    context.scope.push();
-    let mut builder = BlockBuilder::new();
-    for statement in block.statements {
-        compile_statement(statement, &mut builder, context);
-    }
-    let result = builder.into_stmt();
-    context.scope.pop();
-    sink.emit(result);
 }
 
 fn compile_assign_stmt(
@@ -382,15 +350,16 @@ fn compile_binary_op_expr(
     }
 }
 
-fn compile_if_expr(expression: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
-    let cond_span = expression.cond.span();
-    let cond = compile_expression(*expression.cond, context);
-    let then = compile_expression(*expression.then, context);
-    let else_ = compile_expression(*expression.else_, context);
+fn compile_if_expr(if_: ast::If, context: &mut CompilerContext) -> program::Expression {
+    let cond_span = if_.cond.span();
+    let cond = compile_expression(*if_.cond, context);
+    let then = compile_expression(*if_.then, context);
+    let else_ = if_.else_.map(|else_| compile_expression(*else_, context));
 
     let result = program::IfExpr::new(cond, then, else_, &context.program, cond_span);
+
     match result {
-        Ok(expr) => expr,
+        Ok(expression) => expression,
         Err(error) => {
             context.errors.push(error);
             program::Expression::Error
@@ -398,17 +367,18 @@ fn compile_if_expr(expression: ast::IfExpr, context: &mut CompilerContext) -> pr
     }
 }
 
-fn compile_block_expr(
-    expression: ast::BlockExpr,
-    context: &mut CompilerContext,
-) -> program::Expression {
+fn compile_block_expr(block: ast::BlockExpr, context: &mut CompilerContext) -> program::Expression {
     context.scope.push();
     let mut builder = BlockBuilder::new();
-    for statement in expression.statements {
+    for statement in block.statements {
         compile_statement(statement, &mut builder, context);
     }
-    let final_expr = compile_expression(*expression.final_expr, context);
+
+    let final_expr = block
+        .final_expr
+        .map(|expr| compile_expression(*expr, context));
     let result = builder.into_expr(final_expr);
+
     context.scope.pop();
     result
 }
@@ -440,11 +410,7 @@ impl BlockBuilder {
         self.statements.push(statement)
     }
 
-    fn into_stmt(self) -> program::Statement {
-        program::BlockStmt::new(self.statements)
-    }
-
-    fn into_expr(self, final_expr: program::Expression) -> program::Expression {
+    fn into_expr(self, final_expr: Option<program::Expression>) -> program::Expression {
         program::BlockExpr::new(self.statements, final_expr)
     }
 }

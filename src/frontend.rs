@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ast;
+use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::grammar;
 use crate::program;
@@ -53,8 +54,11 @@ fn compile(program_ast: ast::Program) -> Result<program::Program, Vec<Compilatio
         compile_function_def(function_def, &mut context);
     }
 
-    if let Some(main_function) = context.scope.try_lookup_function("main") {
-        context.program.set_main_function(Rc::clone(main_function));
+    let main_function = context
+        .scope
+        .lookup_function("main", InputSpan::top_of_file());
+    if let Ok(main_function) = main_function {
+        context.program.fill_main_function(Rc::clone(main_function));
     } else {
         let error = CompilationError::main_function_not_found();
         context.errors.push(error);
@@ -96,12 +100,14 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
     let function = Function::new(name, return_type, Some(function_def.signature_span));
     let function = Rc::new(RefCell::new(function));
     context.program.add_function(Rc::clone(&function));
-    if let Err(error) = context.scope.add_function(&function) {
+    if let Err(error) = context.scope.add_function(Rc::clone(&function)) {
         context.errors.push(error);
     }
 
     let body = compile_block_expr(function_def.body, context);
-    function.borrow_mut().fill_body(body);
+    if let Err(error) = function.borrow_mut().fill_body(body, &context.program) {
+        context.errors.push(error)
+    };
 }
 
 /// Compiles a single statement in the syntax sense. If compilation succeeds,
@@ -161,11 +167,22 @@ fn compile_var_decl_entry(
         },
     };
 
-    let variable = Variable::new(name.to_string(), &type_, Some(declaration.span));
-    let variable = Rc::new(RefCell::new(variable));
+    let result = Variable::new(
+        name.to_string(),
+        type_,
+        Some(declaration.span),
+        &context.program,
+    );
+    let variable = match result {
+        Ok(variable) => Rc::new(RefCell::new(variable)),
+        Err(error) => {
+            context.errors.push(error);
+            return;
+        }
+    };
 
     context.program.add_variable(Rc::clone(&variable));
-    if let Err(error) = context.scope.add_variable(&variable) {
+    if let Err(error) = context.scope.add_variable(Rc::clone(&variable)) {
         context.errors.push(error);
         return;
     }
@@ -204,13 +221,17 @@ fn compile_write_stmt(
     sink: &mut impl StatementSink,
     context: &mut CompilerContext,
 ) {
+    let expr_span = statement.expression.span();
     let expression = compile_expression(statement.expression, context);
     if let program::Expression::Error = expression {
         return;
     }
 
-    let statement = program::WriteStmt::new(expression);
-    sink.emit(statement);
+    let result = program::WriteStmt::new(expression, &context.program, expr_span);
+    match result {
+        Ok(statement) => sink.emit(statement),
+        Err(error) => context.errors.push(error),
+    }
 }
 
 fn compile_while_stmt(
@@ -219,8 +240,16 @@ fn compile_while_stmt(
     context: &mut CompilerContext,
 ) {
     let cond_span = statement.cond.span();
+    let body_span = statement.body.span;
     let cond = compile_expression(*statement.cond, context);
     let body = compile_block_expr(*statement.body, context);
+
+    let body_type = body.type_(&context.program);
+    if body_type != *context.program.void() {
+        let error = CompilationError::while_body_not_void(&body_type.borrow().name(), body_span);
+        context.errors.push(error)
+    }
+    let body = program::ExprStmt::new(body);
 
     if cond.is_error() {
         return;
@@ -350,13 +379,14 @@ fn compile_binary_op_expr(
     }
 }
 
-fn compile_if_expr(if_: ast::If, context: &mut CompilerContext) -> program::Expression {
+fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
     let cond_span = if_.cond.span();
+    let then_span = if_.then.span();
     let cond = compile_expression(*if_.cond, context);
     let then = compile_expression(*if_.then, context);
     let else_ = if_.else_.map(|else_| compile_expression(*else_, context));
 
-    let result = program::IfExpr::new(cond, then, else_, &context.program, cond_span);
+    let result = program::IfExpr::new(cond, then, else_, &context.program, cond_span, then_span);
 
     match result {
         Ok(expression) => expression,

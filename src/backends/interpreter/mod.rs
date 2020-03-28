@@ -22,9 +22,9 @@ impl Backend for InterpreterBackend {
         let mut state = State::new();
 
         let main = program.main_function();
-        let code = main.body();
+        let main = main.body();
 
-        let result = run_expression(code, &mut state);
+        let result = run_expression(main, &mut state);
         if let Err(err) = result {
             eprintln!("Error: {}", err);
             process::exit(1);
@@ -124,8 +124,7 @@ fn run_write(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
     let value = run_expression(statement.expression(), state)?;
     match value {
         Value::Int(x) => println!("{}", x),
-        Value::Bool(b) => println!("{}", b),
-        Value::Void => panic!("Can't print void!"),
+        _ => panic_wrong_type("int", value.type_()),
     }
     Ok(())
 }
@@ -133,7 +132,7 @@ fn run_write(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
 fn run_while(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
     let mut cond = run_expression(statement.cond(), state)?.as_bool();
     while cond {
-        run_expression(statement.body(), state)?;
+        run_statement(statement.body(), state)?;
         cond = run_expression(statement.cond(), state)?.as_bool();
     }
     Ok(())
@@ -158,6 +157,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         Expression::BinaryOp(e) => run_binary_op_expr(e, state),
         Expression::If(e) => run_if_expr(e, state),
         Expression::Block(e) => run_block_expr(e, state),
+        Expression::Empty => Ok(Value::Void),
         Expression::Error => panic_error(),
     }
 }
@@ -194,10 +194,8 @@ fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {
     let cond = run_expression(expression.cond(), state)?.as_bool();
     if cond {
         run_expression(expression.then(), state)
-    } else if let Some(else_) = expression.else_() {
-        run_expression(else_, state)
     } else {
-        Ok(Value::Void)
+        run_expression(expression.else_(), state)
     }
 }
 
@@ -205,11 +203,8 @@ fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
     for statement in block.statements() {
         run_statement(statement, state)?;
     }
-    if let Some(final_expr) = block.final_expr() {
-        run_expression(final_expr, state)
-    } else {
-        Ok(Value::Void)
-    }
+
+    run_expression(block.final_expr(), state)
 }
 
 fn default_value_for_type(type_: impl Deref<Target = Type>) -> Value {

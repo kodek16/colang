@@ -109,7 +109,7 @@ ExprWithBlock: Expression = {
 
 OpenExpr: Expression = {
     <start: @L> KwIf "(" <cond:Expr> ")" <then:Expr> <end: @R> => {
-        Expression::If(If {
+        Expression::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: None,
@@ -117,7 +117,7 @@ OpenExpr: Expression = {
         })
     },
     <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:OpenExpr> <end: @R> => {
-        Expression::If(If {
+        Expression::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Some(Box::new(else_)),
@@ -133,7 +133,7 @@ ClosedExpr: Expression = {
 
 ClosedIfExpr: Expression = {
     <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:ClosedExpr> <end: @R> => {
-        Expression::If(If {
+        Expression::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Some(Box::new(else_)),

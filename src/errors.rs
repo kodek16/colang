@@ -74,7 +74,7 @@ impl CompilationError {
         }
     }
 
-    pub fn symbol_kind_mismatch(
+    pub fn named_entity_kind_mismatch(
         name: &str,
         expected: Word,
         actual: Word,
@@ -92,7 +92,7 @@ impl CompilationError {
         }
     }
 
-    pub fn symbol_not_found(name: &str, kind: Word, location: InputSpan) -> CompilationError {
+    pub fn named_entity_not_found(name: &str, kind: Word, location: InputSpan) -> CompilationError {
         CompilationError {
             code: "E9006",
             message: format!(
@@ -105,7 +105,11 @@ impl CompilationError {
     }
 
     // TODO: add previous declaration site note.
-    pub fn symbol_already_exists(name: &str, kind: Word, location: InputSpan) -> CompilationError {
+    pub fn named_entity_already_exists(
+        name: &str,
+        kind: Word,
+        location: InputSpan,
+    ) -> CompilationError {
         CompilationError {
             code: "E9007",
             message: format!(
@@ -172,6 +176,78 @@ impl CompilationError {
             code: "E9013",
             message: "`main` function not found: you must define one".to_string(),
             location: None,
+        }
+    }
+
+    pub fn variable_of_type_void(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9014",
+            message: format!("variables are not allowed to have type `void`"),
+            location: Some(location),
+        }
+    }
+
+    pub fn function_body_type_mismatch(
+        return_type: &str,
+        body_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9015",
+            message: format!(
+                "function is expected to return type `{}`, but its body has type `{}`",
+                return_type, body_type,
+            ),
+            location: Some(location),
+        }
+    }
+
+    pub fn while_body_not_void(actual_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9016",
+            message: format!(
+                "`while` loop body must have type `void`, not `{}`",
+                actual_type
+            ),
+            location: Some(location),
+        }
+    }
+
+    pub fn if_expression_missing_else(then_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9017",
+            message: format!(
+                "`if` expression without `else` branch can only be `void`, not `{}`",
+                then_type
+            ),
+            location: Some(location),
+        }
+    }
+
+    pub fn if_expression_branch_type_mismatch(
+        then_type: &str,
+        else_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9018",
+            message: format!(
+                "`if` expression branches must have the same type, but are different: `{}` and `{}`",
+                then_type,
+                else_type,
+            ),
+            location: Some(location),
+        }
+    }
+
+    pub fn write_value_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9019",
+            message: format!(
+                "can only print variables of type `int`, not `{}`",
+                actual_type
+            ),
+            location: Some(location),
         }
     }
 }

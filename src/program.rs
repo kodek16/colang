@@ -5,6 +5,7 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::typing::Type;
+use private::SymbolImpl;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -17,8 +18,6 @@ pub trait Symbol {
     fn id(&self) -> SymbolId;
 }
 
-use private::SymbolImpl;
-
 #[derive(Debug)]
 pub struct Program {
     variables: Vec<Rc<RefCell<Variable>>>,
@@ -30,9 +29,9 @@ pub struct Program {
 
     // Internal types can be accessed bypassing the scope mechanism.
     // Their canonical instances are referenced here.
+    void_type: Rc<RefCell<Type>>,
     int_type: Rc<RefCell<Type>>,
     bool_type: Rc<RefCell<Type>>,
-    void_type: Rc<RefCell<Type>>,
 }
 
 impl Program {
@@ -43,9 +42,9 @@ impl Program {
         let bool_type = Rc::new(RefCell::new(Type::Bool));
 
         Program {
+            void_type: Rc::clone(&void_type),
             int_type: Rc::clone(&int_type),
             bool_type: Rc::clone(&bool_type),
-            void_type: Rc::clone(&void_type),
 
             variables: vec![],
             functions: vec![],
@@ -69,7 +68,10 @@ impl Program {
         self.functions.push(function);
     }
 
-    pub fn set_main_function(&mut self, main_function: Rc<RefCell<Function>>) {
+    /// Mark a function as the "main" function that the program should start
+    /// executing from.
+    /// Frontend is guaranteed to do this for a valid program.
+    pub fn fill_main_function(&mut self, main_function: Rc<RefCell<Function>>) {
         self.main_function = Some(main_function)
     }
 
@@ -80,6 +82,11 @@ impl Program {
             .borrow()
     }
 
+    /// The canonical `void` type reference.
+    pub fn void(&self) -> &Rc<RefCell<Type>> {
+        &self.void_type
+    }
+
     /// The canonical `int` type reference.
     pub fn int(&self) -> &Rc<RefCell<Type>> {
         &self.int_type
@@ -88,11 +95,6 @@ impl Program {
     /// The canonical `bool` type reference.
     pub fn bool(&self) -> &Rc<RefCell<Type>> {
         &self.bool_type
-    }
-
-    /// The canonical `void` type reference.
-    pub fn void(&self) -> &Rc<RefCell<Type>> {
-        &self.void_type
     }
 }
 
@@ -121,8 +123,25 @@ impl Function {
         }
     }
 
-    pub fn fill_body(&mut self, body: Expression) {
-        self.body = Some(body)
+    #[must_use]
+    pub fn fill_body(
+        &mut self,
+        body: Expression,
+        program: &Program,
+    ) -> Result<(), CompilationError> {
+        let body_type = body.type_(program);
+        if body_type != self.return_type {
+            let error = CompilationError::function_body_type_mismatch(
+                &self.return_type.borrow().name(),
+                &body_type.borrow().name(),
+                self.definition_site
+                    .expect("Internal function body type mismatch"),
+            );
+            return Err(error);
+        }
+
+        self.body = Some(body);
+        Ok(())
     }
 
     pub fn _return_type(&self) -> impl Deref<Target = Type> + '_ {
@@ -131,15 +150,6 @@ impl Function {
 
     pub fn body(&self) -> &Expression {
         &self.body.as_ref().expect("function body was not filled")
-    }
-}
-
-impl SymbolImpl for Function {
-    fn id_option(&self) -> &Option<SymbolId> {
-        &self.id
-    }
-    fn id_option_mut(&mut self) -> &mut Option<SymbolId> {
-        &mut self.id
     }
 }
 
@@ -156,28 +166,27 @@ impl Variable {
     /// Calling `id()` is invalid before the variable is added to a `Program`.
     pub fn new(
         name: String,
-        type_: &Rc<RefCell<Type>>,
+        type_: Rc<RefCell<Type>>,
         definition_site: Option<InputSpan>,
-    ) -> Variable {
-        Variable {
+        program: &Program,
+    ) -> Result<Variable, CompilationError> {
+        if type_ == *program.void() {
+            let error = CompilationError::variable_of_type_void(
+                definition_site.expect("Internal variable of type `void` defined."),
+            );
+            return Err(error);
+        }
+
+        Ok(Variable {
             name,
-            type_: Rc::clone(type_),
+            type_,
             definition_site,
             id: None,
-        }
+        })
     }
 
     pub fn type_(&self) -> impl Deref<Target = Type> + '_ {
         self.type_.borrow()
-    }
-}
-
-impl SymbolImpl for Variable {
-    fn id_option(&self) -> &Option<SymbolId> {
-        &self.id
-    }
-    fn id_option_mut(&mut self) -> &mut Option<SymbolId> {
-        &mut self.id
     }
 }
 
@@ -252,8 +261,21 @@ pub struct WriteStmt {
 }
 
 impl WriteStmt {
-    pub fn new(expression: Expression) -> Statement {
-        Statement::Write(WriteStmt { expression })
+    pub fn new(
+        expression: Expression,
+        program: &Program,
+        expr_location: InputSpan,
+    ) -> Result<Statement, CompilationError> {
+        let expression_type = expression.type_(program);
+        if expression_type != *program.int() {
+            let error = CompilationError::write_value_not_int(
+                &expression_type.borrow().name(),
+                expr_location,
+            );
+            return Err(error);
+        }
+
+        Ok(Statement::Write(WriteStmt { expression }))
     }
 
     pub fn expression(&self) -> &Expression {
@@ -264,18 +286,17 @@ impl WriteStmt {
 #[derive(Debug)]
 pub struct WhileStmt {
     cond: Box<Expression>,
-    body: Box<Expression>,
+    body: Box<Statement>,
 }
 
 impl WhileStmt {
     pub fn new(
         cond: Expression,
-        body: Expression,
+        body: Statement,
         program: &Program,
         cond_location: InputSpan,
     ) -> Result<Statement, CompilationError> {
         check_condition_is_bool(&cond, program, cond_location)?;
-        // TODO emit a warning if body is not of type void.
 
         Ok(Statement::While(WhileStmt {
             cond: Box::new(cond),
@@ -287,7 +308,7 @@ impl WhileStmt {
         &self.cond
     }
 
-    pub fn body(&self) -> &Expression {
+    pub fn body(&self) -> &Statement {
         &self.body
     }
 }
@@ -357,35 +378,27 @@ pub enum Expression {
     BinaryOp(BinaryOpExpr),
     If(IfExpr),
     Block(BlockExpr),
+
+    /// A no-op expression of type `void`.
+    Empty,
+
     Error,
+}
+
+trait ExpressionKind {
+    fn type_(&self, program: &Program) -> Rc<RefCell<Type>>;
 }
 
 impl Expression {
     pub fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
-        use Expression::*;
         match self {
-            Variable(e) => Rc::clone(&e.variable.borrow().type_),
-            IntLiteral(_) => Rc::clone(program.int()),
-            BinaryOp(e) => {
-                let type_ = match e.operator {
-                    BinaryOperator::AddInt => program.int(),
-                    BinaryOperator::SubInt => program.int(),
-                    BinaryOperator::MulInt => program.int(),
-                    BinaryOperator::LessInt => program.bool(),
-                    BinaryOperator::GreaterInt => program.bool(),
-                    BinaryOperator::LessEqInt => program.bool(),
-                    BinaryOperator::GreaterEqInt => program.bool(),
-                    BinaryOperator::EqInt => program.bool(),
-                    BinaryOperator::NotEqInt => program.bool(),
-                };
-                Rc::clone(type_)
-            }
-            If(e) => e.then.type_(program),
-            Block(e) => match e.final_expr() {
-                Some(final_expr) => final_expr.type_(program),
-                None => Rc::clone(program.void()),
-            },
-            Error => Type::error(),
+            Expression::Variable(e) => e.type_(program),
+            Expression::IntLiteral(e) => e.type_(program),
+            Expression::BinaryOp(e) => e.type_(program),
+            Expression::If(e) => e.type_(program),
+            Expression::Block(e) => e.type_(program),
+            Expression::Empty => Rc::clone(program.void()),
+            Expression::Error => Type::error(),
         }
     }
 
@@ -420,6 +433,12 @@ impl VariableExpr {
     }
 }
 
+impl ExpressionKind for VariableExpr {
+    fn type_(&self, _: &Program) -> Rc<RefCell<Type>> {
+        Rc::clone(&self.variable.borrow().type_)
+    }
+}
+
 #[derive(Debug)]
 pub struct IntLiteralExpr {
     pub value: i32,
@@ -428,6 +447,12 @@ pub struct IntLiteralExpr {
 impl IntLiteralExpr {
     pub fn new(value: i32) -> Expression {
         Expression::IntLiteral(IntLiteralExpr { value })
+    }
+}
+
+impl ExpressionKind for IntLiteralExpr {
+    fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
+        Rc::clone(&program.int())
     }
 }
 
@@ -479,11 +504,28 @@ impl BinaryOpExpr {
     }
 }
 
+impl ExpressionKind for BinaryOpExpr {
+    fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
+        let type_ = match self.operator {
+            BinaryOperator::AddInt => program.int(),
+            BinaryOperator::SubInt => program.int(),
+            BinaryOperator::MulInt => program.int(),
+            BinaryOperator::LessInt => program.bool(),
+            BinaryOperator::GreaterInt => program.bool(),
+            BinaryOperator::LessEqInt => program.bool(),
+            BinaryOperator::GreaterEqInt => program.bool(),
+            BinaryOperator::EqInt => program.bool(),
+            BinaryOperator::NotEqInt => program.bool(),
+        };
+        Rc::clone(type_)
+    }
+}
+
 #[derive(Debug)]
 pub struct IfExpr {
     cond: Box<Expression>,
     then: Box<Expression>,
-    else_: Option<Box<Expression>>,
+    else_: Box<Expression>,
 }
 
 impl IfExpr {
@@ -493,15 +535,37 @@ impl IfExpr {
         else_: Option<Expression>,
         program: &Program,
         cond_location: InputSpan,
+        then_location: InputSpan,
     ) -> Result<Expression, CompilationError> {
-        check_condition_is_bool(&cond, program, cond_location).map(|_| {
-            // TODO check that if both branches are not void, their type is the same.
-            Expression::If(IfExpr {
-                cond: Box::new(cond),
-                then: Box::new(then),
-                else_: else_.map(Box::new),
-            })
-        })
+        check_condition_is_bool(&cond, program, cond_location)?;
+
+        let then_type = then.type_(program);
+
+        if else_.is_none() && then_type != *program.void() {
+            let error = CompilationError::if_expression_missing_else(
+                &then_type.borrow().name(),
+                then_location,
+            );
+            return Err(error);
+        }
+
+        let else_ = else_.unwrap_or(Expression::Empty);
+        let else_type = else_.type_(program);
+
+        if then_type != else_type {
+            let error = CompilationError::if_expression_branch_type_mismatch(
+                &then_type.borrow().name(),
+                &else_type.borrow().name(),
+                cond_location,
+            );
+            return Err(error);
+        }
+
+        Ok(Expression::If(IfExpr {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            else_: Box::new(else_),
+        }))
     }
 
     pub fn cond(&self) -> &Expression {
@@ -512,22 +576,33 @@ impl IfExpr {
         &self.then
     }
 
-    pub fn else_(&self) -> Option<&Expression> {
-        self.else_.as_deref()
+    pub fn else_(&self) -> &Expression {
+        &self.else_
+    }
+}
+
+impl ExpressionKind for IfExpr {
+    fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
+        self.then.type_(program)
     }
 }
 
 #[derive(Debug)]
 pub struct BlockExpr {
     statements: Vec<Statement>,
-    final_expr: Option<Box<Expression>>,
+    final_expr: Box<Expression>,
 }
 
 impl BlockExpr {
     pub fn new(statements: Vec<Statement>, final_expr: Option<Expression>) -> Expression {
+        let final_expr = match final_expr {
+            Some(final_expr) => Box::new(final_expr),
+            None => Box::new(Expression::Empty),
+        };
+
         Expression::Block(BlockExpr {
             statements,
-            final_expr: final_expr.map(Box::new),
+            final_expr,
         })
     }
 
@@ -535,8 +610,14 @@ impl BlockExpr {
         self.statements.iter()
     }
 
-    pub fn final_expr(&self) -> Option<&Expression> {
-        self.final_expr.as_deref()
+    pub fn final_expr(&self) -> &Expression {
+        &self.final_expr
+    }
+}
+
+impl ExpressionKind for BlockExpr {
+    fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
+        self.final_expr.type_(program)
     }
 }
 
@@ -570,20 +651,40 @@ fn check_operand_is_int(
 }
 
 mod private {
-    /// Private trait that provides the default behavior for initializing symbol IDs.
-    pub trait SymbolImpl: super::Symbol {
-        fn id_option(&self) -> &Option<super::SymbolId>;
-        fn id_option_mut(&mut self) -> &mut Option<super::SymbolId>;
+    use super::{Function, Symbol, SymbolId, Variable};
 
-        fn set_id(&mut self, new_id: super::SymbolId) {
+    /// Private trait that provides the default behavior for initializing symbol IDs.
+    pub trait SymbolImpl: Symbol {
+        fn id_option(&self) -> &Option<SymbolId>;
+        fn id_option_mut(&mut self) -> &mut Option<SymbolId>;
+
+        fn set_id(&mut self, new_id: SymbolId) {
             *self.id_option_mut() = Some(new_id);
         }
     }
 
-    impl<T: SymbolImpl> super::Symbol for T {
-        fn id(&self) -> super::SymbolId {
+    impl<T: SymbolImpl> Symbol for T {
+        fn id(&self) -> SymbolId {
             self.id_option()
                 .expect("Attempted to access ID of unbound symbol.")
+        }
+    }
+
+    impl SymbolImpl for Variable {
+        fn id_option(&self) -> &Option<SymbolId> {
+            &self.id
+        }
+        fn id_option_mut(&mut self) -> &mut Option<SymbolId> {
+            &mut self.id
+        }
+    }
+
+    impl SymbolImpl for Function {
+        fn id_option(&self) -> &Option<SymbolId> {
+            &self.id
+        }
+        fn id_option_mut(&mut self) -> &mut Option<SymbolId> {
+            &mut self.id
         }
     }
 }

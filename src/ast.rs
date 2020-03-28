@@ -93,7 +93,7 @@ pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
     BinaryOp(BinaryOperatorExpr),
-    If(If),
+    If(IfExpr),
     Block(BlockExpr),
 }
 
@@ -126,7 +126,7 @@ impl Expression {
                 span: f(&e.span),
                 ..e
             }),
-            Expression::If(e) => Expression::If(If {
+            Expression::If(e) => Expression::If(IfExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -175,7 +175,7 @@ pub struct BinaryOperatorExpr {
 }
 
 #[derive(Debug)]
-pub struct If {
+pub struct IfExpr {
     pub cond: Box<Expression>,
     pub then: Box<Expression>,
     pub else_: Option<Box<Expression>>,
@@ -202,4 +202,13 @@ pub struct TypeExpr {
 pub struct InputSpan {
     pub start: usize,
     pub end: usize,
+}
+
+impl InputSpan {
+    /// Returns a span for the first character of the file.
+    /// Can be useful as a placeholder, when the caller is sure that the span is not going
+    /// to be displayed to the end user.
+    pub fn top_of_file() -> InputSpan {
+        InputSpan { start: 0, end: 1 }
+    }
 }

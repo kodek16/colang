@@ -5,9 +5,9 @@ mod cin;
 use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
-    AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, ExprStmt, Expression, IfExpr,
-    IntLiteralExpr, Program, ReadStmt, Statement, Symbol, SymbolId, VarDeclStmt, VariableExpr,
-    WhileStmt, WriteStmt,
+    AllocStmt, AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, ExprStmt, Expression, IfExpr,
+    IntLiteralExpr, Program, ReadStmt, Statement, Symbol, SymbolId, VariableExpr, WhileStmt,
+    WriteStmt,
 };
 use crate::typing::Type;
 use std::collections::HashMap;
@@ -85,7 +85,8 @@ type RunResult<T> = Result<T, Box<dyn Error>>;
 
 fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
     match statement {
-        Statement::VarDecl(ref s) => run_var_decl(s, state),
+        Statement::Alloc(ref s) => run_alloc(s, state),
+        Statement::Dealloc(ref _s) => unimplemented!(),
         Statement::Read(ref s) => run_read(s, state),
         Statement::Write(ref s) => run_write(s, state),
         Statement::While(ref s) => run_while(s, state),
@@ -94,7 +95,7 @@ fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
     }
 }
 
-fn run_var_decl(statement: &VarDeclStmt, state: &mut State) -> RunResult<()> {
+fn run_alloc(statement: &AllocStmt, state: &mut State) -> RunResult<()> {
     let variable_id = statement.variable().id();
 
     let initial_value = match statement.initializer() {

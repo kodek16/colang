@@ -192,7 +192,8 @@ impl Variable {
 
 #[derive(Debug)]
 pub enum Statement {
-    VarDecl(VarDeclStmt),
+    Alloc(AllocStmt),
+    Dealloc(DeallocStmt),
     Read(ReadStmt),
     Write(WriteStmt),
     While(WhileStmt),
@@ -201,26 +202,40 @@ pub enum Statement {
 }
 
 #[derive(Debug)]
-pub struct VarDeclStmt {
+pub struct AllocStmt {
     variable: Rc<RefCell<Variable>>,
     initializer: Option<Expression>,
 }
 
-impl VarDeclStmt {
+impl AllocStmt {
     pub fn new(variable: &Rc<RefCell<Variable>>, initializer: Option<Expression>) -> Statement {
-        Statement::VarDecl(VarDeclStmt {
+        Statement::Alloc(AllocStmt {
             variable: Rc::clone(variable),
             initializer,
         })
     }
 
-    /// Borrow the variable immutably.
     pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
-        (*self.variable).borrow()
+        self.variable.borrow()
     }
 
     pub fn initializer(&self) -> Option<&Expression> {
         self.initializer.as_ref()
+    }
+}
+
+#[derive(Debug)]
+pub struct DeallocStmt {
+    variable: Rc<RefCell<Variable>>,
+}
+
+impl DeallocStmt {
+    pub fn new(variable: Rc<RefCell<Variable>>) -> Statement {
+        Statement::Dealloc(DeallocStmt { variable })
+    }
+
+    pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
+        self.variable.borrow()
     }
 }
 
@@ -617,7 +632,7 @@ pub struct BlockExpr {
 }
 
 impl BlockExpr {
-    pub fn new(statements: Vec<Statement>, final_expr: Option<Expression>) -> Expression {
+    fn new(statements: Vec<Statement>, final_expr: Option<Expression>) -> Expression {
         let final_expr = match final_expr {
             Some(final_expr) => Box::new(final_expr),
             None => Box::new(Expression::Empty),
@@ -641,6 +656,40 @@ impl BlockExpr {
 impl ExpressionKind for BlockExpr {
     fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
         self.final_expr.type_(program)
+    }
+}
+
+/// Incremental interface for building block statements and expressions.
+pub struct BlockBuilder {
+    statements: Vec<Statement>,
+}
+
+impl BlockBuilder {
+    pub fn new() -> BlockBuilder {
+        BlockBuilder { statements: vec![] }
+    }
+
+    pub fn append_statement(&mut self, statement: Statement) {
+        self.statements.push(statement)
+    }
+
+    pub fn into_expr(self, final_expr: Option<Expression>) -> Expression {
+        let mut statements = self.statements;
+
+        // We need to emit a `Dealloc` for every `Alloc` in this block, in reverse order.
+        let mut deallocations: Vec<Statement> = statements
+            .iter()
+            .flat_map(|statement| match statement {
+                Statement::Alloc(AllocStmt { variable, .. }) => {
+                    Some(DeallocStmt::new(Rc::clone(variable)))
+                }
+                _ => None,
+            })
+            .collect();
+        deallocations.reverse();
+        statements.append(&mut deallocations);
+
+        BlockExpr::new(statements, final_expr)
     }
 }
 

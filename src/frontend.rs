@@ -9,7 +9,7 @@ use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::grammar;
 use crate::program;
-use crate::program::{Function, Variable};
+use crate::program::{BlockBuilder, Function, Variable};
 use crate::scope::Scope;
 use crate::typing::Type;
 
@@ -187,7 +187,7 @@ fn compile_var_decl_entry(
         return;
     }
 
-    let statement = program::VarDeclStmt::new(&variable, initializer);
+    let statement = program::AllocStmt::new(&variable, initializer);
     sink.emit(statement);
 }
 
@@ -443,24 +443,5 @@ fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) ->
             context.errors.push(error);
             Type::error()
         }
-    }
-}
-
-/// Incremental interface for building block statements and expressions.
-struct BlockBuilder {
-    statements: Vec<program::Statement>,
-}
-
-impl BlockBuilder {
-    fn new() -> BlockBuilder {
-        BlockBuilder { statements: vec![] }
-    }
-
-    fn append_statement(&mut self, statement: program::Statement) {
-        self.statements.push(statement)
-    }
-
-    fn into_expr(self, final_expr: Option<program::Expression>) -> program::Expression {
-        program::BlockExpr::new(self.statements, final_expr)
     }
 }

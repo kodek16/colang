@@ -5,9 +5,9 @@ mod cin;
 use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
-    AllocStmt, AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, ExprStmt, Expression, IfExpr,
-    IntLiteralExpr, Program, ReadStmt, Statement, Symbol, SymbolId, VariableExpr, WhileStmt,
-    WriteStmt,
+    AllocStmt, AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, CallExpr, DeallocStmt,
+    ExprStmt, Expression, Function, IfExpr, IntLiteralExpr, Program, ReadStmt, Statement, Symbol,
+    SymbolId, VariableExpr, WhileStmt, WriteStmt,
 };
 use crate::typing::Type;
 use std::collections::HashMap;
@@ -22,9 +22,7 @@ impl Backend for InterpreterBackend {
         let mut state = State::new();
 
         let main = program.main_function();
-        let main = main.body();
-
-        let result = run_expression(main, &mut state);
+        let result = run_function(main, &mut state);
         if let Err(err) = result {
             eprintln!("Error: {}", err);
             process::exit(1);
@@ -68,7 +66,7 @@ impl Value {
 }
 
 struct State {
-    variables: HashMap<SymbolId, Value>,
+    variables: HashMap<SymbolId, Vec<Value>>,
     cin: Cin,
 }
 
@@ -79,14 +77,50 @@ impl State {
             cin: Cin::new(),
         }
     }
+
+    fn push(&mut self, variable_id: SymbolId, value: Value) {
+        self.variables.entry(variable_id).or_default().push(value)
+    }
+
+    fn pop(&mut self, variable_id: SymbolId) {
+        self.variables
+            .get_mut(&variable_id)
+            .expect("variable deallocated before allocation")
+            .pop()
+            .expect("variable deallocated twice");
+    }
+
+    fn get(&self, variable_id: SymbolId) -> &Value {
+        self.variables
+            .get(&variable_id)
+            .expect("variable accessed before allocation")
+            .last()
+            .expect("variable accessed after deallocation")
+    }
+
+    fn update(&mut self, variable_id: SymbolId, new_value: Value) {
+        let variable = self
+            .variables
+            .get_mut(&variable_id)
+            .expect("variable accessed before allocation")
+            .last_mut()
+            .expect("variable accessed after deallocation");
+
+        *variable = new_value;
+    }
 }
 
 type RunResult<T> = Result<T, Box<dyn Error>>;
 
+fn run_function(function: impl Deref<Target = Function>, state: &mut State) -> RunResult<Value> {
+    let body = function.body();
+    run_expression(body, state)
+}
+
 fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
     match statement {
         Statement::Alloc(ref s) => run_alloc(s, state),
-        Statement::Dealloc(ref _s) => unimplemented!(),
+        Statement::Dealloc(ref s) => run_dealloc(s, state),
         Statement::Read(ref s) => run_read(s, state),
         Statement::Write(ref s) => run_write(s, state),
         Statement::While(ref s) => run_while(s, state),
@@ -107,7 +141,13 @@ fn run_alloc(statement: &AllocStmt, state: &mut State) -> RunResult<()> {
         }
     };
 
-    state.variables.insert(variable_id, initial_value);
+    state.push(variable_id, initial_value);
+    Ok(())
+}
+
+fn run_dealloc(statement: &DeallocStmt, state: &mut State) -> RunResult<()> {
+    let variable_id = statement.variable().id();
+    state.pop(variable_id);
     Ok(())
 }
 
@@ -117,7 +157,7 @@ fn run_read(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
     let new_value: i32 = word
         .parse()
         .map_err(|_| format!("Could not parse `{}` to an integer.", word))?;
-    state.variables.insert(variable_id, Value::Int(new_value));
+    state.update(variable_id, Value::Int(new_value));
     Ok(())
 }
 
@@ -142,7 +182,7 @@ fn run_while(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
 fn run_assign(statement: &AssignStmt, state: &mut State) -> RunResult<()> {
     let target_id = statement.target().id();
     let new_value = run_expression(statement.value(), state)?;
-    state.variables.insert(target_id, new_value);
+    state.update(target_id, new_value);
     Ok(())
 }
 
@@ -156,7 +196,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         Expression::Variable(e) => run_variable_expr(e, state),
         Expression::IntLiteral(e) => run_int_literal_expr(e, state),
         Expression::BinaryOp(e) => run_binary_op_expr(e, state),
-        Expression::Call(_e) => unimplemented!(),
+        Expression::Call(e) => run_call_expr(e, state),
         Expression::If(e) => run_if_expr(e, state),
         Expression::Block(e) => run_block_expr(e, state),
         Expression::Empty => Ok(Value::Void),
@@ -166,7 +206,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
 
 fn run_variable_expr(expression: &VariableExpr, state: &State) -> RunResult<Value> {
     let variable_id = expression.variable().id();
-    let result = state.variables.get(&variable_id).unwrap().clone();
+    let result = state.get(variable_id).clone();
     Ok(result)
 }
 
@@ -190,6 +230,10 @@ fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> RunResult
         BinaryOperator::NotEqInt => Value::Bool(lhs != rhs),
     };
     Ok(result)
+}
+
+fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
+    run_function(expression.function(), state)
 }
 
 fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {

@@ -105,7 +105,8 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
     }
 
     let body = compile_block_expr(function_def.body, context);
-    if let Err(error) = function.borrow_mut().fill_body(body, &context.program) {
+    let body_type = body.type_(&context.program);
+    if let Err(error) = function.borrow_mut().fill_body(body, body_type) {
         context.errors.push(error)
     };
 }

@@ -1,0 +1,13 @@
+fun fact(x: int): int {
+  if (x <= 1) {
+    x
+  } else {
+    x * fact(x - 1)
+  }
+}
+
+fun main() {
+  var x: int;
+  read x;
+  write fact(x);
+}

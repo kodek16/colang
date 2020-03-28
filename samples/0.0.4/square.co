@@ -1,0 +1,10 @@
+fun square(x: int): int {
+  x * x
+}
+
+fun main() {
+  var x: int;
+  read x;
+  write square(x);
+  write square(square(x));
+}

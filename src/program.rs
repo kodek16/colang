@@ -152,7 +152,7 @@ impl Function {
         Ok(())
     }
 
-    pub fn _parameters(&self) -> impl Iterator<Item = impl Deref<Target = Variable> + '_> {
+    pub fn parameters(&self) -> impl Iterator<Item = impl Deref<Target = Variable> + '_> {
         self.parameters.iter().map(|parameter| parameter.borrow())
     }
 
@@ -604,6 +604,10 @@ impl CallExpr {
 
     pub fn function(&self) -> impl Deref<Target = Function> + '_ {
         self.function.borrow()
+    }
+
+    pub fn arguments(&self) -> impl Iterator<Item = &Expression> {
+        self.arguments.iter()
     }
 }
 

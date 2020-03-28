@@ -233,7 +233,28 @@ fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> RunResult
 }
 
 fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
-    run_function(expression.function(), state)
+    let function = expression.function();
+    let parameters = function.parameters();
+
+    let arguments: RunResult<Vec<Value>> = expression
+        .arguments()
+        .map(|argument| run_expression(argument, state))
+        .collect();
+    let arguments = arguments?;
+
+    for (parameter, value) in parameters.zip(arguments.into_iter()) {
+        let variable_id = parameter.id();
+        state.push(variable_id, value)
+    }
+
+    let function_result = run_function(expression.function(), state);
+
+    for parameter in function.parameters() {
+        let variable_id = parameter.id();
+        state.pop(variable_id)
+    }
+
+    function_result
 }
 
 fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {

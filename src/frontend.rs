@@ -104,11 +104,33 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
         context.errors.push(error);
     }
 
+    // Parameters have their own scope.
+    context.scope.push();
+    let parameters: Vec<Rc<RefCell<Variable>>> = function_def
+        .parameters
+        .into_iter()
+        .flat_map(|parameter| compile_parameter(parameter, context))
+        .collect();
+    function.borrow_mut().fill_parameters(parameters);
+
     let body = compile_block_expr(function_def.body, context);
+
+    context.scope.pop();
+
     let body_type = body.type_(&context.program);
     if let Err(error) = function.borrow_mut().fill_body(body, body_type) {
         context.errors.push(error)
     };
+}
+
+fn compile_parameter(
+    parameter: ast::Parameter,
+    context: &mut CompilerContext,
+) -> Option<Rc<RefCell<Variable>>> {
+    let name = parameter.name.text;
+    let type_ = compile_type_expr(parameter.type_, context);
+
+    create_variable(name, type_, Some(parameter.span), context)
 }
 
 /// Compiles a single statement in the syntax sense. If compilation succeeds,
@@ -144,7 +166,7 @@ fn compile_var_decl_entry(
     sink: &mut impl StatementSink,
     context: &mut CompilerContext,
 ) {
-    let name = &declaration.variable_name;
+    let name = declaration.variable_name;
 
     // Compile the variable type and the initializer expression
     // even if the variable produces an error.
@@ -167,29 +189,35 @@ fn compile_var_decl_entry(
             }
         },
     };
+    let variable = create_variable(name.text, type_, Some(declaration.span), context);
+    if let Some(variable) = variable {
+        let statement = program::AllocStmt::new(&variable, initializer);
+        sink.emit(statement);
+    }
+}
 
-    let result = Variable::new(
-        name.text.to_string(),
-        type_,
-        Some(declaration.span),
-        &context.program,
-    );
+/// Creates a variable, registers it with the program's symbol table, and adds it to the current
+/// scope.
+fn create_variable(
+    name: String,
+    type_: Rc<RefCell<Type>>,
+    definition_site: Option<InputSpan>,
+    context: &mut CompilerContext,
+) -> Option<Rc<RefCell<Variable>>> {
+    let result = Variable::new(name, type_, definition_site, &context.program);
     let variable = match result {
         Ok(variable) => Rc::new(RefCell::new(variable)),
         Err(error) => {
             context.errors.push(error);
-            return;
+            return None;
         }
     };
 
     context.program.add_variable(Rc::clone(&variable));
     if let Err(error) = context.scope.add_variable(Rc::clone(&variable)) {
         context.errors.push(error);
-        return;
-    }
-
-    let statement = program::AllocStmt::new(&variable, initializer);
-    sink.emit(statement);
+    };
+    Some(variable)
 }
 
 fn compile_read_stmt(
@@ -390,9 +418,26 @@ fn compile_call_expr(
 
     let function = context
         .scope
-        .lookup_function(&function_name, function_name_span);
-    match function {
-        Ok(function) => program::CallExpr::new(Rc::clone(function)),
+        .lookup_function(&function_name, function_name_span)
+        .map(Rc::clone);
+
+    let arguments = expression
+        .arguments
+        .into_iter()
+        .map(|argument| compile_expression(argument, context))
+        .collect();
+
+    let function = match function {
+        Ok(function) => function,
+        Err(error) => {
+            context.errors.push(error);
+            return program::Expression::Error;
+        }
+    };
+
+    let result = program::CallExpr::new(function, arguments, expression.span, &context.program);
+    match result {
+        Ok(expression) => expression,
         Err(error) => {
             context.errors.push(error);
             program::Expression::Error
@@ -430,7 +475,6 @@ fn compile_block_expr(block: ast::BlockExpr, context: &mut CompilerContext) -> p
         .map(|expr| compile_expression(*expr, context));
     let result = builder.into_expr(final_expr);
 
-    context.scope.pop();
     result
 }
 

@@ -12,10 +12,19 @@ pub struct Program {
 #[derive(Debug)]
 pub struct FunctionDef {
     pub name: Identifier,
+    pub parameters: Vec<Parameter>,
     pub return_type: Option<TypeExpr>,
     pub body: BlockExpr,
 
     pub signature_span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct Parameter {
+    pub name: Identifier,
+    pub type_: TypeExpr,
+
+    pub span: InputSpan,
 }
 
 #[derive(Debug)]
@@ -183,6 +192,7 @@ pub struct BinaryOperatorExpr {
 #[derive(Debug)]
 pub struct CallExpr {
     pub function_name: Identifier,
+    pub arguments: Vec<Expression>,
 
     pub span: InputSpan,
 }

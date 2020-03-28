@@ -250,6 +250,38 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn call_wrong_number_of_arguments(
+        function_name: &str,
+        expected: usize,
+        actual: usize,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9020",
+            message: format!(
+                "function `{}` expects `{}` argument(s), not `{}` as given",
+                function_name, expected, actual
+            ),
+            location: Some(location),
+        }
+    }
+
+    pub fn call_argument_type_mismatch(
+        parameter_name: &str,
+        expected_type: &str,
+        actual_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9021",
+            message: format!(
+                "cannot pass a value of type `{}` as an argument for parameter `{}` of type `{}`",
+                actual_type, parameter_name, expected_type
+            ),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

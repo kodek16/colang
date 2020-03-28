@@ -246,7 +246,7 @@ impl NamedEntityKind for Function {
 
 impl NamedEntityKind for Type {
     fn name(&self) -> String {
-        self.name()
+        self.name().to_string()
     }
 
     fn definition_site(&self) -> Option<InputSpan> {

@@ -23,14 +23,14 @@ impl Type {
         Rc::new(RefCell::new(Type::Error))
     }
 
-    pub fn name(&self) -> String {
+    pub fn name(&self) -> &str {
         use Type::*;
         match self {
-            Void => "void".to_string(),
-            Int => "int".to_string(),
-            Bool => "bool".to_string(),
+            Void => "void",
+            Int => "int",
+            Bool => "bool",
 
-            Error => "<error>".to_string(),
+            Error => "<error>",
         }
     }
 

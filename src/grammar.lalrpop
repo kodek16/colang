@@ -7,14 +7,25 @@ pub Program: Program = {
 };
 
 FunctionDef: FunctionDef = {
-    <start: @L> KwFun <name:Ident> "(" ")" <return_type:(":" <TypeExpr>)?> <end: @R> <body:Block> => {
+    <start:@L> KwFun <name:Ident> "(" <parameters:CommaSeparated<ParameterDef>> ")" <return_type:(":" <TypeExpr>)?> <end:@R> <body:Block> => {
         FunctionDef {
             name,
+            parameters,
             return_type,
             body,
             signature_span: InputSpan { start, end }
         }
-    }
+    },
+};
+
+ParameterDef: Parameter = {
+    <start: @L> <name:Ident> ":" <type_:TypeExpr> <end: @R> => {
+        Parameter {
+            name,
+            type_,
+            span: InputSpan { start, end },
+        }
+    },
 };
 
 Stmt: Statement = {
@@ -253,9 +264,10 @@ IntLiteralExpr: Expression = {
 };
 
 CallExpr: Expression = {
-    <start: @L> <function_name:Ident> "(" ")" <end: @R> => {
+    <start: @L> <function_name:Ident> "(" <arguments:CommaSeparated<Expr>> ")" <end: @R> => {
         Expression::Call(CallExpr {
             function_name,
+            arguments,
             span: InputSpan { start, end },
         })
     },
@@ -327,6 +339,17 @@ CommaSeparatedNotEmpty<T>: Vec<T> = {
         v
     }
 };
+
+CommaSeparated<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
+}
 
 LeftAssocBinaryOpExprTier<Ops, PrevTier>: Expression = {
     <start: @L> <lhs:LeftAssocBinaryOpExprTier<Ops, PrevTier>> <operator:Ops> <rhs:PrevTier> <end: @R> => {

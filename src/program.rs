@@ -102,6 +102,7 @@ impl Program {
 pub struct Function {
     pub name: String,
     pub definition_site: Option<InputSpan>,
+    parameters: Vec<Rc<RefCell<Variable>>>,
     return_type: Rc<RefCell<Type>>,
     body: Option<Expression>,
     id: Option<SymbolId>,
@@ -117,10 +118,15 @@ impl Function {
         Function {
             name,
             definition_site,
+            parameters: vec![],
             return_type,
             body: None,
             id: None,
         }
+    }
+
+    pub fn fill_parameters(&mut self, parameters: Vec<Rc<RefCell<Variable>>>) {
+        self.parameters = parameters
     }
 
     // We need to accept `body_type` as a separate parameter, because computing
@@ -144,6 +150,10 @@ impl Function {
 
         self.body = Some(body);
         Ok(())
+    }
+
+    pub fn _parameters(&self) -> impl Iterator<Item = impl Deref<Target = Variable> + '_> {
+        self.parameters.iter().map(|parameter| parameter.borrow())
     }
 
     pub fn _return_type(&self) -> impl Deref<Target = Type> + '_ {
@@ -543,11 +553,53 @@ impl ExpressionKind for BinaryOpExpr {
 #[derive(Debug)]
 pub struct CallExpr {
     function: Rc<RefCell<Function>>,
+    arguments: Vec<Expression>,
 }
 
 impl CallExpr {
-    pub fn new(function: Rc<RefCell<Function>>) -> Expression {
-        Expression::Call(CallExpr { function })
+    pub fn new(
+        function: Rc<RefCell<Function>>,
+        arguments: Vec<Expression>,
+        location: InputSpan,
+        program: &Program,
+    ) -> Result<Expression, CompilationError> {
+        {
+            let function = function.borrow();
+            let function_name = &function.name;
+            let num_parameters = function.parameters.len();
+            let num_arguments = arguments.len();
+            if num_parameters != num_arguments {
+                let error = CompilationError::call_wrong_number_of_arguments(
+                    function_name,
+                    num_parameters,
+                    num_arguments,
+                    location,
+                );
+                return Err(error);
+            }
+
+            for (argument, parameter) in arguments.iter().zip(function.parameters.iter()) {
+                let parameter = parameter.borrow();
+                let parameter_name = &parameter.name;
+                let argument_type = argument.type_(program);
+                let parameter_type = &parameter.type_;
+
+                if argument_type != *parameter_type {
+                    let error = CompilationError::call_argument_type_mismatch(
+                        parameter_name,
+                        parameter_type.borrow().name(),
+                        argument_type.borrow().name(),
+                        location,
+                    );
+                    return Err(error);
+                }
+            }
+        }
+
+        Ok(Expression::Call(CallExpr {
+            function,
+            arguments,
+        }))
     }
 
     pub fn function(&self) -> impl Deref<Target = Function> + '_ {

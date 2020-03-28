@@ -20,7 +20,7 @@ FunctionDef: FunctionDef = {
 Stmt: Statement = {
     StmtNotExpr,
 
-    <start: @L> <expression:ExprWithoutBlock> ";" <end: @R> => {
+    <start: @L> <expression:Expr> ";" <end: @R> => {
         Statement::Expr(ExprStmt {
             expression,
             span: InputSpan { start, end },
@@ -96,18 +96,27 @@ ReadEntry: ReadEntry = {
 
 // Expressions are defined from lowest to highest precedence (Expr0 is highest).
 // The top-level non-terminal structure handles the dangling-else problem.
-// (https://en.wikipedia.org/wiki/Dangling_else)
+// (https://en.wikipedia.org/wiki/Dangling_else).
+//
+// Duplicated XExpr/XExprWithBlock non-terminals are there to make en exception
+// and allow expressions that end in a block to be converted to statements without
+// a terminating semicolon.
 Expr: Expression = {
-    OpenExpr,
+    OpenIfExpr,
     ClosedExpr,
 };
 
 ExprWithBlock: Expression = {
-    OpenExpr,
-    ClosedIfExpr,
+    BlockExpr,
+    IfExprWithBlock,
 };
 
-OpenExpr: Expression = {
+IfExprWithBlock: Expression = {
+    OpenIfExprWithBlock,
+    ClosedIfExprWithBlock,
+};
+
+OpenIfExpr: Expression = {
     <start: @L> KwIf "(" <cond:Expr> ")" <then:Expr> <end: @R> => {
         Expression::If(IfExpr {
             cond: Box::new(cond),
@@ -116,7 +125,26 @@ OpenExpr: Expression = {
             span: InputSpan { start, end },
         })
     },
-    <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:OpenExpr> <end: @R> => {
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:OpenIfExpr> <end: @R> => {
+        Expression::If(IfExpr {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            else_: Some(Box::new(else_)),
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+OpenIfExprWithBlock: Expression = {
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:ExprWithBlock> <end: @R> => {
+        Expression::If(IfExpr {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            else_: None,
+            span: InputSpan { start, end },
+        })
+    },
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:OpenIfExprWithBlock> <end: @R> => {
         Expression::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
@@ -131,6 +159,11 @@ ClosedExpr: Expression = {
     ClosedIfExpr,
 }
 
+ClosedExprWithBlock: Expression = {
+    NonIfExprWithBlock,
+    ClosedIfExprWithBlock,
+};
+
 ClosedIfExpr: Expression = {
     <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:ClosedExpr> <end: @R> => {
         Expression::If(IfExpr {
@@ -142,13 +175,32 @@ ClosedIfExpr: Expression = {
     },
 };
 
+ClosedIfExprWithBlock: Expression = {
+    <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:ClosedExprWithBlock> <end: @R> => {
+        Expression::If(IfExpr {
+            cond: Box::new(cond),
+            then: Box::new(then),
+            else_: Some(Box::new(else_)),
+            span: InputSpan { start, end },
+        })
+    },
+};
+
 NonIfExpr: Expression = {
-    ExprWithoutBlock,
+    BinaryOpExpr,
+    BlockExpr,
+};
+
+NonIfExprWithBlock: Expression = {
+    BlockExpr,
+};
+
+BlockExpr: Expression = {
     Block => Expression::Block(<>),
 };
 
 // Lowest precedence level.
-ExprWithoutBlock = Expr4;
+BinaryOpExpr = Expr4;
 
 Expr4 = LeftAssocBinaryOpExprTier<Expr4Op, Expr3>;
 Expr4Op: BinaryOperator = {
@@ -176,24 +228,44 @@ Expr1Op: BinaryOperator = {
 }
 
 Expr0: Expression = {
+    VariableExpr,
+    IntLiteralExpr,
+    CallExpr,
+    ParensExpr,
+};
+
+VariableExpr: Expression = {
     <start: @L> <name:Ident> <end: @R> => {
         Expression::Variable(VariableExpr {
             name,
             span: InputSpan { start, end },
         })
     },
+};
 
+IntLiteralExpr: Expression = {
     <start: @L> <value:IntLiteral> <end: @R> => {
         Expression::IntLiteral(IntLiteralExpr {
             value,
             span: InputSpan { start, end },
         })
     },
+};
 
+CallExpr: Expression = {
+    <start: @L> <function_name:Ident> "(" ")" <end: @R> => {
+        Expression::Call(CallExpr {
+            function_name,
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+ParensExpr: Expression = {
     <start: @L> "(" <e:Expr> ")" <end: @R> => {
         e.map_span(|_| InputSpan { start, end })
     },
-}
+};
 
 Block: BlockExpr = {
     <start: @L> "{" "}" <end: @R> => {
@@ -227,8 +299,11 @@ TypeExpr: TypeExpr = {
     <start: @L> <name:Ident> <end: @R> => TypeExpr { name, span: InputSpan { start, end } }
 }
 
-Ident: String = {
-    r"[_a-zA-Z][_a-zA-Z0-9]*" => String::from(<>)
+Ident: Identifier = {
+    <start: @L> <text:r"[_a-zA-Z][_a-zA-Z0-9]*"> <end: @R> => Identifier {
+        text: String::from(text),
+        span: InputSpan { start, end },
+    }
 };
 
 IntLiteral: i32 = {

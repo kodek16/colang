@@ -11,7 +11,7 @@ pub struct Program {
 
 #[derive(Debug)]
 pub struct FunctionDef {
-    pub name: String,
+    pub name: Identifier,
     pub return_type: Option<TypeExpr>,
     pub body: BlockExpr,
 
@@ -37,7 +37,7 @@ pub struct VarDeclStmt {
 
 #[derive(Debug)]
 pub struct VarDeclEntry {
-    pub variable_name: String,
+    pub variable_name: Identifier,
     pub variable_type: Option<TypeExpr>,
     pub initializer: Option<Expression>,
 
@@ -53,7 +53,7 @@ pub struct ReadStmt {
 
 #[derive(Debug)]
 pub struct ReadEntry {
-    pub variable_name: String,
+    pub variable_name: Identifier,
 
     pub span: InputSpan,
 }
@@ -93,6 +93,7 @@ pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
     BinaryOp(BinaryOperatorExpr),
+    Call(CallExpr),
     If(IfExpr),
     Block(BlockExpr),
 }
@@ -104,6 +105,7 @@ impl Expression {
             Variable(e) => e.span,
             IntLiteral(e) => e.span,
             BinaryOp(e) => e.span,
+            Call(e) => e.span,
             If(e) => e.span,
             Block(e) => e.span,
         }
@@ -126,6 +128,10 @@ impl Expression {
                 span: f(&e.span),
                 ..e
             }),
+            Expression::Call(e) => Expression::Call(CallExpr {
+                span: f(&e.span),
+                ..e
+            }),
             Expression::If(e) => Expression::If(IfExpr {
                 span: f(&e.span),
                 ..e
@@ -140,7 +146,7 @@ impl Expression {
 
 #[derive(Debug)]
 pub struct VariableExpr {
-    pub name: String,
+    pub name: Identifier,
 
     pub span: InputSpan,
 }
@@ -175,6 +181,13 @@ pub struct BinaryOperatorExpr {
 }
 
 #[derive(Debug)]
+pub struct CallExpr {
+    pub function_name: Identifier,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
 pub struct IfExpr {
     pub cond: Box<Expression>,
     pub then: Box<Expression>,
@@ -193,7 +206,14 @@ pub struct BlockExpr {
 
 #[derive(Debug)]
 pub struct TypeExpr {
-    pub name: String,
+    pub name: Identifier,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct Identifier {
+    pub text: String,
 
     pub span: InputSpan,
 }

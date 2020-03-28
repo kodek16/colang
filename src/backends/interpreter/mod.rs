@@ -155,6 +155,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         Expression::Variable(e) => run_variable_expr(e, state),
         Expression::IntLiteral(e) => run_int_literal_expr(e, state),
         Expression::BinaryOp(e) => run_binary_op_expr(e, state),
+        Expression::Call(_e) => unimplemented!(),
         Expression::If(e) => run_if_expr(e, state),
         Expression::Block(e) => run_block_expr(e, state),
         Expression::Empty => Ok(Value::Void),

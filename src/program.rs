@@ -376,6 +376,7 @@ pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
     BinaryOp(BinaryOpExpr),
+    Call(CallExpr),
     If(IfExpr),
     Block(BlockExpr),
 
@@ -395,6 +396,7 @@ impl Expression {
             Expression::Variable(e) => e.type_(program),
             Expression::IntLiteral(e) => e.type_(program),
             Expression::BinaryOp(e) => e.type_(program),
+            Expression::Call(e) => e.type_(program),
             Expression::If(e) => e.type_(program),
             Expression::Block(e) => e.type_(program),
             Expression::Empty => Rc::clone(program.void()),
@@ -424,7 +426,7 @@ impl VariableExpr {
 
     /// Borrow the variable immutably.
     pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
-        (*self.variable).borrow()
+        self.variable.borrow()
     }
 
     /// This should only be used in the frontend.
@@ -518,6 +520,27 @@ impl ExpressionKind for BinaryOpExpr {
             BinaryOperator::NotEqInt => program.bool(),
         };
         Rc::clone(type_)
+    }
+}
+
+#[derive(Debug)]
+pub struct CallExpr {
+    function: Rc<RefCell<Function>>,
+}
+
+impl CallExpr {
+    pub fn new(function: Rc<RefCell<Function>>) -> Expression {
+        Expression::Call(CallExpr { function })
+    }
+
+    pub fn _function(&self) -> impl Deref<Target = Function> + '_ {
+        self.function.borrow()
+    }
+}
+
+impl ExpressionKind for CallExpr {
+    fn type_(&self, _: &Program) -> Rc<RefCell<Type>> {
+        Rc::clone(&self.function.borrow().return_type)
     }
 }
 

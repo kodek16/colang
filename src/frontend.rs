@@ -97,7 +97,7 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
         None => Rc::clone(context.program.void()),
     };
 
-    let function = Function::new(name, return_type, Some(function_def.signature_span));
+    let function = Function::new(name.text, return_type, Some(function_def.signature_span));
     let function = Rc::new(RefCell::new(function));
     context.program.add_function(Rc::clone(&function));
     if let Err(error) = context.scope.add_function(Rc::clone(&function)) {
@@ -160,7 +160,7 @@ fn compile_var_decl_entry(
         None => match initializer {
             Some(ref expr) => expr.type_(&context.program),
             None => {
-                let error = CompilationError::variable_type_omitted(&name, declaration.span);
+                let error = CompilationError::variable_type_omitted(&name.text, declaration.span);
                 context.errors.push(error);
                 Type::error()
             }
@@ -168,7 +168,7 @@ fn compile_var_decl_entry(
     };
 
     let result = Variable::new(
-        name.to_string(),
+        name.text.to_string(),
         type_,
         Some(declaration.span),
         &context.program,
@@ -207,7 +207,7 @@ fn compile_read_entry(
     context: &mut CompilerContext,
 ) {
     let name = &entry.variable_name;
-    let variable = context.scope.lookup_variable(&name, entry.span);
+    let variable = context.scope.lookup_variable(&name.text, entry.span);
     let result =
         variable.and_then(|var| program::ReadStmt::new(&var, &context.program, entry.span));
     match result {
@@ -309,6 +309,7 @@ fn compile_expression(
         ast::Expression::Variable(e) => compile_variable_expr(e, context),
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
+        ast::Expression::Call(e) => compile_call_expr(e, context),
         ast::Expression::If(e) => compile_if_expr(e, context),
         ast::Expression::Block(e) => compile_block_expr(e, context),
     }
@@ -320,7 +321,7 @@ fn compile_variable_expr(
 ) -> program::Expression {
     let name = expression.name;
 
-    let variable = context.scope.lookup_variable(&name, expression.span);
+    let variable = context.scope.lookup_variable(&name.text, expression.span);
     match variable {
         Ok(variable) if variable.borrow().type_().is_error() => program::Expression::Error,
         Ok(variable) => program::VariableExpr::new(variable),
@@ -379,6 +380,25 @@ fn compile_binary_op_expr(
     }
 }
 
+fn compile_call_expr(
+    expression: ast::CallExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let function_name = expression.function_name.text;
+    let function_name_span = expression.function_name.span;
+
+    let function = context
+        .scope
+        .lookup_function(&function_name, function_name_span);
+    match function {
+        Ok(function) => program::CallExpr::new(Rc::clone(function)),
+        Err(error) => {
+            context.errors.push(error);
+            program::Expression::Error
+        }
+    }
+}
+
 fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
     let cond_span = if_.cond.span();
     let then_span = if_.then.span();
@@ -415,7 +435,7 @@ fn compile_block_expr(block: ast::BlockExpr, context: &mut CompilerContext) -> p
 
 fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) -> Rc<RefCell<Type>> {
     let name = &type_expr.name;
-    let type_ = context.scope.lookup_type(name, type_expr.span);
+    let type_ = context.scope.lookup_type(&name.text, type_expr.span);
 
     match type_ {
         Ok(type_) => Rc::clone(type_),

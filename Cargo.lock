@@ -132,7 +132,7 @@ dependencies = [
 
 [[package]]
 name = "colang"
-version = "0.0.1"
+version = "0.0.4"
 dependencies = [
  "codespan-reporting 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lalrpop 0.18.1 (registry+https://github.com/rust-lang/crates.io-index)",

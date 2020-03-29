@@ -220,11 +220,36 @@ pub struct AllocStmt {
 }
 
 impl AllocStmt {
-    pub fn new(variable: &Rc<RefCell<Variable>>, initializer: Option<Expression>) -> Statement {
-        Statement::Alloc(AllocStmt {
+    pub fn new(
+        variable: &Rc<RefCell<Variable>>,
+        initializer: Option<Expression>,
+        program: &Program,
+        location: InputSpan,
+    ) -> Result<Statement, CompilationError> {
+        {
+            let variable = variable.borrow();
+            let name = &variable.name;
+            let type_ = &variable.type_;
+
+            if let Some(ref initializer) = initializer {
+                let initializer_type = initializer.type_(program);
+                if initializer_type != *type_ {
+                    let error = CompilationError::variable_initializer_type_mismatch(
+                        name,
+                        type_.borrow().name(),
+                        initializer_type.borrow().name(),
+                        location,
+                    );
+                    return Err(error);
+                }
+            }
+        }
+
+        let statement = Statement::Alloc(AllocStmt {
             variable: Rc::clone(variable),
             initializer,
-        })
+        });
+        Ok(statement)
     }
 
     pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
@@ -401,7 +426,7 @@ impl ExprStmt {
 #[derive(Debug)]
 pub enum Expression {
     Variable(VariableExpr),
-    IntLiteral(IntLiteralExpr),
+    Literal(LiteralExpr),
     BinaryOp(BinaryOpExpr),
     Call(CallExpr),
     If(IfExpr),
@@ -421,7 +446,7 @@ impl Expression {
     pub fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
         match self {
             Expression::Variable(e) => e.type_(program),
-            Expression::IntLiteral(e) => e.type_(program),
+            Expression::Literal(e) => e.type_(program),
             Expression::BinaryOp(e) => e.type_(program),
             Expression::Call(e) => e.type_(program),
             Expression::If(e) => e.type_(program),
@@ -469,19 +494,27 @@ impl ExpressionKind for VariableExpr {
 }
 
 #[derive(Debug)]
-pub struct IntLiteralExpr {
-    pub value: i32,
+pub enum LiteralExpr {
+    Int(i32),
+    Bool(bool),
 }
 
-impl IntLiteralExpr {
-    pub fn new(value: i32) -> Expression {
-        Expression::IntLiteral(IntLiteralExpr { value })
+impl LiteralExpr {
+    pub fn int(value: i32) -> Expression {
+        Expression::Literal(LiteralExpr::Int(value))
+    }
+
+    pub fn bool(value: bool) -> Expression {
+        Expression::Literal(LiteralExpr::Bool(value))
     }
 }
 
-impl ExpressionKind for IntLiteralExpr {
+impl ExpressionKind for LiteralExpr {
     fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
-        Rc::clone(&program.int())
+        Rc::clone(match self {
+            LiteralExpr::Int(_) => program.int(),
+            LiteralExpr::Bool(_) => program.bool(),
+        })
     }
 }
 

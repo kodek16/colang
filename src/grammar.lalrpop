@@ -31,13 +31,6 @@ ParameterDef: Parameter = {
 Stmt: Statement = {
     StmtNotExpr,
 
-    <start: @L> <expression:Expr> ";" <end: @R> => {
-        Statement::Expr(ExprStmt {
-            expression,
-            span: InputSpan { start, end },
-        })
-    },
-
     <start: @L> <expression:ExprWithBlock> <end: @R> => {
         Statement::Expr(ExprStmt {
             expression,
@@ -46,6 +39,9 @@ Stmt: Statement = {
     },
 }
 
+// Somewhat ambiguously named, StmtNotExpr is a statement that was not trivially converted
+// from an expression ending with block. If a semicolon was added to an expression, it can
+// also be a StmtNotExpr.
 StmtNotExpr: Statement = {
     <start: @L> KwVar <entries:CommaSeparatedNotEmpty<VarDeclEntry>> ";" <end: @R> => {
         Statement::VarDecl(VarDeclStmt {
@@ -80,6 +76,13 @@ StmtNotExpr: Statement = {
         Statement::Assign(AssignStmt {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
+            span: InputSpan { start, end },
+        })
+    },
+
+    <start: @L> <expression:Expr> ";" <end: @R> => {
+        Statement::Expr(ExprStmt {
+            expression,
             span: InputSpan { start, end },
         })
     },
@@ -241,6 +244,7 @@ Expr1Op: BinaryOperator = {
 Expr0: Expression = {
     VariableExpr,
     IntLiteralExpr,
+    BoolLiteralExpr,
     CallExpr,
     ParensExpr,
 };
@@ -257,6 +261,15 @@ VariableExpr: Expression = {
 IntLiteralExpr: Expression = {
     <start: @L> <value:IntLiteral> <end: @R> => {
         Expression::IntLiteral(IntLiteralExpr {
+            value,
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+BoolLiteralExpr: Expression = {
+    <start: @L> <value:BoolLiteral> <end: @R> => {
+        Expression::BoolLiteral(BoolLiteralExpr {
             value,
             span: InputSpan { start, end },
         })
@@ -322,6 +335,11 @@ IntLiteral: i32 = {
     r"-?[0-9]+" => <>.parse().unwrap(),
 };
 
+BoolLiteral: bool = {
+    KwTrue => true,
+    KwFalse => false,
+}
+
 // Keywords:
 KwVar: () = { "var" }
 KwRead: () = { "read" }
@@ -330,6 +348,8 @@ KwIf: () = { "if" }
 KwElse: () = { "else" }
 KwWhile: () = { "while" }
 KwFun: () = { "fun" }
+KwTrue: () = { "true" }
+KwFalse: () = { "false" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {

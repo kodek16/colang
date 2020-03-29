@@ -101,6 +101,7 @@ pub struct ExprStmt {
 pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
+    BoolLiteral(BoolLiteralExpr),
     BinaryOp(BinaryOperatorExpr),
     Call(CallExpr),
     If(IfExpr),
@@ -113,6 +114,7 @@ impl Expression {
         match self {
             Variable(e) => e.span,
             IntLiteral(e) => e.span,
+            BoolLiteral(e) => e.span,
             BinaryOp(e) => e.span,
             Call(e) => e.span,
             If(e) => e.span,
@@ -130,6 +132,10 @@ impl Expression {
                 ..e
             }),
             Expression::IntLiteral(e) => Expression::IntLiteral(IntLiteralExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::BoolLiteral(e) => Expression::BoolLiteral(BoolLiteralExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -163,6 +169,13 @@ pub struct VariableExpr {
 #[derive(Debug)]
 pub struct IntLiteralExpr {
     pub value: i32,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct BoolLiteralExpr {
+    pub value: bool,
 
     pub span: InputSpan,
 }

@@ -6,7 +6,7 @@ use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
     AllocStmt, AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, CallExpr, DeallocStmt,
-    ExprStmt, Expression, Function, IfExpr, IntLiteralExpr, Program, ReadStmt, Statement, Symbol,
+    ExprStmt, Expression, Function, IfExpr, LiteralExpr, Program, ReadStmt, Statement, Symbol,
     SymbolId, VariableExpr, WhileStmt, WriteStmt,
 };
 use crate::typing::Type;
@@ -194,7 +194,7 @@ fn run_expr_stmt(statement: &ExprStmt, state: &mut State) -> RunResult<()> {
 fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value> {
     match expression {
         Expression::Variable(e) => run_variable_expr(e, state),
-        Expression::IntLiteral(e) => run_int_literal_expr(e, state),
+        Expression::Literal(e) => run_literal_expr(e, state),
         Expression::BinaryOp(e) => run_binary_op_expr(e, state),
         Expression::Call(e) => run_call_expr(e, state),
         Expression::If(e) => run_if_expr(e, state),
@@ -210,8 +210,12 @@ fn run_variable_expr(expression: &VariableExpr, state: &State) -> RunResult<Valu
     Ok(result)
 }
 
-fn run_int_literal_expr(expression: &IntLiteralExpr, _: &State) -> RunResult<Value> {
-    Ok(Value::Int(expression.value))
+fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
+    let value = match expression {
+        LiteralExpr::Int(value) => Value::Int(*value),
+        LiteralExpr::Bool(value) => Value::Bool(*value),
+    };
+    Ok(value)
 }
 
 fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> RunResult<Value> {

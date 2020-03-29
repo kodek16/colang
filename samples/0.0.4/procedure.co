@@ -1,0 +1,8 @@
+fun hello() {
+  write 42;
+}
+
+fun main() {
+  hello();
+  hello();
+}

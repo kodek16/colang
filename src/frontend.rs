@@ -189,10 +189,15 @@ fn compile_var_decl_entry(
             }
         },
     };
+
     let variable = create_variable(name.text, type_, Some(declaration.span), context);
     if let Some(variable) = variable {
-        let statement = program::AllocStmt::new(&variable, initializer);
-        sink.emit(statement);
+        let result =
+            program::AllocStmt::new(&variable, initializer, &context.program, declaration.span);
+        match result {
+            Ok(statement) => sink.emit(statement),
+            Err(error) => context.errors.push(error),
+        }
     }
 }
 
@@ -337,6 +342,7 @@ fn compile_expression(
     match expression {
         ast::Expression::Variable(e) => compile_variable_expr(e, context),
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
+        ast::Expression::BoolLiteral(e) => compile_bool_literal_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
         ast::Expression::Call(e) => compile_call_expr(e, context),
         ast::Expression::If(e) => compile_if_expr(e, context),
@@ -365,7 +371,14 @@ fn compile_int_literal_expr(
     expression: ast::IntLiteralExpr,
     _context: &CompilerContext,
 ) -> program::Expression {
-    program::IntLiteralExpr::new(expression.value)
+    program::LiteralExpr::int(expression.value)
+}
+
+fn compile_bool_literal_expr(
+    expression: ast::BoolLiteralExpr,
+    _context: &CompilerContext,
+) -> program::Expression {
+    program::LiteralExpr::bool(expression.value)
 }
 
 fn compile_binary_op_expr(

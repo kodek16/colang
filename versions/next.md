@@ -5,9 +5,15 @@
 - Added loop support with `while` statement.
 - Added assignment statement: `a = b`. Note that assignment is
   not an expression.
-- Added basic function support, only without parameters for now.
-  - The definition syntax is `fun foo(): int { ... }`
+- Added function support.
+  - The definition syntax is `fun foo(x: int): int { ... }`
   - If the function returns a value, its body must be an expression.
   - The syntax for calling a function is `foo()`.
   - Recursive calls are allowed and supported.
 - The program code now must be defined in a `main` function.
+- Added `bool` literals: `true` and `false`.
+
+## Bugfixes
+
+- Variable initializer must now match variable type if both are
+  explicitly specified.

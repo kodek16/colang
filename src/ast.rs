@@ -241,8 +241,21 @@ pub struct BlockExpr {
 }
 
 #[derive(Debug)]
-pub struct TypeExpr {
+pub enum TypeExpr {
+    Scalar(ScalarTypeExpr),
+    Array(ArrayTypeExpr),
+}
+
+#[derive(Debug)]
+pub struct ScalarTypeExpr {
     pub name: Identifier,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct ArrayTypeExpr {
+    pub element: Box<TypeExpr>,
 
     pub span: InputSpan,
 }

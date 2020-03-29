@@ -331,8 +331,27 @@ Block: BlockExpr = {
 };
 
 TypeExpr: TypeExpr = {
-    <start: @L> <name:Ident> <end: @R> => TypeExpr { name, span: InputSpan { start, end } }
-}
+    ScalarTypeExpr,
+    ArrayTypeExpr,
+};
+
+ScalarTypeExpr: TypeExpr = {
+    <start:@L> <name:Ident> <end:@R> => {
+        TypeExpr::Scalar(ScalarTypeExpr {
+            name,
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+ArrayTypeExpr: TypeExpr = {
+    <start:@L> "[" <element:TypeExpr> "]" <end:@R> => {
+        TypeExpr::Array(ArrayTypeExpr {
+            element: Box::new(element),
+            span: InputSpan { start, end },
+        })
+    },
+};
 
 Ident: Identifier = {
     <start: @L> <text:r"[_a-zA-Z][_a-zA-Z0-9]*"> <end: @R> => Identifier {

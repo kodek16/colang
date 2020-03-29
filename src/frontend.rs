@@ -519,6 +519,16 @@ fn compile_block_expr(block: ast::BlockExpr, context: &mut CompilerContext) -> p
 }
 
 fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) -> Rc<RefCell<Type>> {
+    match type_expr {
+        ast::TypeExpr::Scalar(type_expr) => compile_scalar_type_expr(type_expr, context),
+        ast::TypeExpr::Array(type_expr) => compile_array_type_expr(type_expr, context),
+    }
+}
+
+fn compile_scalar_type_expr(
+    type_expr: ast::ScalarTypeExpr,
+    context: &mut CompilerContext,
+) -> Rc<RefCell<Type>> {
     let name = &type_expr.name;
     let type_ = context.scope.lookup_type(&name.text, type_expr.span);
 
@@ -529,4 +539,16 @@ fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) ->
             Type::error()
         }
     }
+}
+
+fn compile_array_type_expr(
+    type_expr: ast::ArrayTypeExpr,
+    context: &mut CompilerContext,
+) -> Rc<RefCell<Type>> {
+    let element = compile_type_expr(*type_expr.element, context);
+    if element.borrow().is_error() {
+        return Type::error();
+    }
+
+    context.program.types_mut().array_of(&element)
 }

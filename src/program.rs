@@ -612,6 +612,10 @@ impl ArrayExpr {
         });
         Ok(expression)
     }
+
+    pub fn elements(&self) -> impl Iterator<Item = &Expression> {
+        self.elements.iter()
+    }
 }
 
 impl ExpressionKind for ArrayExpr {

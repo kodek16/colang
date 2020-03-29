@@ -5,9 +5,9 @@ mod cin;
 use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
-    AllocStmt, AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, CallExpr, DeallocStmt,
-    ExprStmt, Expression, Function, IfExpr, LiteralExpr, Program, ReadStmt, Statement, Symbol,
-    SymbolId, VariableExpr, WhileStmt, WriteStmt,
+    AllocStmt, ArrayExpr, AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, CallExpr,
+    DeallocStmt, ExprStmt, Expression, Function, IfExpr, LiteralExpr, Program, ReadStmt, Statement,
+    Symbol, SymbolId, VariableExpr, WhileStmt, WriteStmt,
 };
 use crate::typing::{Type, TypeKind};
 use std::collections::HashMap;
@@ -37,6 +37,7 @@ impl Backend for InterpreterBackend {
 enum Value {
     Int(i32),
     Bool(bool),
+    Array(Vec<Value>),
     Void,
 }
 
@@ -55,11 +56,16 @@ impl Value {
         }
     }
 
+    /// A quick-and-dirty information source about value types in runtime.
+    /// This is _not_ meant to be an actual RTTI solution, it is only meant
+    /// to be used in type mismatch panics, which should not occur under
+    /// normal circumstances.
     pub fn type_(&self) -> &'static str {
         use Value::*;
         match self {
             Int(_) => "int",
             Bool(_) => "bool",
+            Array(_) => "array",
             Void => "void",
         }
     }
@@ -196,7 +202,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         Expression::Variable(e) => run_variable_expr(e, state),
         Expression::Literal(e) => run_literal_expr(e, state),
         Expression::BinaryOp(e) => run_binary_op_expr(e, state),
-        Expression::Array(e) => unimplemented!(),
+        Expression::Array(e) => run_array_expr(e, state),
         Expression::Call(e) => run_call_expr(e, state),
         Expression::If(e) => run_if_expr(e, state),
         Expression::Block(e) => run_block_expr(e, state),
@@ -235,6 +241,16 @@ fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> RunResult
         BinaryOperator::NotEqInt => Value::Bool(lhs != rhs),
     };
     Ok(result)
+}
+
+fn run_array_expr(expression: &ArrayExpr, state: &mut State) -> RunResult<Value> {
+    let elements: RunResult<Vec<Value>> = expression
+        .elements()
+        .map(|element| run_expression(element, state))
+        .collect();
+    let elements = elements?;
+
+    Ok(Value::Array(elements))
 }
 
 fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
@@ -284,7 +300,7 @@ fn default_value_for_type(type_: &Type) -> Value {
         TypeKind::Void => panic!("Tried to default-initialize a value of type `void`"),
         TypeKind::Int => Value::Int(0),
         TypeKind::Bool => Value::Bool(false),
-        TypeKind::Array(_) => unimplemented!(),
+        TypeKind::Array(_) => Value::Array(vec![]),
         TypeKind::Error => panic_error(),
     }
 }

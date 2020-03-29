@@ -298,6 +298,22 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn array_elements_type_mismatch(
+        inferred_type: &str,
+        element_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9023",
+            message: format!(
+                "array element has type `{}`, but it must have the same type `{}` as other elements",
+                element_type,
+                inferred_type
+            ),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

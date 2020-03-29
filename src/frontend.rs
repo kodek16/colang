@@ -344,6 +344,7 @@ fn compile_expression(
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
         ast::Expression::BoolLiteral(e) => compile_bool_literal_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
+        ast::Expression::Array(e) => compile_array_expr(e, context),
         ast::Expression::Call(e) => compile_call_expr(e, context),
         ast::Expression::If(e) => compile_if_expr(e, context),
         ast::Expression::Block(e) => compile_block_expr(e, context),
@@ -417,6 +418,32 @@ fn compile_binary_op_expr(
         Ok(expr) => expr,
         Err(error) => {
             context.errors.push(error);
+            program::Expression::Error
+        }
+    }
+}
+
+fn compile_array_expr(
+    expression: ast::ArrayExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let element_spans: Vec<_> = expression
+        .elements
+        .iter()
+        .map(ast::Expression::span)
+        .collect();
+
+    let elements: Vec<_> = expression
+        .elements
+        .into_iter()
+        .map(|element| compile_expression(element, context))
+        .collect();
+
+    let result = program::ArrayExpr::new(elements, element_spans, &mut context.program);
+    match result {
+        Ok(expression) => expression,
+        Err(mut errors) => {
+            context.errors.append(&mut errors);
             program::Expression::Error
         }
     }

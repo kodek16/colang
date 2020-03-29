@@ -1,6 +1,7 @@
 //! CO types and their properties are defined in this module.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 // Numeric types plan:
@@ -39,13 +40,13 @@ impl Type {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeKind {
     Void,
     Int,
     Bool,
 
-    Array(Rc<RefCell<Type>>),
+    Array(Box<TypeKind>),
 
     /// An invalid type. It can never appear in a valid program.
     Error,
@@ -56,6 +57,9 @@ pub struct TypeRegistry {
     void: Rc<RefCell<Type>>,
     int: Rc<RefCell<Type>>,
     bool: Rc<RefCell<Type>>,
+
+    /// All array type instantiations used in the program.
+    arrays: HashMap<TypeKind, Rc<RefCell<Type>>>,
 }
 
 impl TypeRegistry {
@@ -75,7 +79,12 @@ impl TypeRegistry {
             name: "bool".to_string(),
         }));
 
-        TypeRegistry { void, int, bool }
+        TypeRegistry {
+            void,
+            int,
+            bool,
+            arrays: HashMap::new(),
+        }
     }
 
     pub fn void(&self) -> &Rc<RefCell<Type>> {
@@ -88,6 +97,25 @@ impl TypeRegistry {
 
     pub fn bool(&self) -> &Rc<RefCell<Type>> {
         &self.bool
+    }
+
+    pub fn array_of(&mut self, element_type: &Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
+        let element_type_name = element_type.borrow().name.clone();
+        let element_type_kind = element_type.borrow().kind.clone();
+        if element_type_kind == TypeKind::Error {
+            return Type::error();
+        }
+
+        let array_type = self
+            .arrays
+            .entry(element_type_kind.clone())
+            .or_insert_with(|| {
+                Rc::new(RefCell::new(Type {
+                    kind: TypeKind::Array(Box::new(element_type_kind)),
+                    name: format!("[{}]", element_type_name),
+                }))
+            });
+        Rc::clone(array_type)
     }
 
     pub fn primitive_types(&self) -> Vec<&Rc<RefCell<Type>>> {

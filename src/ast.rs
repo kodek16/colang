@@ -103,6 +103,7 @@ pub enum Expression {
     IntLiteral(IntLiteralExpr),
     BoolLiteral(BoolLiteralExpr),
     BinaryOp(BinaryOperatorExpr),
+    Array(ArrayExpr),
     Call(CallExpr),
     If(IfExpr),
     Block(BlockExpr),
@@ -116,6 +117,7 @@ impl Expression {
             IntLiteral(e) => e.span,
             BoolLiteral(e) => e.span,
             BinaryOp(e) => e.span,
+            Array(e) => e.span,
             Call(e) => e.span,
             If(e) => e.span,
             Block(e) => e.span,
@@ -140,6 +142,10 @@ impl Expression {
                 ..e
             }),
             Expression::BinaryOp(e) => Expression::BinaryOp(BinaryOperatorExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::Array(e) => Expression::Array(ArrayExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -198,6 +204,13 @@ pub struct BinaryOperatorExpr {
     pub operator: BinaryOperator,
     pub lhs: Box<Expression>,
     pub rhs: Box<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct ArrayExpr {
+    pub elements: Vec<Expression>,
 
     pub span: InputSpan,
 }

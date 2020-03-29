@@ -245,6 +245,7 @@ Expr0: Expression = {
     VariableExpr,
     IntLiteralExpr,
     BoolLiteralExpr,
+    ArrayExpr,
     CallExpr,
     ParensExpr,
 };
@@ -271,6 +272,15 @@ BoolLiteralExpr: Expression = {
     <start: @L> <value:BoolLiteral> <end: @R> => {
         Expression::BoolLiteral(BoolLiteralExpr {
             value,
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+ArrayExpr: Expression = {
+    <start:@L> "[" <elements:CommaSeparated<Expr>> "]" <end:@R> => {
+        Expression::Array(ArrayExpr {
+            elements,
             span: InputSpan { start, end },
         })
     },

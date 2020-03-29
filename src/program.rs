@@ -65,6 +65,10 @@ impl Program {
         &self.types
     }
 
+    pub fn types_mut(&mut self) -> &mut TypeRegistry {
+        &mut self.types
+    }
+
     pub fn main_function(&self) -> impl Deref<Target = Function> + '_ {
         self.main_function
             .as_ref()
@@ -404,6 +408,7 @@ pub enum Expression {
     Variable(VariableExpr),
     Literal(LiteralExpr),
     BinaryOp(BinaryOpExpr),
+    Array(ArrayExpr),
     Call(CallExpr),
     If(IfExpr),
     Block(BlockExpr),
@@ -424,6 +429,7 @@ impl Expression {
             Expression::Variable(e) => e.type_(program),
             Expression::Literal(e) => e.type_(program),
             Expression::BinaryOp(e) => e.type_(program),
+            Expression::Array(e) => e.type_(program),
             Expression::Call(e) => e.type_(program),
             Expression::If(e) => e.type_(program),
             Expression::Block(e) => e.type_(program),
@@ -556,6 +562,61 @@ impl ExpressionKind for BinaryOpExpr {
             BinaryOperator::NotEqInt => program.types.bool(),
         };
         Rc::clone(type_)
+    }
+}
+
+#[derive(Debug)]
+pub struct ArrayExpr {
+    elements: Vec<Expression>,
+    element_type: Rc<RefCell<Type>>,
+    array_type: Rc<RefCell<Type>>,
+}
+
+impl ArrayExpr {
+    pub fn new(
+        elements: Vec<Expression>,
+        locations: Vec<InputSpan>,
+        program: &mut Program,
+    ) -> Result<Expression, Vec<CompilationError>> {
+        // TODO use type hints instead of assuming `int` for empty array.
+        let array_type = elements
+            .first()
+            .map(|element| element.type_(program))
+            .unwrap_or_else(|| Rc::clone(program.types().int()));
+
+        let errors: Vec<_> = elements
+            .iter()
+            .zip(locations.iter())
+            .flat_map(|(element, location)| {
+                let element_type = element.type_(program);
+                if element_type != array_type {
+                    Some(CompilationError::array_elements_type_mismatch(
+                        array_type.borrow().name(),
+                        element_type.borrow().name(),
+                        *location,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        let expression = Expression::Array(ArrayExpr {
+            elements,
+            array_type: program.types_mut().array_of(&array_type),
+            element_type: array_type,
+        });
+        Ok(expression)
+    }
+}
+
+impl ExpressionKind for ArrayExpr {
+    fn type_(&self, _: &Program) -> Rc<RefCell<Type>> {
+        Rc::clone(&self.array_type)
     }
 }
 

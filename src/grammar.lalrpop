@@ -382,3 +382,14 @@ LeftAssocBinaryOpExprTier<Ops, PrevTier>: Expression = {
     },
     PrevTier,
 }
+
+// Lexer:
+
+match {
+    // Ignore line comments.
+    r"//[^\n\r]*[\n\r]*" => { },
+} else {
+    // Ignore whitespace.
+    r"\s*" => { },
+    _ // Everything else
+}

@@ -38,6 +38,14 @@ impl Type {
             _ => false,
         }
     }
+
+    /// If `self` is an array type, returns the type of elements.
+    pub fn element_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
+        match self.kind {
+            TypeKind::Array(ref element_kind) => Some(Rc::clone(&registry.instances[element_kind])),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -54,12 +62,9 @@ pub enum TypeKind {
 
 #[derive(Debug)]
 pub struct TypeRegistry {
-    void: Rc<RefCell<Type>>,
-    int: Rc<RefCell<Type>>,
-    bool: Rc<RefCell<Type>>,
-
-    /// All array type instantiations used in the program.
-    arrays: HashMap<TypeKind, Rc<RefCell<Type>>>,
+    /// All type kinds actually used in the program have an instantiation that can
+    /// be accessed through this collection.
+    instances: HashMap<TypeKind, Rc<RefCell<Type>>>,
 }
 
 impl TypeRegistry {
@@ -79,24 +84,24 @@ impl TypeRegistry {
             name: "bool".to_string(),
         }));
 
-        TypeRegistry {
-            void,
-            int,
-            bool,
-            arrays: HashMap::new(),
-        }
+        let mut instances = HashMap::new();
+        instances.insert(TypeKind::Void, void);
+        instances.insert(TypeKind::Int, int);
+        instances.insert(TypeKind::Bool, bool);
+
+        TypeRegistry { instances }
     }
 
     pub fn void(&self) -> &Rc<RefCell<Type>> {
-        &self.void
+        &self.instances[&TypeKind::Void]
     }
 
     pub fn int(&self) -> &Rc<RefCell<Type>> {
-        &self.int
+        &self.instances[&TypeKind::Int]
     }
 
     pub fn bool(&self) -> &Rc<RefCell<Type>> {
-        &self.bool
+        &self.instances[&TypeKind::Bool]
     }
 
     pub fn array_of(&mut self, element_type: &Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
@@ -106,12 +111,14 @@ impl TypeRegistry {
             return Type::error();
         }
 
+        let array_type_kind = TypeKind::Array(Box::new(element_type_kind));
+
         let array_type = self
-            .arrays
-            .entry(element_type_kind.clone())
+            .instances
+            .entry(array_type_kind.clone())
             .or_insert_with(|| {
                 Rc::new(RefCell::new(Type {
-                    kind: TypeKind::Array(Box::new(element_type_kind)),
+                    kind: array_type_kind,
                     name: format!("[{}]", element_type_name),
                 }))
             });
@@ -119,6 +126,6 @@ impl TypeRegistry {
     }
 
     pub fn primitive_types(&self) -> Vec<&Rc<RefCell<Type>>> {
-        vec![&self.void, &self.int, &self.bool]
+        vec![self.void(), self.int(), self.bool()]
     }
 }

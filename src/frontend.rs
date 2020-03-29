@@ -345,6 +345,7 @@ fn compile_expression(
         ast::Expression::BoolLiteral(e) => compile_bool_literal_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
         ast::Expression::Array(e) => compile_array_expr(e, context),
+        ast::Expression::Index(e) => compile_index_expr(e, context),
         ast::Expression::Call(e) => compile_call_expr(e, context),
         ast::Expression::If(e) => compile_if_expr(e, context),
         ast::Expression::Block(e) => compile_block_expr(e, context),
@@ -444,6 +445,28 @@ fn compile_array_expr(
         Ok(expression) => expression,
         Err(mut errors) => {
             context.errors.append(&mut errors);
+            program::Expression::Error
+        }
+    }
+}
+
+fn compile_index_expr(
+    expression: ast::IndexExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let location = expression.span;
+    let collection = compile_expression(*expression.collection, context);
+    let index = compile_expression(*expression.index, context);
+
+    if collection.is_error() || index.is_error() {
+        return program::Expression::Error;
+    }
+
+    let result = program::IndexExpr::new(collection, index, &context.program, location);
+    match result {
+        Ok(expression) => expression,
+        Err(error) => {
+            context.errors.push(error);
             program::Expression::Error
         }
     }

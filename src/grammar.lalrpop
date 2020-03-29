@@ -246,6 +246,7 @@ Expr0: Expression = {
     IntLiteralExpr,
     BoolLiteralExpr,
     ArrayExpr,
+    IndexExpr,
     CallExpr,
     ParensExpr,
 };
@@ -281,6 +282,16 @@ ArrayExpr: Expression = {
     <start:@L> "[" <elements:CommaSeparated<Expr>> "]" <end:@R> => {
         Expression::Array(ArrayExpr {
             elements,
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+IndexExpr: Expression = {
+    <start:@L> <collection:Expr0> "[" <index:Expr> "]" <end:@R> => {
+        Expression::Index(IndexExpr {
+            collection: Box::new(collection),
+            index: Box::new(index),
             span: InputSpan { start, end },
         })
     },

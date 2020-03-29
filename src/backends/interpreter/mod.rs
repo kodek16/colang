@@ -6,14 +6,16 @@ use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
     AllocStmt, ArrayExpr, AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, CallExpr,
-    DeallocStmt, ExprStmt, Expression, Function, IfExpr, LiteralExpr, Program, ReadStmt, Statement,
-    Symbol, SymbolId, VariableExpr, WhileStmt, WriteStmt,
+    DeallocStmt, ExprStmt, Expression, Function, IfExpr, IndexExpr, LiteralExpr, Program, ReadStmt,
+    Statement, Symbol, SymbolId, VariableExpr, WhileStmt, WriteStmt,
 };
 use crate::typing::{Type, TypeKind};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ops::Deref;
 use std::process;
+use std::rc::Rc;
 
 pub struct InterpreterBackend;
 
@@ -37,7 +39,7 @@ impl Backend for InterpreterBackend {
 enum Value {
     Int(i32),
     Bool(bool),
-    Array(Vec<Value>),
+    Array(Rc<RefCell<Vec<Value>>>),
     Void,
 }
 
@@ -53,6 +55,13 @@ impl Value {
         match self {
             Value::Bool(b) => *b,
             _ => panic_wrong_type("bool", self.type_()),
+        }
+    }
+
+    pub fn as_array(self) -> Rc<RefCell<Vec<Value>>> {
+        match self {
+            Value::Array(v) => v,
+            _ => panic_wrong_type("array", self.type_()),
         }
     }
 
@@ -203,6 +212,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         Expression::Literal(e) => run_literal_expr(e, state),
         Expression::BinaryOp(e) => run_binary_op_expr(e, state),
         Expression::Array(e) => run_array_expr(e, state),
+        Expression::Index(e) => run_index_expr(e, state),
         Expression::Call(e) => run_call_expr(e, state),
         Expression::If(e) => run_if_expr(e, state),
         Expression::Block(e) => run_block_expr(e, state),
@@ -250,7 +260,24 @@ fn run_array_expr(expression: &ArrayExpr, state: &mut State) -> RunResult<Value>
         .collect();
     let elements = elements?;
 
-    Ok(Value::Array(elements))
+    Ok(Value::Array(Rc::new(RefCell::new(elements))))
+}
+
+fn run_index_expr(expression: &IndexExpr, state: &mut State) -> RunResult<Value> {
+    let collection = run_expression(expression.collection(), state)?.as_array();
+    let collection = collection.borrow();
+    let index = run_expression(expression.index(), state)?.as_int();
+
+    if index < 0 || index >= collection.len() as i32 {
+        let error = format!(
+            "array index out of bounds: array size is {}, index is {}",
+            collection.len(),
+            index
+        );
+        return Err(error.into());
+    }
+
+    Ok(collection[index as usize].clone())
 }
 
 fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
@@ -300,7 +327,7 @@ fn default_value_for_type(type_: &Type) -> Value {
         TypeKind::Void => panic!("Tried to default-initialize a value of type `void`"),
         TypeKind::Int => Value::Int(0),
         TypeKind::Bool => Value::Bool(false),
-        TypeKind::Array(_) => Value::Array(vec![]),
+        TypeKind::Array(_) => Value::Array(Rc::new(RefCell::new(vec![]))),
         TypeKind::Error => panic_error(),
     }
 }

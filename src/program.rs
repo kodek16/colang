@@ -409,6 +409,7 @@ pub enum Expression {
     Literal(LiteralExpr),
     BinaryOp(BinaryOpExpr),
     Array(ArrayExpr),
+    Index(IndexExpr),
     Call(CallExpr),
     If(IfExpr),
     Block(BlockExpr),
@@ -430,6 +431,7 @@ impl Expression {
             Expression::Literal(e) => e.type_(program),
             Expression::BinaryOp(e) => e.type_(program),
             Expression::Array(e) => e.type_(program),
+            Expression::Index(e) => e.type_(program),
             Expression::Call(e) => e.type_(program),
             Expression::If(e) => e.type_(program),
             Expression::Block(e) => e.type_(program),
@@ -621,6 +623,61 @@ impl ArrayExpr {
 impl ExpressionKind for ArrayExpr {
     fn type_(&self, _: &Program) -> Rc<RefCell<Type>> {
         Rc::clone(&self.array_type)
+    }
+}
+
+#[derive(Debug)]
+pub struct IndexExpr {
+    collection: Box<Expression>,
+    index: Box<Expression>,
+    element_type: Rc<RefCell<Type>>,
+}
+
+impl IndexExpr {
+    pub fn new(
+        collection: Expression,
+        index: Expression,
+        program: &Program,
+        location: InputSpan,
+    ) -> Result<Expression, CompilationError> {
+        let collection_type = collection.type_(program);
+        let element_type = collection_type.borrow().element_type(program.types());
+        let element_type = match element_type {
+            Some(element_type) => element_type,
+            None => {
+                let error = CompilationError::index_target_not_an_array(
+                    collection_type.borrow().name(),
+                    location,
+                );
+                return Err(error);
+            }
+        };
+
+        let index_type = index.type_(program);
+        if index_type != *program.types().int() {
+            let error = CompilationError::array_index_not_int(index_type.borrow().name(), location);
+            return Err(error);
+        }
+
+        Ok(Expression::Index(IndexExpr {
+            collection: Box::new(collection),
+            index: Box::new(index),
+            element_type,
+        }))
+    }
+
+    pub fn collection(&self) -> &Expression {
+        &self.collection
+    }
+
+    pub fn index(&self) -> &Expression {
+        &self.index
+    }
+}
+
+impl ExpressionKind for IndexExpr {
+    fn type_(&self, _: &Program) -> Rc<RefCell<Type>> {
+        Rc::clone(&self.element_type)
     }
 }
 

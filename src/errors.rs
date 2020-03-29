@@ -314,6 +314,25 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn index_target_not_an_array(target_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9024",
+            message: format!(
+                "index expression target must be an array, not `{}`",
+                target_type
+            ),
+            location: Some(location),
+        }
+    }
+
+    pub fn array_index_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9025",
+            message: format!("array index must be `int`, not `{}`", actual_type),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

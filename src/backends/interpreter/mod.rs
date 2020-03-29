@@ -9,7 +9,7 @@ use crate::program::{
     ExprStmt, Expression, Function, IfExpr, LiteralExpr, Program, ReadStmt, Statement, Symbol,
     SymbolId, VariableExpr, WhileStmt, WriteStmt,
 };
-use crate::typing::Type;
+use crate::typing::{Type, TypeKind};
 use std::collections::HashMap;
 use std::error::Error;
 use std::ops::Deref;
@@ -136,8 +136,8 @@ fn run_alloc(statement: &AllocStmt, state: &mut State) -> RunResult<()> {
         Some(initializer) => run_expression(initializer, state)?,
         None => {
             let variable = statement.variable();
-            let variable_type = variable.type_();
-            default_value_for_type(variable_type)
+            let variable_type = variable.type_().borrow();
+            default_value_for_type(&variable_type)
         }
     };
 
@@ -278,12 +278,13 @@ fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
     run_expression(block.final_expr(), state)
 }
 
-fn default_value_for_type(type_: impl Deref<Target = Type>) -> Value {
-    match *type_ {
-        Type::Int => Value::Int(0),
-        Type::Bool => Value::Bool(false),
-        Type::Void => panic!("Tried to default-initialize a value of type `void`"),
-        Type::Error => panic_error(),
+fn default_value_for_type(type_: &Type) -> Value {
+    match type_.kind() {
+        TypeKind::Void => panic!("Tried to default-initialize a value of type `void`"),
+        TypeKind::Int => Value::Int(0),
+        TypeKind::Bool => Value::Bool(false),
+        TypeKind::Array(_) => unimplemented!(),
+        TypeKind::Error => panic_error(),
     }
 }
 

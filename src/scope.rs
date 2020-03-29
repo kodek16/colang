@@ -40,9 +40,11 @@ impl Scope {
             entities: Some(HashMap::new()),
             parent: None,
         };
-        scope.add_type(Rc::clone(program.void())).unwrap();
-        scope.add_type(Rc::clone(program.int())).unwrap();
-        scope.add_type(Rc::clone(program.bool())).unwrap();
+
+        for type_ in program.types().primitive_types() {
+            scope.add_type(Rc::clone(type_)).unwrap();
+        }
+
         scope
     }
 

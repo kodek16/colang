@@ -94,7 +94,7 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
     let name = function_def.name;
     let return_type = match function_def.return_type {
         Some(return_type) => compile_type_expr(return_type, context),
-        None => Rc::clone(context.program.void()),
+        None => Rc::clone(context.program.types().void()),
     };
 
     let function = Function::new(name.text, return_type, Some(function_def.signature_span));
@@ -279,7 +279,7 @@ fn compile_while_stmt(
     let body = compile_block_expr(*statement.body, context);
 
     let body_type = body.type_(&context.program);
-    if body_type != *context.program.void() {
+    if body_type != *context.program.types().void() {
         let error = CompilationError::while_body_not_void(&body_type.borrow().name(), body_span);
         context.errors.push(error)
     }
@@ -358,7 +358,7 @@ fn compile_variable_expr(
 
     let variable = context.scope.lookup_variable(&name.text, expression.span);
     match variable {
-        Ok(variable) if variable.borrow().type_().is_error() => program::Expression::Error,
+        Ok(variable) if variable.borrow().type_().borrow().is_error() => program::Expression::Error,
         Ok(variable) => program::VariableExpr::new(variable),
         Err(error) => {
             context.errors.push(error);

@@ -4,7 +4,7 @@
 
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::typing::Type;
+use crate::typing::{Type, TypeRegistry};
 use private::SymbolImpl;
 use std::cell::RefCell;
 use std::ops::Deref;
@@ -22,33 +22,19 @@ pub trait Symbol {
 pub struct Program {
     variables: Vec<Rc<RefCell<Variable>>>,
     functions: Vec<Rc<RefCell<Function>>>,
-    types: Vec<Rc<RefCell<Type>>>,
+    types: TypeRegistry,
     next_symbol_id: SymbolId,
 
     main_function: Option<Rc<RefCell<Function>>>,
-
-    // Internal types can be accessed bypassing the scope mechanism.
-    // Their canonical instances are referenced here.
-    void_type: Rc<RefCell<Type>>,
-    int_type: Rc<RefCell<Type>>,
-    bool_type: Rc<RefCell<Type>>,
 }
 
 impl Program {
     /// Creates a new program, populated with some internal symbols.
     pub fn new() -> Program {
-        let void_type = Rc::new(RefCell::new(Type::Void));
-        let int_type = Rc::new(RefCell::new(Type::Int));
-        let bool_type = Rc::new(RefCell::new(Type::Bool));
-
         Program {
-            void_type: Rc::clone(&void_type),
-            int_type: Rc::clone(&int_type),
-            bool_type: Rc::clone(&bool_type),
-
             variables: vec![],
             functions: vec![],
-            types: vec![void_type, int_type, bool_type],
+            types: TypeRegistry::new(),
             next_symbol_id: 0,
             main_function: None,
         }
@@ -75,26 +61,15 @@ impl Program {
         self.main_function = Some(main_function)
     }
 
+    pub fn types(&self) -> &TypeRegistry {
+        &self.types
+    }
+
     pub fn main_function(&self) -> impl Deref<Target = Function> + '_ {
         self.main_function
             .as_ref()
             .expect("`main` function has not been specified")
             .borrow()
-    }
-
-    /// The canonical `void` type reference.
-    pub fn void(&self) -> &Rc<RefCell<Type>> {
-        &self.void_type
-    }
-
-    /// The canonical `int` type reference.
-    pub fn int(&self) -> &Rc<RefCell<Type>> {
-        &self.int_type
-    }
-
-    /// The canonical `bool` type reference.
-    pub fn bool(&self) -> &Rc<RefCell<Type>> {
-        &self.bool_type
     }
 }
 
@@ -182,7 +157,7 @@ impl Variable {
         definition_site: Option<InputSpan>,
         program: &Program,
     ) -> Result<Variable, CompilationError> {
-        if type_ == *program.void() {
+        if type_ == *program.types.void() {
             let error = CompilationError::variable_of_type_void(
                 definition_site.expect("Internal variable of type `void` defined."),
             );
@@ -197,8 +172,8 @@ impl Variable {
         })
     }
 
-    pub fn type_(&self) -> impl Deref<Target = Type> + '_ {
-        self.type_.borrow()
+    pub fn type_(&self) -> &Rc<RefCell<Type>> {
+        &self.type_
     }
 }
 
@@ -290,8 +265,9 @@ impl ReadStmt {
         {
             let variable = variable.borrow();
             let variable_type = variable.type_();
-            if *variable_type != *program.int().borrow() {
-                let error = CompilationError::read_target_not_int(&variable_type.name(), location);
+            if variable_type != program.types.int() {
+                let error =
+                    CompilationError::read_target_not_int(variable_type.borrow().name(), location);
                 return Err(error);
             }
         }
@@ -319,7 +295,7 @@ impl WriteStmt {
         expr_location: InputSpan,
     ) -> Result<Statement, CompilationError> {
         let expression_type = expression.type_(program);
-        if expression_type != *program.int() {
+        if expression_type != *program.types.int() {
             let error = CompilationError::write_value_not_int(
                 &expression_type.borrow().name(),
                 expr_location,
@@ -382,9 +358,9 @@ impl AssignStmt {
         let variable_type = variable.type_();
         let value_type = value.type_(program);
 
-        if *variable_type != *value_type.borrow() {
+        if *variable_type != value_type {
             let error = CompilationError::assignment_type_mismatch(
-                &variable_type.name(),
+                variable_type.borrow().name(),
                 &value_type.borrow().name(),
                 location,
             );
@@ -451,7 +427,7 @@ impl Expression {
             Expression::Call(e) => e.type_(program),
             Expression::If(e) => e.type_(program),
             Expression::Block(e) => e.type_(program),
-            Expression::Empty => Rc::clone(program.void()),
+            Expression::Empty => Rc::clone(program.types.void()),
             Expression::Error => Type::error(),
         }
     }
@@ -512,8 +488,8 @@ impl LiteralExpr {
 impl ExpressionKind for LiteralExpr {
     fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
         Rc::clone(match self {
-            LiteralExpr::Int(_) => program.int(),
-            LiteralExpr::Bool(_) => program.bool(),
+            LiteralExpr::Int(_) => program.types.int(),
+            LiteralExpr::Bool(_) => program.types.bool(),
         })
     }
 }
@@ -569,15 +545,15 @@ impl BinaryOpExpr {
 impl ExpressionKind for BinaryOpExpr {
     fn type_(&self, program: &Program) -> Rc<RefCell<Type>> {
         let type_ = match self.operator {
-            BinaryOperator::AddInt => program.int(),
-            BinaryOperator::SubInt => program.int(),
-            BinaryOperator::MulInt => program.int(),
-            BinaryOperator::LessInt => program.bool(),
-            BinaryOperator::GreaterInt => program.bool(),
-            BinaryOperator::LessEqInt => program.bool(),
-            BinaryOperator::GreaterEqInt => program.bool(),
-            BinaryOperator::EqInt => program.bool(),
-            BinaryOperator::NotEqInt => program.bool(),
+            BinaryOperator::AddInt => program.types.int(),
+            BinaryOperator::SubInt => program.types.int(),
+            BinaryOperator::MulInt => program.types.int(),
+            BinaryOperator::LessInt => program.types.bool(),
+            BinaryOperator::GreaterInt => program.types.bool(),
+            BinaryOperator::LessEqInt => program.types.bool(),
+            BinaryOperator::GreaterEqInt => program.types.bool(),
+            BinaryOperator::EqInt => program.types.bool(),
+            BinaryOperator::NotEqInt => program.types.bool(),
         };
         Rc::clone(type_)
     }
@@ -670,7 +646,7 @@ impl IfExpr {
 
         let then_type = then.type_(program);
 
-        if else_.is_none() && then_type != *program.void() {
+        if else_.is_none() && then_type != *program.types.void() {
             let error = CompilationError::if_expression_missing_else(
                 &then_type.borrow().name(),
                 then_location,
@@ -791,8 +767,8 @@ fn check_condition_is_bool(
     location: InputSpan,
 ) -> Result<(), CompilationError> {
     let cond_type = condition.type_(program);
-    if cond_type != *program.bool() {
-        let error = CompilationError::condition_is_not_bool(&cond_type.borrow().name(), location);
+    if cond_type != *program.types.bool() {
+        let error = CompilationError::condition_is_not_bool(cond_type.borrow().name(), location);
         Err(error)
     } else {
         Ok(())
@@ -805,8 +781,8 @@ fn check_operand_is_int(
     location: InputSpan,
 ) -> Result<(), CompilationError> {
     let operand_type = operand.type_(program);
-    if operand_type != *program.int() {
-        let error = CompilationError::operand_is_not_int(&operand_type.borrow().name(), location);
+    if operand_type != *program.types.int() {
+        let error = CompilationError::operand_is_not_int(operand_type.borrow().name(), location);
         Err(error)
     } else {
         Ok(())

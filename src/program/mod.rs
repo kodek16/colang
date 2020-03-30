@@ -348,37 +348,45 @@ impl WhileStmt {
 
 #[derive(Debug)]
 pub struct AssignStmt {
-    target: Rc<RefCell<Variable>>,
+    target: Box<Expression>,
     value: Box<Expression>,
 }
 
 impl AssignStmt {
     pub fn new(
-        target: &Rc<RefCell<Variable>>,
+        target: Expression,
         value: Expression,
         location: InputSpan,
     ) -> Result<Statement, CompilationError> {
-        let variable = target.borrow();
-        let variable_type = variable.type_();
+        if target.value_category != ValueCategory::Lvalue {
+            let error = CompilationError::assignment_target_not_lvalue(
+                target
+                    .span
+                    .expect("Generated rvalue expression used as assignment target"),
+            );
+            return Err(error);
+        }
+
+        let target_type = &target.type_;
         let value_type = &value.type_;
 
-        if *variable_type != *value_type {
+        if *target_type != *value_type {
             let error = CompilationError::assignment_type_mismatch(
-                variable_type.borrow().name(),
-                &value_type.borrow().name(),
+                target_type.borrow().name(),
+                value_type.borrow().name(),
                 location,
             );
             return Err(error);
         }
 
         Ok(Statement::Assign(AssignStmt {
-            target: Rc::clone(target),
+            target: Box::new(target),
             value: Box::new(value),
         }))
     }
 
-    pub fn target(&self) -> impl Deref<Target = Variable> + '_ {
-        (*self.target).borrow()
+    pub fn target(&self) -> &Expression {
+        &self.target
     }
 
     pub fn value(&self) -> &Expression {
@@ -411,7 +419,7 @@ pub struct Expression {
     pub span: Option<InputSpan>,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ValueCategory {
     Lvalue,
     Rvalue,

@@ -299,23 +299,16 @@ fn compile_assign_stmt(
     sink: &mut impl StatementSink,
     context: &mut CompilerContext,
 ) {
-    let lhs_span = statement.lhs.span();
     let lhs = compile_expression(*statement.lhs, context);
     let rhs = compile_expression(*statement.rhs, context);
     if lhs.is_error() || rhs.is_error() {
         return;
     }
 
-    if let program::ExpressionKind::Variable(var_expr) = lhs.kind {
-        let variable = var_expr.variable_owned();
-        let result = program::AssignStmt::new(&variable, rhs, statement.span);
-        match result {
-            Ok(statement) => sink.emit(statement),
-            Err(error) => context.errors.push(error),
-        }
-    } else {
-        let error = CompilationError::assignment_target_not_variable(lhs_span);
-        context.errors.push(error)
+    let result = program::AssignStmt::new(lhs, rhs, statement.span);
+    match result {
+        Ok(statement) => sink.emit(statement),
+        Err(error) => context.errors.push(error),
     }
 }
 

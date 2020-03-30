@@ -13,7 +13,7 @@ use crate::typing::{Type, TypeKind};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::process;
 use std::rc::Rc;
 
@@ -34,33 +34,72 @@ impl Backend for InterpreterBackend {
     }
 }
 
-/// Every value that exists in the program belongs to this type.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 enum Value {
-    Int(i32),
-    Bool(bool),
-    Array(Rc<RefCell<Vec<Value>>>),
-    Void,
+    Lvalue(Lvalue),
+    Rvalue(Rvalue),
 }
 
 impl Value {
+    pub fn into_lvalue(self) -> Lvalue {
+        match self {
+            Value::Lvalue(value) => value,
+            Value::Rvalue(_) => panic!("Rvalue accessed as lvalue."),
+        }
+    }
+
+    pub fn into_rvalue(self) -> Rvalue {
+        match self {
+            Value::Lvalue(value) => value.borrow().clone(),
+            Value::Rvalue(value) => value,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct Lvalue(Rc<RefCell<Rvalue>>);
+
+impl Lvalue {
+    pub fn store(rvalue: Rvalue) -> Lvalue {
+        Lvalue(Rc::new(RefCell::new(rvalue)))
+    }
+
+    pub fn borrow(&self) -> impl Deref<Target = Rvalue> + '_ {
+        self.0.borrow()
+    }
+
+    pub fn borrow_mut(&self) -> impl DerefMut<Target = Rvalue> + '_ {
+        self.0.borrow_mut()
+    }
+}
+
+/// Every value that exists in the program belongs to this type.
+#[derive(Clone)]
+enum Rvalue {
+    Int(i32),
+    Bool(bool),
+    Array(Rc<RefCell<Vec<Lvalue>>>),
+    Void,
+}
+
+impl Rvalue {
     pub fn as_int(&self) -> i32 {
         match self {
-            Value::Int(x) => *x,
+            Rvalue::Int(x) => *x,
             _ => panic_wrong_type("int", self.type_()),
         }
     }
 
     pub fn as_bool(&self) -> bool {
         match self {
-            Value::Bool(b) => *b,
+            Rvalue::Bool(b) => *b,
             _ => panic_wrong_type("bool", self.type_()),
         }
     }
 
-    pub fn as_array(self) -> Rc<RefCell<Vec<Value>>> {
+    pub fn into_array(self) -> Rc<RefCell<Vec<Lvalue>>> {
         match self {
-            Value::Array(v) => v,
+            Rvalue::Array(v) => v,
             _ => panic_wrong_type("array", self.type_()),
         }
     }
@@ -70,7 +109,7 @@ impl Value {
     /// to be used in type mismatch panics, which should not occur under
     /// normal circumstances.
     pub fn type_(&self) -> &'static str {
-        use Value::*;
+        use Rvalue::*;
         match self {
             Int(_) => "int",
             Bool(_) => "bool",
@@ -81,7 +120,7 @@ impl Value {
 }
 
 struct State {
-    variables: HashMap<SymbolId, Vec<Value>>,
+    variables: HashMap<SymbolId, Vec<Lvalue>>,
     cin: Cin,
 }
 
@@ -93,8 +132,11 @@ impl State {
         }
     }
 
-    fn push(&mut self, variable_id: SymbolId, value: Value) {
-        self.variables.entry(variable_id).or_default().push(value)
+    fn push(&mut self, variable_id: SymbolId, value: Rvalue) {
+        self.variables
+            .entry(variable_id)
+            .or_default()
+            .push(Lvalue::store(value))
     }
 
     fn pop(&mut self, variable_id: SymbolId) {
@@ -105,15 +147,18 @@ impl State {
             .expect("variable deallocated twice");
     }
 
-    fn get(&self, variable_id: SymbolId) -> &Value {
-        self.variables
-            .get(&variable_id)
-            .expect("variable accessed before allocation")
-            .last()
-            .expect("variable accessed after deallocation")
+    fn get(&self, variable_id: SymbolId) -> Value {
+        Value::Lvalue(
+            self.variables
+                .get(&variable_id)
+                .expect("variable accessed before allocation")
+                .last()
+                .expect("variable accessed after deallocation")
+                .clone(),
+        )
     }
 
-    fn update(&mut self, variable_id: SymbolId, new_value: Value) {
+    fn update(&mut self, variable_id: SymbolId, new_value: Rvalue) {
         let variable = self
             .variables
             .get_mut(&variable_id)
@@ -121,7 +166,7 @@ impl State {
             .last_mut()
             .expect("variable accessed after deallocation");
 
-        *variable = new_value;
+        *variable.borrow_mut() = new_value;
     }
 }
 
@@ -148,7 +193,7 @@ fn run_alloc(statement: &AllocStmt, state: &mut State) -> RunResult<()> {
     let variable_id = statement.variable().id();
 
     let initial_value = match statement.initializer() {
-        Some(initializer) => run_expression(initializer, state)?,
+        Some(initializer) => run_expression(initializer, state)?.into_rvalue(),
         None => {
             let variable = statement.variable();
             let variable_type = variable.type_().borrow();
@@ -172,32 +217,36 @@ fn run_read(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
     let new_value: i32 = word
         .parse()
         .map_err(|_| format!("Could not parse `{}` to an integer.", word))?;
-    state.update(variable_id, Value::Int(new_value));
+    state.update(variable_id, Rvalue::Int(new_value));
     Ok(())
 }
 
 fn run_write(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
-    let value = run_expression(statement.expression(), state)?;
+    let value = run_expression(statement.expression(), state)?.into_rvalue();
     match value {
-        Value::Int(x) => println!("{}", x),
+        Rvalue::Int(x) => println!("{}", x),
         _ => panic_wrong_type("int", value.type_()),
     }
     Ok(())
 }
 
 fn run_while(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
-    let mut cond = run_expression(statement.cond(), state)?.as_bool();
+    let mut cond = run_expression(statement.cond(), state)?
+        .into_rvalue()
+        .as_bool();
     while cond {
         run_statement(statement.body(), state)?;
-        cond = run_expression(statement.cond(), state)?.as_bool();
+        cond = run_expression(statement.cond(), state)?
+            .into_rvalue()
+            .as_bool();
     }
     Ok(())
 }
 
 fn run_assign(statement: &AssignStmt, state: &mut State) -> RunResult<()> {
-    let target_id = statement.target().id();
-    let new_value = run_expression(statement.value(), state)?;
-    state.update(target_id, new_value);
+    let target = run_expression(statement.target(), state)?.into_lvalue();
+    let new_value = run_expression(statement.value(), state)?.into_rvalue();
+    *target.borrow_mut() = new_value;
     Ok(())
 }
 
@@ -216,7 +265,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ExpressionKind::Call(e) => run_call_expr(e, state),
         ExpressionKind::If(e) => run_if_expr(e, state),
         ExpressionKind::Block(e) => run_block_expr(e, state),
-        ExpressionKind::Empty => Ok(Value::Void),
+        ExpressionKind::Empty => Ok(Value::Rvalue(Rvalue::Void)),
         ExpressionKind::Error => panic_error(),
     }
 }
@@ -229,27 +278,31 @@ fn run_variable_expr(expression: &VariableExpr, state: &State) -> RunResult<Valu
 
 fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
     let value = match expression {
-        LiteralExpr::Int(value) => Value::Int(*value),
-        LiteralExpr::Bool(value) => Value::Bool(*value),
+        LiteralExpr::Int(value) => Value::Rvalue(Rvalue::Int(*value)),
+        LiteralExpr::Bool(value) => Value::Rvalue(Rvalue::Bool(*value)),
     };
     Ok(value)
 }
 
 fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> RunResult<Value> {
-    let lhs = run_expression(expression.lhs(), state)?.as_int();
-    let rhs = run_expression(expression.rhs(), state)?.as_int();
+    let lhs = run_expression(expression.lhs(), state)?
+        .into_rvalue()
+        .as_int();
+    let rhs = run_expression(expression.rhs(), state)?
+        .into_rvalue()
+        .as_int();
 
-    let result = match expression.operator {
-        BinaryOperator::AddInt => Value::Int(lhs + rhs),
-        BinaryOperator::SubInt => Value::Int(lhs - rhs),
-        BinaryOperator::MulInt => Value::Int(lhs * rhs),
-        BinaryOperator::LessInt => Value::Bool(lhs < rhs),
-        BinaryOperator::GreaterInt => Value::Bool(lhs > rhs),
-        BinaryOperator::LessEqInt => Value::Bool(lhs <= rhs),
-        BinaryOperator::GreaterEqInt => Value::Bool(lhs >= rhs),
-        BinaryOperator::EqInt => Value::Bool(lhs == rhs),
-        BinaryOperator::NotEqInt => Value::Bool(lhs != rhs),
-    };
+    let result = Value::Rvalue(match expression.operator {
+        BinaryOperator::AddInt => Rvalue::Int(lhs + rhs),
+        BinaryOperator::SubInt => Rvalue::Int(lhs - rhs),
+        BinaryOperator::MulInt => Rvalue::Int(lhs * rhs),
+        BinaryOperator::LessInt => Rvalue::Bool(lhs < rhs),
+        BinaryOperator::GreaterInt => Rvalue::Bool(lhs > rhs),
+        BinaryOperator::LessEqInt => Rvalue::Bool(lhs <= rhs),
+        BinaryOperator::GreaterEqInt => Rvalue::Bool(lhs >= rhs),
+        BinaryOperator::EqInt => Rvalue::Bool(lhs == rhs),
+        BinaryOperator::NotEqInt => Rvalue::Bool(lhs != rhs),
+    });
     Ok(result)
 }
 
@@ -258,15 +311,24 @@ fn run_array_expr(expression: &ArrayExpr, state: &mut State) -> RunResult<Value>
         .elements()
         .map(|element| run_expression(element, state))
         .collect();
-    let elements = elements?;
+    let elements: Vec<Lvalue> = elements?
+        .into_iter()
+        .map(|value| Lvalue::store(value.into_rvalue()))
+        .collect();
 
-    Ok(Value::Array(Rc::new(RefCell::new(elements))))
+    Ok(Value::Rvalue(Rvalue::Array(Rc::new(RefCell::new(
+        elements,
+    )))))
 }
 
 fn run_index_expr(expression: &IndexExpr, state: &mut State) -> RunResult<Value> {
-    let collection = run_expression(expression.collection(), state)?.as_array();
+    let collection = run_expression(expression.collection(), state)?
+        .into_rvalue()
+        .into_array();
     let collection = collection.borrow();
-    let index = run_expression(expression.index(), state)?.as_int();
+    let index = run_expression(expression.index(), state)?
+        .into_rvalue()
+        .as_int();
 
     if index < 0 || index >= collection.len() as i32 {
         let error = format!(
@@ -277,7 +339,7 @@ fn run_index_expr(expression: &IndexExpr, state: &mut State) -> RunResult<Value>
         return Err(error.into());
     }
 
-    Ok(collection[index as usize].clone())
+    Ok(Value::Lvalue(collection[index as usize].clone()))
 }
 
 fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
@@ -292,7 +354,7 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
 
     for (parameter, value) in parameters.zip(arguments.into_iter()) {
         let variable_id = parameter.id();
-        state.push(variable_id, value)
+        state.push(variable_id, value.into_rvalue())
     }
 
     let function_result = run_function(expression.function(), state);
@@ -306,7 +368,9 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
 }
 
 fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {
-    let cond = run_expression(expression.cond(), state)?.as_bool();
+    let cond = run_expression(expression.cond(), state)?
+        .into_rvalue()
+        .as_bool();
     if cond {
         run_expression(expression.then(), state)
     } else {
@@ -322,12 +386,12 @@ fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
     run_expression(block.final_expr(), state)
 }
 
-fn default_value_for_type(type_: &Type) -> Value {
+fn default_value_for_type(type_: &Type) -> Rvalue {
     match type_.kind() {
         TypeKind::Void => panic!("Tried to default-initialize a value of type `void`"),
-        TypeKind::Int => Value::Int(0),
-        TypeKind::Bool => Value::Bool(false),
-        TypeKind::Array(_) => Value::Array(Rc::new(RefCell::new(vec![]))),
+        TypeKind::Int => Rvalue::Int(0),
+        TypeKind::Bool => Rvalue::Bool(false),
+        TypeKind::Array(_) => Rvalue::Array(Rc::new(RefCell::new(vec![]))),
         TypeKind::Error => panic_error(),
     }
 }

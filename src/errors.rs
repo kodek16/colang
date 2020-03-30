@@ -148,10 +148,10 @@ impl CompilationError {
         }
     }
 
-    pub fn assignment_target_not_variable(location: InputSpan) -> CompilationError {
+    pub fn assignment_target_not_lvalue(location: InputSpan) -> CompilationError {
         CompilationError {
             code: "E9011",
-            message: "assignment target must be a variable".to_string(),
+            message: "assignment target must be an lvalue".to_string(),
             location: Some(location),
         }
     }
@@ -164,7 +164,7 @@ impl CompilationError {
         CompilationError {
             code: "E9012",
             message: format!(
-                "cannot assign value of type `{}` to a variable of type `{}`",
+                "cannot assign value of type `{}` to a target of type `{}`",
                 value_type, target_type
             ),
             location: Some(location),

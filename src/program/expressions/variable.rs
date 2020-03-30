@@ -28,9 +28,4 @@ impl VariableExpr {
     pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
         self.variable.borrow()
     }
-
-    /// This should only be used in the frontend.
-    pub fn variable_owned(&self) -> Rc<RefCell<Variable>> {
-        Rc::clone(&self.variable)
-    }
 }

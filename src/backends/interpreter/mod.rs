@@ -6,8 +6,8 @@ use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
     AllocStmt, ArrayExpr, AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, CallExpr,
-    DeallocStmt, ExprStmt, Expression, Function, IfExpr, IndexExpr, LiteralExpr, Program, ReadStmt,
-    Statement, Symbol, SymbolId, VariableExpr, WhileStmt, WriteStmt,
+    DeallocStmt, ExprStmt, Expression, ExpressionKind, Function, IfExpr, IndexExpr, LiteralExpr,
+    Program, ReadStmt, Statement, Symbol, SymbolId, VariableExpr, WhileStmt, WriteStmt,
 };
 use crate::typing::{Type, TypeKind};
 use std::cell::RefCell;
@@ -207,17 +207,17 @@ fn run_expr_stmt(statement: &ExprStmt, state: &mut State) -> RunResult<()> {
 }
 
 fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value> {
-    match expression {
-        Expression::Variable(e) => run_variable_expr(e, state),
-        Expression::Literal(e) => run_literal_expr(e, state),
-        Expression::BinaryOp(e) => run_binary_op_expr(e, state),
-        Expression::Array(e) => run_array_expr(e, state),
-        Expression::Index(e) => run_index_expr(e, state),
-        Expression::Call(e) => run_call_expr(e, state),
-        Expression::If(e) => run_if_expr(e, state),
-        Expression::Block(e) => run_block_expr(e, state),
-        Expression::Empty => Ok(Value::Void),
-        Expression::Error => panic_error(),
+    match &expression.kind {
+        ExpressionKind::Variable(e) => run_variable_expr(e, state),
+        ExpressionKind::Literal(e) => run_literal_expr(e, state),
+        ExpressionKind::BinaryOp(e) => run_binary_op_expr(e, state),
+        ExpressionKind::Array(e) => run_array_expr(e, state),
+        ExpressionKind::Index(e) => run_index_expr(e, state),
+        ExpressionKind::Call(e) => run_call_expr(e, state),
+        ExpressionKind::If(e) => run_if_expr(e, state),
+        ExpressionKind::Block(e) => run_block_expr(e, state),
+        ExpressionKind::Empty => Ok(Value::Void),
+        ExpressionKind::Error => panic_error(),
     }
 }
 

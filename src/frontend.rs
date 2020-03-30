@@ -117,7 +117,7 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
 
     context.scope.pop();
 
-    let body_type = body.type_(&context.program);
+    let body_type = Rc::clone(&body.type_);
     if let Err(error) = function.borrow_mut().fill_body(body, body_type) {
         context.errors.push(error)
     };
@@ -181,7 +181,7 @@ fn compile_var_decl_entry(
     let type_ = match type_ {
         Some(t) => t,
         None => match initializer {
-            Some(ref expr) => expr.type_(&context.program),
+            Some(ref expr) => Rc::clone(&expr.type_),
             None => {
                 let error = CompilationError::variable_type_omitted(&name.text, declaration.span);
                 context.errors.push(error);
@@ -192,8 +192,7 @@ fn compile_var_decl_entry(
 
     let variable = create_variable(name.text, type_, Some(declaration.span), context);
     if let Some(variable) = variable {
-        let result =
-            program::AllocStmt::new(&variable, initializer, &context.program, declaration.span);
+        let result = program::AllocStmt::new(&variable, initializer, declaration.span);
         match result {
             Ok(statement) => sink.emit(statement),
             Err(error) => context.errors.push(error),
@@ -257,7 +256,7 @@ fn compile_write_stmt(
 ) {
     let expr_span = statement.expression.span();
     let expression = compile_expression(statement.expression, context);
-    if let program::Expression::Error = expression {
+    if expression.is_error() {
         return;
     }
 
@@ -273,13 +272,12 @@ fn compile_while_stmt(
     sink: &mut impl StatementSink,
     context: &mut CompilerContext,
 ) {
-    let cond_span = statement.cond.span();
     let body_span = statement.body.span;
     let cond = compile_expression(*statement.cond, context);
     let body = compile_block_expr(*statement.body, context);
 
-    let body_type = body.type_(&context.program);
-    if body_type != *context.program.types().void() {
+    let body_type = &body.type_;
+    if *body_type != *context.program.types().void() {
         let error = CompilationError::while_body_not_void(&body_type.borrow().name(), body_span);
         context.errors.push(error)
     }
@@ -289,7 +287,7 @@ fn compile_while_stmt(
         return;
     }
 
-    let result = program::WhileStmt::new(cond, body, &context.program, cond_span);
+    let result = program::WhileStmt::new(cond, body, context.program.types());
     match result {
         Ok(statement) => sink.emit(statement),
         Err(error) => context.errors.push(error),
@@ -308,9 +306,9 @@ fn compile_assign_stmt(
         return;
     }
 
-    if let program::Expression::Variable(var_expr) = lhs {
+    if let program::ExpressionKind::Variable(var_expr) = lhs.kind {
         let variable = var_expr.variable_owned();
-        let result = program::AssignStmt::new(&variable, rhs, &context.program, statement.span);
+        let result = program::AssignStmt::new(&variable, rhs, statement.span);
         match result {
             Ok(statement) => sink.emit(statement),
             Err(error) => context.errors.push(error),
@@ -360,27 +358,29 @@ fn compile_variable_expr(
 
     let variable = context.scope.lookup_variable(&name.text, expression.span);
     match variable {
-        Ok(variable) if variable.borrow().type_().borrow().is_error() => program::Expression::Error,
-        Ok(variable) => program::VariableExpr::new(variable),
+        Ok(variable) if variable.borrow().type_().borrow().is_error() => {
+            program::Expression::error(expression.span)
+        }
+        Ok(variable) => program::VariableExpr::new(variable, expression.span),
         Err(error) => {
             context.errors.push(error);
-            program::Expression::Error
+            program::Expression::error(expression.span)
         }
     }
 }
 
 fn compile_int_literal_expr(
     expression: ast::IntLiteralExpr,
-    _context: &CompilerContext,
+    context: &CompilerContext,
 ) -> program::Expression {
-    program::LiteralExpr::int(expression.value)
+    program::LiteralExpr::int(expression.value, context.program.types(), expression.span)
 }
 
 fn compile_bool_literal_expr(
     expression: ast::BoolLiteralExpr,
-    _context: &CompilerContext,
+    context: &CompilerContext,
 ) -> program::Expression {
-    program::LiteralExpr::bool(expression.value)
+    program::LiteralExpr::bool(expression.value, context.program.types(), expression.span)
 }
 
 fn compile_binary_op_expr(
@@ -398,28 +398,20 @@ fn compile_binary_op_expr(
         ast::BinaryOperator::Eq => program::BinaryOperator::EqInt,
         ast::BinaryOperator::NotEq => program::BinaryOperator::NotEqInt,
     };
-    let lhs_location = expression.lhs.span();
-    let rhs_location = expression.rhs.span();
     let lhs = compile_expression(*expression.lhs, context);
     let rhs = compile_expression(*expression.rhs, context);
 
     if lhs.is_error() || rhs.is_error() {
-        return program::Expression::Error;
+        return program::Expression::error(expression.span);
     }
 
-    let result = program::BinaryOpExpr::new(
-        operator,
-        lhs,
-        rhs,
-        &context.program,
-        lhs_location,
-        rhs_location,
-    );
+    let result =
+        program::BinaryOpExpr::new(operator, lhs, rhs, context.program.types(), expression.span);
     match result {
         Ok(expr) => expr,
         Err(error) => {
             context.errors.push(error);
-            program::Expression::Error
+            program::Expression::error(expression.span)
         }
     }
 }
@@ -428,24 +420,18 @@ fn compile_array_expr(
     expression: ast::ArrayExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let element_spans: Vec<_> = expression
-        .elements
-        .iter()
-        .map(ast::Expression::span)
-        .collect();
-
     let elements: Vec<_> = expression
         .elements
         .into_iter()
         .map(|element| compile_expression(element, context))
         .collect();
 
-    let result = program::ArrayExpr::new(elements, element_spans, &mut context.program);
+    let result = program::ArrayExpr::new(elements, context.program.types_mut(), expression.span);
     match result {
         Ok(expression) => expression,
         Err(mut errors) => {
             context.errors.append(&mut errors);
-            program::Expression::Error
+            program::Expression::error(expression.span)
         }
     }
 }
@@ -459,15 +445,15 @@ fn compile_index_expr(
     let index = compile_expression(*expression.index, context);
 
     if collection.is_error() || index.is_error() {
-        return program::Expression::Error;
+        return program::Expression::error(expression.span);
     }
 
-    let result = program::IndexExpr::new(collection, index, &context.program, location);
+    let result = program::IndexExpr::new(collection, index, context.program.types(), location);
     match result {
         Ok(expression) => expression,
         Err(error) => {
             context.errors.push(error);
-            program::Expression::Error
+            program::Expression::error(expression.span)
         }
     }
 }
@@ -494,34 +480,33 @@ fn compile_call_expr(
         Ok(function) => function,
         Err(error) => {
             context.errors.push(error);
-            return program::Expression::Error;
+            return program::Expression::error(expression.span);
         }
     };
 
-    let result = program::CallExpr::new(function, arguments, expression.span, &context.program);
+    let result = program::CallExpr::new(function, arguments, expression.span);
     match result {
         Ok(expression) => expression,
         Err(error) => {
             context.errors.push(error);
-            program::Expression::Error
+            program::Expression::error(expression.span)
         }
     }
 }
 
 fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
-    let cond_span = if_.cond.span();
-    let then_span = if_.then.span();
+    let span = if_.span;
     let cond = compile_expression(*if_.cond, context);
     let then = compile_expression(*if_.then, context);
     let else_ = if_.else_.map(|else_| compile_expression(*else_, context));
 
-    let result = program::IfExpr::new(cond, then, else_, &context.program, cond_span, then_span);
+    let result = program::IfExpr::new(cond, then, else_, context.program.types(), span);
 
     match result {
         Ok(expression) => expression,
         Err(error) => {
             context.errors.push(error);
-            program::Expression::Error
+            program::Expression::error(if_.span)
         }
     }
 }
@@ -536,7 +521,7 @@ fn compile_block_expr(block: ast::BlockExpr, context: &mut CompilerContext) -> p
     let final_expr = block
         .final_expr
         .map(|expr| compile_expression(*expr, context));
-    let result = builder.into_expr(final_expr);
+    let result = builder.into_expr(final_expr, context.program.types(), block.span);
 
     result
 }

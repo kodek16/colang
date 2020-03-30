@@ -62,7 +62,7 @@ pub struct ReadStmt {
 
 #[derive(Debug)]
 pub struct ReadEntry {
-    pub variable_name: Identifier,
+    pub target: Expression,
 
     pub span: InputSpan,
 }

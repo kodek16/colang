@@ -157,17 +157,6 @@ impl State {
                 .clone(),
         )
     }
-
-    fn update(&mut self, variable_id: SymbolId, new_value: Rvalue) {
-        let variable = self
-            .variables
-            .get_mut(&variable_id)
-            .expect("variable accessed before allocation")
-            .last_mut()
-            .expect("variable accessed after deallocation");
-
-        *variable.borrow_mut() = new_value;
-    }
 }
 
 type RunResult<T> = Result<T, Box<dyn Error>>;
@@ -212,12 +201,12 @@ fn run_dealloc(statement: &DeallocStmt, state: &mut State) -> RunResult<()> {
 }
 
 fn run_read(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
-    let variable_id = statement.variable().id();
+    let target = run_expression(statement.target(), state)?.into_lvalue();
     let word = state.cin.read_word()?;
     let new_value: i32 = word
         .parse()
         .map_err(|_| format!("Could not parse `{}` to an integer.", word))?;
-    state.update(variable_id, Rvalue::Int(new_value));
+    *target.borrow_mut() = Rvalue::Int(new_value);
     Ok(())
 }
 

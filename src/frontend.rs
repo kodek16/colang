@@ -239,10 +239,12 @@ fn compile_read_entry(
     sink: &mut impl StatementSink,
     context: &mut CompilerContext,
 ) {
-    let name = &entry.variable_name;
-    let variable = context.scope.lookup_variable(&name.text, entry.span);
-    let result =
-        variable.and_then(|var| program::ReadStmt::new(&var, &context.program, entry.span));
+    let target = compile_expression(entry.target, context);
+    if target.is_error() {
+        return;
+    }
+
+    let result = program::ReadStmt::new(target, context.program.types());
     match result {
         Ok(statement) => sink.emit(statement),
         Err(error) => context.errors.push(error),

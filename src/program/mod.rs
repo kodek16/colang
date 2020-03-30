@@ -259,33 +259,36 @@ impl DeallocStmt {
 
 #[derive(Debug)]
 pub struct ReadStmt {
-    variable: Rc<RefCell<Variable>>,
+    target: Box<Expression>,
 }
 
 impl ReadStmt {
-    pub fn new(
-        variable: &Rc<RefCell<Variable>>,
-        program: &Program,
-        location: InputSpan,
-    ) -> Result<Statement, CompilationError> {
-        {
-            let variable = variable.borrow();
-            let variable_type = variable.type_();
-            if variable_type != program.types.int() {
-                let error =
-                    CompilationError::read_target_not_int(variable_type.borrow().name(), location);
-                return Err(error);
-            }
+    pub fn new(target: Expression, types: &TypeRegistry) -> Result<Statement, CompilationError> {
+        if target.value_category != ValueCategory::Lvalue {
+            let error = CompilationError::read_target_not_lvalue(
+                target.span.expect("Attempt to read generated rvalue."),
+            );
+            return Err(error);
+        }
+
+        let target_type = &target.type_;
+        if *target_type != *types.int() {
+            let error = CompilationError::read_target_not_int(
+                target_type.borrow().name(),
+                target
+                    .span
+                    .expect("Attempt to read generated non-int value."),
+            );
+            return Err(error);
         }
 
         Ok(Statement::Read(ReadStmt {
-            variable: Rc::clone(variable),
+            target: Box::new(target),
         }))
     }
 
-    /// Borrow the variable immutably.
-    pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
-        (*self.variable).borrow()
+    pub fn target(&self) -> &Expression {
+        &self.target
     }
 }
 

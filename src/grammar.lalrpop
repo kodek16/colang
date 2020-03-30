@@ -100,13 +100,13 @@ VarDeclEntry: VarDeclEntry = {
 };
 
 ReadEntry: ReadEntry = {
-    <start: @L> <name: Ident> <end: @R> => {
+    <start:@L> <target:Expr> <end:@R> => {
         ReadEntry {
-            variable_name: name,
+            target,
             span: InputSpan { start, end },
         }
-    }
-}
+    },
+};
 
 // Expressions are defined from lowest to highest precedence (Expr0 is highest).
 // The top-level non-terminal structure handles the dangling-else problem.

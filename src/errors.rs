@@ -333,6 +333,14 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn read_target_not_lvalue(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9026",
+            message: format!("`read` statement target must be an lvalue"),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

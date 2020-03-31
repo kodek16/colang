@@ -8,7 +8,7 @@ pub struct DebugBackend;
 
 impl Backend for DebugBackend {
     fn run(&self, program: Program) -> Result<(), Box<dyn Error>> {
-        println!("Program is: {:#?}", program);
+        println!("Program is:\n{}", program);
         Ok(())
     }
 }

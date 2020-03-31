@@ -337,7 +337,8 @@ fn compile_expression(
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
         ast::Expression::BoolLiteral(e) => compile_bool_literal_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
-        ast::Expression::Array(e) => compile_array_expr(e, context),
+        ast::Expression::ArrayFromElements(e) => compile_array_from_elements_expr(e, context),
+        ast::Expression::ArrayFromCopy(e) => compile_array_from_copy_expr(e, context),
         ast::Expression::Index(e) => compile_index_expr(e, context),
         ast::Expression::Call(e) => compile_call_expr(e, context),
         ast::Expression::If(e) => compile_if_expr(e, context),
@@ -411,8 +412,8 @@ fn compile_binary_op_expr(
     }
 }
 
-fn compile_array_expr(
-    expression: ast::ArrayExpr,
+fn compile_array_from_elements_expr(
+    expression: ast::ArrayFromElementsExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
     let elements: Vec<_> = expression
@@ -421,11 +422,37 @@ fn compile_array_expr(
         .map(|element| compile_expression(element, context))
         .collect();
 
-    let result = program::ArrayExpr::new(elements, context.program.types_mut(), expression.span);
+    let result =
+        program::ArrayFromElementsExpr::new(elements, context.program.types_mut(), expression.span);
     match result {
         Ok(expression) => expression,
         Err(mut errors) => {
             context.errors.append(&mut errors);
+            program::Expression::error(expression.span)
+        }
+    }
+}
+
+fn compile_array_from_copy_expr(
+    expression: ast::ArrayFromCopyExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let element = compile_expression(*expression.element, context);
+    let size = compile_expression(*expression.size, context);
+    if element.is_error() || size.is_error() {
+        return program::Expression::error(expression.span);
+    }
+
+    let result = program::ArrayFromCopyExpr::new(
+        element,
+        size,
+        context.program.types_mut(),
+        expression.span,
+    );
+    match result {
+        Ok(expression) => expression,
+        Err(error) => {
+            context.errors.push(error);
             program::Expression::error(expression.span)
         }
     }
@@ -518,6 +545,7 @@ fn compile_block_expr(block: ast::BlockExpr, context: &mut CompilerContext) -> p
         .map(|expr| compile_expression(*expr, context));
     let result = builder.into_expr(final_expr, context.program.types(), block.span);
 
+    context.scope.pop();
     result
 }
 

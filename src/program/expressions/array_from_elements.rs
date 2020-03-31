@@ -6,11 +6,11 @@ use crate::errors::CompilationError;
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct ArrayExpr {
+pub struct ArrayFromElementsExpr {
     elements: Vec<Expression>,
 }
 
-impl ArrayExpr {
+impl ArrayFromElementsExpr {
     pub fn new(
         elements: Vec<Expression>,
         types: &mut TypeRegistry,
@@ -42,7 +42,7 @@ impl ArrayExpr {
             return Err(errors);
         }
 
-        let kind = ExpressionKind::Array(ArrayExpr { elements });
+        let kind = ExpressionKind::ArrayFromElements(ArrayFromElementsExpr { elements });
         let array_type = types.array_of(&inferred_type);
 
         Ok(Expression {

@@ -103,7 +103,8 @@ pub enum Expression {
     IntLiteral(IntLiteralExpr),
     BoolLiteral(BoolLiteralExpr),
     BinaryOp(BinaryOperatorExpr),
-    Array(ArrayExpr),
+    ArrayFromElements(ArrayFromElementsExpr),
+    ArrayFromCopy(ArrayFromCopyExpr),
     Index(IndexExpr),
     Call(CallExpr),
     If(IfExpr),
@@ -118,7 +119,8 @@ impl Expression {
             IntLiteral(e) => e.span,
             BoolLiteral(e) => e.span,
             BinaryOp(e) => e.span,
-            Array(e) => e.span,
+            ArrayFromElements(e) => e.span,
+            ArrayFromCopy(e) => e.span,
             Index(e) => e.span,
             Call(e) => e.span,
             If(e) => e.span,
@@ -147,7 +149,13 @@ impl Expression {
                 span: f(&e.span),
                 ..e
             }),
-            Expression::Array(e) => Expression::Array(ArrayExpr {
+            Expression::ArrayFromElements(e) => {
+                Expression::ArrayFromElements(ArrayFromElementsExpr {
+                    span: f(&e.span),
+                    ..e
+                })
+            }
+            Expression::ArrayFromCopy(e) => Expression::ArrayFromCopy(ArrayFromCopyExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -215,8 +223,16 @@ pub struct BinaryOperatorExpr {
 }
 
 #[derive(Debug)]
-pub struct ArrayExpr {
+pub struct ArrayFromElementsExpr {
     pub elements: Vec<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct ArrayFromCopyExpr {
+    pub element: Box<Expression>,
+    pub size: Box<Expression>,
 
     pub span: InputSpan,
 }

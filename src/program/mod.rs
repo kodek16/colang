@@ -3,6 +3,7 @@
 //! backends.
 
 mod checks;
+mod display;
 pub mod expressions;
 
 use crate::ast::InputSpan;
@@ -192,6 +193,7 @@ pub enum Statement {
     Write(WriteStmt),
     While(WhileStmt),
     Assign(AssignStmt),
+    Return(ReturnStmt),
     Expr(ExprStmt),
 }
 
@@ -397,6 +399,27 @@ impl AssignStmt {
     }
 }
 
+/// This instruction represents memorization of a value that would later
+/// become the value of the surrounding context. This context might be a
+/// function (and then this is the return value), but more commonly
+/// this is the final value of an expression block.
+#[derive(Debug)]
+pub struct ReturnStmt {
+    expression: Box<Expression>,
+}
+
+impl ReturnStmt {
+    pub fn new(expression: Expression) -> Statement {
+        Statement::Return(ReturnStmt {
+            expression: Box::new(expression),
+        })
+    }
+
+    pub fn expression(&self) -> &Expression {
+        &self.expression
+    }
+}
+
 #[derive(Debug)]
 pub struct ExprStmt {
     expression: Box<Expression>,
@@ -428,7 +451,8 @@ pub enum ValueCategory {
     Rvalue,
 }
 
-pub use expressions::array::ArrayExpr;
+pub use expressions::array_from_copy::ArrayFromCopyExpr;
+pub use expressions::array_from_elements::ArrayFromElementsExpr;
 pub use expressions::binary_op::{BinaryOpExpr, BinaryOperator};
 pub use expressions::block::{BlockBuilder, BlockExpr};
 pub use expressions::call::CallExpr;
@@ -442,7 +466,8 @@ pub enum ExpressionKind {
     Variable(VariableExpr),
     Literal(LiteralExpr),
     BinaryOp(BinaryOpExpr),
-    Array(ArrayExpr),
+    ArrayFromElements(ArrayFromElementsExpr),
+    ArrayFromCopy(ArrayFromCopyExpr),
     Index(IndexExpr),
     Call(CallExpr),
     If(IfExpr),

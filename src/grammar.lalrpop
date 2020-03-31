@@ -245,7 +245,8 @@ Expr0: Expression = {
     VariableExpr,
     IntLiteralExpr,
     BoolLiteralExpr,
-    ArrayExpr,
+    ArrayFromElementsExpr,
+    ArrayFromCopyExpr,
     IndexExpr,
     CallExpr,
     ParensExpr,
@@ -278,10 +279,20 @@ BoolLiteralExpr: Expression = {
     },
 };
 
-ArrayExpr: Expression = {
+ArrayFromElementsExpr: Expression = {
     <start:@L> "[" <elements:CommaSeparated<Expr>> "]" <end:@R> => {
-        Expression::Array(ArrayExpr {
+        Expression::ArrayFromElements(ArrayFromElementsExpr {
             elements,
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+ArrayFromCopyExpr: Expression = {
+    <start:@L> "[" <element:Expr> ";" <size:Expr> "]" <end:@R> => {
+        Expression::ArrayFromCopy(ArrayFromCopyExpr {
+            element: Box::new(element),
+            size: Box::new(size),
             span: InputSpan { start, end },
         })
     },

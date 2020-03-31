@@ -5,9 +5,10 @@ mod cin;
 use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::{
-    AllocStmt, ArrayExpr, AssignStmt, BinaryOpExpr, BinaryOperator, BlockExpr, CallExpr,
-    DeallocStmt, ExprStmt, Expression, ExpressionKind, Function, IfExpr, IndexExpr, LiteralExpr,
-    Program, ReadStmt, Statement, Symbol, SymbolId, VariableExpr, WhileStmt, WriteStmt,
+    AllocStmt, ArrayFromCopyExpr, ArrayFromElementsExpr, AssignStmt, BinaryOpExpr, BinaryOperator,
+    BlockExpr, CallExpr, DeallocStmt, ExprStmt, Expression, ExpressionKind, Function, IfExpr,
+    IndexExpr, LiteralExpr, Program, ReadStmt, ReturnStmt, Statement, Symbol, SymbolId,
+    VariableExpr, WhileStmt, WriteStmt,
 };
 use crate::typing::{Type, TypeKind};
 use std::cell::RefCell;
@@ -122,6 +123,9 @@ impl Rvalue {
 struct State {
     variables: HashMap<SymbolId, Vec<Lvalue>>,
     cin: Cin,
+
+    /// Value to be returned from the innermost current context.
+    return_value: Option<Rvalue>,
 }
 
 impl State {
@@ -129,6 +133,7 @@ impl State {
         State {
             variables: HashMap::new(),
             cin: Cin::new(),
+            return_value: None,
         }
     }
 
@@ -174,6 +179,7 @@ fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
         Statement::Write(ref s) => run_write(s, state),
         Statement::While(ref s) => run_while(s, state),
         Statement::Assign(ref s) => run_assign(s, state),
+        Statement::Return(ref s) => run_return(s, state),
         Statement::Expr(ref s) => run_expr_stmt(s, state),
     }
 }
@@ -239,6 +245,12 @@ fn run_assign(statement: &AssignStmt, state: &mut State) -> RunResult<()> {
     Ok(())
 }
 
+fn run_return(statement: &ReturnStmt, state: &mut State) -> RunResult<()> {
+    let value = run_expression(statement.expression(), state)?.into_rvalue();
+    state.return_value = Some(value);
+    Ok(())
+}
+
 fn run_expr_stmt(statement: &ExprStmt, state: &mut State) -> RunResult<()> {
     let _ = run_expression(statement.expression(), state)?;
     Ok(())
@@ -249,7 +261,8 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ExpressionKind::Variable(e) => run_variable_expr(e, state),
         ExpressionKind::Literal(e) => run_literal_expr(e, state),
         ExpressionKind::BinaryOp(e) => run_binary_op_expr(e, state),
-        ExpressionKind::Array(e) => run_array_expr(e, state),
+        ExpressionKind::ArrayFromElements(e) => run_array_from_elements_expr(e, state),
+        ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
         ExpressionKind::Index(e) => run_index_expr(e, state),
         ExpressionKind::Call(e) => run_call_expr(e, state),
         ExpressionKind::If(e) => run_if_expr(e, state),
@@ -295,7 +308,10 @@ fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> RunResult
     Ok(result)
 }
 
-fn run_array_expr(expression: &ArrayExpr, state: &mut State) -> RunResult<Value> {
+fn run_array_from_elements_expr(
+    expression: &ArrayFromElementsExpr,
+    state: &mut State,
+) -> RunResult<Value> {
     let elements: RunResult<Vec<Value>> = expression
         .elements()
         .map(|element| run_expression(element, state))
@@ -308,6 +324,24 @@ fn run_array_expr(expression: &ArrayExpr, state: &mut State) -> RunResult<Value>
     Ok(Value::Rvalue(Rvalue::Array(Rc::new(RefCell::new(
         elements,
     )))))
+}
+
+fn run_array_from_copy_expr(expression: &ArrayFromCopyExpr, state: &mut State) -> RunResult<Value> {
+    let element = run_expression(expression.element(), state)?.into_rvalue();
+    let size = run_expression(expression.size(), state)?
+        .into_rvalue()
+        .as_int();
+
+    if size <= 0 {
+        let error = format!("attempted to create array of non-positive size: {}", size);
+        return Err(error.into());
+    }
+    let size = size as usize;
+
+    let array = vec![element; size];
+    let array = array.into_iter().map(Lvalue::store).collect();
+
+    Ok(Value::Rvalue(Rvalue::Array(Rc::new(RefCell::new(array)))))
 }
 
 fn run_index_expr(expression: &IndexExpr, state: &mut State) -> RunResult<Value> {
@@ -368,11 +402,16 @@ fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {
 }
 
 fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
+    if !state.return_value.is_none() {
+        panic!("Interpreter is in an invalid state: return value is not None before block.")
+    }
+
     for statement in block.statements() {
         run_statement(statement, state)?;
     }
 
-    run_expression(block.final_expr(), state)
+    let result = state.return_value.take().unwrap_or(Rvalue::Void);
+    Ok(Value::Rvalue(result))
 }
 
 fn default_value_for_type(type_: &Type) -> Rvalue {

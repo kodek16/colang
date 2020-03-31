@@ -341,6 +341,14 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn array_size_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9027",
+            message: format!("array size must be of type `int`, not `{}`", actual_type),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

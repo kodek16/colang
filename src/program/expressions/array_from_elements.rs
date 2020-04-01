@@ -1,8 +1,9 @@
 use crate::ast::InputSpan;
 use crate::program::{Expression, ExpressionKind, ValueCategory};
-use crate::typing::TypeRegistry;
+use crate::typing::{Type, TypeRegistry};
 
 use crate::errors::CompilationError;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -14,13 +15,21 @@ impl ArrayFromElementsExpr {
     pub fn new(
         elements: Vec<Expression>,
         types: &mut TypeRegistry,
+        type_hint: Option<Rc<RefCell<Type>>>,
         span: InputSpan,
     ) -> Result<Expression, Vec<CompilationError>> {
-        // TODO use type hints instead of assuming `int` for empty array.
-        let inferred_type = elements
-            .first()
-            .map(|element| Rc::clone(&element.type_))
-            .unwrap_or_else(|| Rc::clone(types.int()));
+        let inferred_type = elements.first().map(|element| Rc::clone(&element.type_));
+
+        let inferred_type = match inferred_type {
+            Some(type_) => type_,
+            None => match type_hint.and_then(|hint| hint.borrow().element_type(types)) {
+                Some(element_type) => element_type,
+                None => {
+                    let error = CompilationError::cannot_infer_empty_type(span);
+                    return Err(vec![error]);
+                }
+            },
+        };
 
         let errors: Vec<_> = elements
             .iter()

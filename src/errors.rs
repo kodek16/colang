@@ -349,6 +349,14 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn cannot_infer_empty_type(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9028",
+            message: format!("empty array type cannot be inferred from context"),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

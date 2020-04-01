@@ -1,0 +1,7 @@
+fun foo(): [int] {
+  []
+}
+
+fun main() {
+  var arr = foo();
+}

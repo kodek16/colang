@@ -2,6 +2,7 @@
 //! defined in `program`. All static checks are performed during this phase.
 
 use std::cell::RefCell;
+use std::iter;
 use std::rc::Rc;
 
 use crate::ast;
@@ -10,7 +11,7 @@ use crate::errors::CompilationError;
 use crate::grammar;
 use crate::program;
 use crate::program::internal::populate_internal_symbols;
-use crate::program::{BlockBuilder, UserDefinedFunction, Variable};
+use crate::program::{BlockBuilder, Parameter, UserDefinedFunction, Variable};
 use crate::scope::Scope;
 use crate::typing::Type;
 
@@ -99,7 +100,11 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
         None => Rc::clone(context.program.types().void()),
     };
 
-    let function = UserDefinedFunction::new(name.text, return_type, function_def.signature_span);
+    let function = UserDefinedFunction::new(
+        name.text,
+        Rc::clone(&return_type),
+        function_def.signature_span,
+    );
     let function = Rc::new(RefCell::new(function));
     context.program.add_function(Rc::clone(&function));
     if let Err(error) = context.scope.add_function(Rc::clone(&function)) {
@@ -118,7 +123,7 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
         .as_user_defined_mut()
         .fill_parameters(parameters);
 
-    let body = compile_block_expr(function_def.body, context);
+    let body = compile_block_expr(function_def.body, Some(Rc::clone(&return_type)), context);
 
     context.scope.pop();
 
@@ -184,7 +189,7 @@ fn compile_var_decl_entry(
         .map(|type_| compile_type_expr(type_, context));
     let initializer = declaration
         .initializer
-        .map(|initializer| compile_expression(initializer, context));
+        .map(|initializer| compile_expression(initializer, type_.clone(), context));
 
     // Possibly infer type from the initializer expression.
     let type_ = match type_ {
@@ -248,7 +253,7 @@ fn compile_read_entry(
     sink: &mut impl StatementSink,
     context: &mut CompilerContext,
 ) {
-    let target = compile_expression(entry.target, context);
+    let target = compile_expression(entry.target, None, context);
     if target.is_error() {
         return;
     }
@@ -266,7 +271,7 @@ fn compile_write_stmt(
     context: &mut CompilerContext,
 ) {
     let expr_span = statement.expression.span();
-    let expression = compile_expression(statement.expression, context);
+    let expression = compile_expression(statement.expression, None, context);
     if expression.is_error() {
         return;
     }
@@ -284,8 +289,12 @@ fn compile_while_stmt(
     context: &mut CompilerContext,
 ) {
     let body_span = statement.body.span;
-    let cond = compile_expression(*statement.cond, context);
-    let body = compile_block_expr(*statement.body, context);
+    let cond = compile_expression(
+        *statement.cond,
+        Some(Rc::clone(context.program.types().bool())),
+        context,
+    );
+    let body = compile_block_expr(*statement.body, None, context);
 
     let body_type = &body.type_;
     if *body_type != *context.program.types().void() {
@@ -310,8 +319,8 @@ fn compile_assign_stmt(
     sink: &mut impl StatementSink,
     context: &mut CompilerContext,
 ) {
-    let lhs = compile_expression(*statement.lhs, context);
-    let rhs = compile_expression(*statement.rhs, context);
+    let lhs = compile_expression(*statement.lhs, None, context);
+    let rhs = compile_expression(*statement.rhs, Some(Rc::clone(&lhs.type_)), context);
     if lhs.is_error() || rhs.is_error() {
         return;
     }
@@ -328,7 +337,7 @@ fn compile_expr_stmt(
     sink: &mut impl StatementSink,
     context: &mut CompilerContext,
 ) {
-    let expression = compile_expression(statement.expression, context);
+    let expression = compile_expression(statement.expression, None, context);
     if expression.is_error() {
         return;
     }
@@ -339,6 +348,7 @@ fn compile_expr_stmt(
 
 fn compile_expression(
     expression: ast::Expression,
+    type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,
 ) -> program::Expression {
     match expression {
@@ -346,12 +356,14 @@ fn compile_expression(
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
         ast::Expression::BoolLiteral(e) => compile_bool_literal_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
-        ast::Expression::ArrayFromElements(e) => compile_array_from_elements_expr(e, context),
+        ast::Expression::ArrayFromElements(e) => {
+            compile_array_from_elements_expr(e, type_hint, context)
+        }
         ast::Expression::ArrayFromCopy(e) => compile_array_from_copy_expr(e, context),
         ast::Expression::Index(e) => compile_index_expr(e, context),
         ast::Expression::Call(e) => compile_call_expr(e, context),
         ast::Expression::If(e) => compile_if_expr(e, context),
-        ast::Expression::Block(e) => compile_block_expr(e, context),
+        ast::Expression::Block(e) => compile_block_expr(e, type_hint, context),
     }
 }
 
@@ -403,8 +415,8 @@ fn compile_binary_op_expr(
         ast::BinaryOperator::Eq => program::BinaryOperator::EqInt,
         ast::BinaryOperator::NotEq => program::BinaryOperator::NotEqInt,
     };
-    let lhs = compile_expression(*expression.lhs, context);
-    let rhs = compile_expression(*expression.rhs, context);
+    let lhs = compile_expression(*expression.lhs, None, context);
+    let rhs = compile_expression(*expression.rhs, None, context);
 
     if lhs.is_error() || rhs.is_error() {
         return program::Expression::error(expression.span);
@@ -423,16 +435,21 @@ fn compile_binary_op_expr(
 
 fn compile_array_from_elements_expr(
     expression: ast::ArrayFromElementsExpr,
+    type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,
 ) -> program::Expression {
     let elements: Vec<_> = expression
         .elements
         .into_iter()
-        .map(|element| compile_expression(element, context))
+        .map(|element| compile_expression(element, None, context))
         .collect();
 
-    let result =
-        program::ArrayFromElementsExpr::new(elements, context.program.types_mut(), expression.span);
+    let result = program::ArrayFromElementsExpr::new(
+        elements,
+        context.program.types_mut(),
+        type_hint,
+        expression.span,
+    );
     match result {
         Ok(expression) => expression,
         Err(mut errors) => {
@@ -446,8 +463,12 @@ fn compile_array_from_copy_expr(
     expression: ast::ArrayFromCopyExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let element = compile_expression(*expression.element, context);
-    let size = compile_expression(*expression.size, context);
+    let element = compile_expression(*expression.element, None, context);
+    let size = compile_expression(
+        *expression.size,
+        Some(Rc::clone(context.program.types().int())),
+        context,
+    );
     if element.is_error() || size.is_error() {
         return program::Expression::error(expression.span);
     }
@@ -472,8 +493,8 @@ fn compile_index_expr(
     context: &mut CompilerContext,
 ) -> program::Expression {
     let location = expression.span;
-    let collection = compile_expression(*expression.collection, context);
-    let index = compile_expression(*expression.index, context);
+    let collection = compile_expression(*expression.collection, None, context);
+    let index = compile_expression(*expression.index, None, context);
 
     if collection.is_error() || index.is_error() {
         return program::Expression::error(expression.span);
@@ -501,18 +522,27 @@ fn compile_call_expr(
         .lookup_function(&function_name, function_name_span)
         .map(Rc::clone);
 
-    let arguments = expression
-        .arguments
-        .into_iter()
-        .map(|argument| compile_expression(argument, context))
-        .collect();
-
     let function = match function {
         Ok(function) => function,
         Err(error) => {
             context.errors.push(error);
             return program::Expression::error(expression.span);
         }
+    };
+
+    let arguments = {
+        let function = function.borrow();
+        let parameter_types = function
+            .parameters()
+            .map(|parameter| Some(Rc::clone(parameter.type_())))
+            .chain(iter::repeat(None));
+
+        expression
+            .arguments
+            .into_iter()
+            .zip(parameter_types)
+            .map(|(argument, parameter_type)| compile_expression(argument, parameter_type, context))
+            .collect()
     };
 
     let result = program::CallExpr::new(function, arguments, expression.span);
@@ -527,9 +557,15 @@ fn compile_call_expr(
 
 fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
     let span = if_.span;
-    let cond = compile_expression(*if_.cond, context);
-    let then = compile_expression(*if_.then, context);
-    let else_ = if_.else_.map(|else_| compile_expression(*else_, context));
+    let cond = compile_expression(
+        *if_.cond,
+        Some(Rc::clone(context.program.types().bool())),
+        context,
+    );
+    let then = compile_expression(*if_.then, None, context);
+    let else_ = if_
+        .else_
+        .map(|else_| compile_expression(*else_, Some(Rc::clone(&then.type_)), context));
 
     let result = program::IfExpr::new(cond, then, else_, context.program.types(), span);
 
@@ -542,7 +578,11 @@ fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::
     }
 }
 
-fn compile_block_expr(block: ast::BlockExpr, context: &mut CompilerContext) -> program::Expression {
+fn compile_block_expr(
+    block: ast::BlockExpr,
+    type_hint: Option<Rc<RefCell<Type>>>,
+    context: &mut CompilerContext,
+) -> program::Expression {
     context.scope.push();
     let mut builder = BlockBuilder::new();
     for statement in block.statements {
@@ -551,7 +591,7 @@ fn compile_block_expr(block: ast::BlockExpr, context: &mut CompilerContext) -> p
 
     let final_expr = block
         .final_expr
-        .map(|expr| compile_expression(*expr, context));
+        .map(|expr| compile_expression(*expr, type_hint, context));
     let result = builder.into_expr(final_expr, context.program.types(), block.span);
 
     context.scope.pop();

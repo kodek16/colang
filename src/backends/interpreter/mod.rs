@@ -1,14 +1,16 @@
 //! Interpreter backend for CO can run the code right after it is compiled.
 
 mod cin;
+mod internal;
 
 use super::Backend;
 use crate::backends::interpreter::cin::Cin;
+use crate::program::internal::InternalFunctionTag;
 use crate::program::{
     AllocStmt, ArrayFromCopyExpr, ArrayFromElementsExpr, AssignStmt, BinaryOpExpr, BinaryOperator,
     BlockExpr, CallExpr, DeallocStmt, ExprStmt, Expression, ExpressionKind, Function, IfExpr,
-    IndexExpr, LiteralExpr, Program, ReadStmt, ReturnStmt, Statement, Symbol, SymbolId,
-    VariableExpr, WhileStmt, WriteStmt,
+    IndexExpr, InternalFunction, LiteralExpr, Program, ReadStmt, ReturnStmt, Statement, Symbol,
+    SymbolId, VariableExpr, WhileStmt, WriteStmt,
 };
 use crate::typing::{Type, TypeKind};
 use std::cell::RefCell;
@@ -25,7 +27,7 @@ impl Backend for InterpreterBackend {
         let mut state = State::new();
 
         let main = program.main_function();
-        let result = run_function(main, &mut state);
+        let result = run_user_function(main, &mut state);
         if let Err(err) = result {
             eprintln!("Error: {}", err);
             process::exit(1);
@@ -51,7 +53,7 @@ impl Value {
 
     pub fn into_rvalue(self) -> Rvalue {
         match self {
-            Value::Lvalue(value) => value.borrow().clone(),
+            Value::Lvalue(value) => (*value.borrow()).clone(),
             Value::Rvalue(value) => value,
         }
     }
@@ -166,13 +168,18 @@ impl State {
 
 type RunResult<T> = Result<T, Box<dyn Error>>;
 
-fn run_function(function: impl Deref<Target = Function>, state: &mut State) -> RunResult<Value> {
-    match *function {
-        Function::UserDefined(ref function) => {
-            let body = function.body();
-            run_expression(body, state)
-        }
-        Function::Internal(ref function) => unimplemented!(),
+fn run_user_function(
+    function: impl Deref<Target = Function>,
+    state: &mut State,
+) -> RunResult<Value> {
+    let body = function.as_user_defined().body();
+    run_expression(body, state)
+}
+
+fn run_internal_function(function: &InternalFunction, arguments: Vec<Value>) -> RunResult<Value> {
+    use InternalFunctionTag::*;
+    match function.tag {
+        Assert => internal::assert(arguments),
     }
 }
 
@@ -373,22 +380,22 @@ fn run_index_expr(expression: &IndexExpr, state: &mut State) -> RunResult<Value>
 fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
     let function = expression.function();
 
+    let arguments: RunResult<Vec<Value>> = expression
+        .arguments()
+        .map(|argument| run_expression(argument, state))
+        .collect();
+    let arguments = arguments?;
+
     match *function {
         Function::UserDefined(ref function) => {
             let parameters = function.parameters();
-
-            let arguments: RunResult<Vec<Value>> = expression
-                .arguments()
-                .map(|argument| run_expression(argument, state))
-                .collect();
-            let arguments = arguments?;
 
             for (parameter, value) in parameters.zip(arguments.into_iter()) {
                 let variable_id = parameter.id();
                 state.push(variable_id, value.into_rvalue())
             }
 
-            let function_result = run_function(expression.function(), state);
+            let function_result = run_user_function(expression.function(), state);
 
             for parameter in function.parameters() {
                 let variable_id = parameter.id();
@@ -397,7 +404,7 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
 
             function_result
         }
-        Function::Internal(ref function) => unimplemented!(),
+        Function::Internal(ref function) => run_internal_function(function, arguments),
     }
 }
 

@@ -160,7 +160,17 @@ impl Function {
         }
     }
 
-    pub fn as_user_defined(&mut self) -> &mut UserDefinedFunction {
+    pub fn as_user_defined(&self) -> &UserDefinedFunction {
+        match self {
+            Function::UserDefined(ref function) => function,
+            Function::Internal(ref function) => panic!(
+                "Attempt to treat internal function `{}` as user-defined",
+                function.name
+            ),
+        }
+    }
+
+    pub fn as_user_defined_mut(&mut self) -> &mut UserDefinedFunction {
         match self {
             Function::UserDefined(ref mut function) => function,
             Function::Internal(ref function) => panic!(

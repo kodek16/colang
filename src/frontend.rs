@@ -9,6 +9,7 @@ use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::grammar;
 use crate::program;
+use crate::program::internal::populate_internal_symbols;
 use crate::program::{BlockBuilder, UserDefinedFunction, Variable};
 use crate::scope::Scope;
 use crate::typing::Type;
@@ -36,8 +37,9 @@ struct CompilerContext {
 impl CompilerContext {
     /// Creates the initial root context.
     pub fn new() -> CompilerContext {
-        let program = program::Program::new();
-        let scope = Scope::new(&program);
+        let mut program = program::Program::new();
+        let mut scope = Scope::new(&program);
+        populate_internal_symbols(&mut program, &mut scope);
         CompilerContext {
             program,
             scope,
@@ -113,7 +115,7 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
         .collect();
     function
         .borrow_mut()
-        .as_user_defined()
+        .as_user_defined_mut()
         .fill_parameters(parameters);
 
     let body = compile_block_expr(function_def.body, context);
@@ -123,7 +125,7 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
     let body_type = Rc::clone(&body.type_);
     if let Err(error) = function
         .borrow_mut()
-        .as_user_defined()
+        .as_user_defined_mut()
         .fill_body(body, body_type)
     {
         context.errors.push(error)

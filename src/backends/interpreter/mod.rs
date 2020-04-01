@@ -17,23 +17,26 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ops::{Deref, DerefMut};
-use std::process;
 use std::rc::Rc;
 
 pub struct InterpreterBackend;
 
 impl Backend for InterpreterBackend {
-    fn run(&self, program: Program) -> Result<(), Box<dyn Error>> {
+    fn run(&self, program: Program) -> Result<(), ()> {
         let mut state = State::new();
 
         let main = program.main_function();
         let result = run_user_function(main, &mut state);
-        if let Err(err) = result {
-            eprintln!("Error: {}", err);
-            process::exit(1);
+        match result {
+            Ok(_) => Ok(()),
+            Err(error) => {
+                eprintln!(
+                    "Error occurred while running the program:\n{}",
+                    error.to_string()
+                );
+                Err(())
+            }
         }
-
-        Ok(())
     }
 }
 

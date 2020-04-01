@@ -8,9 +8,9 @@ use ast::ParseError;
 
 #[derive(Debug)]
 pub struct CompilationError {
-    code: &'static str,
-    message: String,
-    location: Option<InputSpan>,
+    pub code: &'static str,
+    pub message: String,
+    pub location: Option<InputSpan>,
 }
 
 impl CompilationError {

@@ -3,13 +3,14 @@
 //! after it's compiled and type-checked.
 
 use crate::program::Program;
-use std::error::Error;
 
 pub mod debug;
 pub mod interpreter;
 
 /// Common backend interface.
 pub trait Backend {
-    /// Process the compiled CO program.
-    fn run(&self, program: Program) -> Result<(), Box<dyn Error>>;
+    /// Process the compiled CO program. Backends should report any user-caused errors to
+    /// the user, and panic if any internal error occurs. The returned `Result` indicates
+    /// whether any user-caused errors occurred and were reported.
+    fn run(&self, program: Program) -> Result<(), ()>;
 }

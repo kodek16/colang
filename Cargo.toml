@@ -15,3 +15,6 @@ lalrpop = { git = "https://github.com/lalrpop/lalrpop", features = ["lexer"] }
 codespan-reporting = "0.9.1"
 lalrpop-util = { git = "https://github.com/lalrpop/lalrpop", features = ["lexer"] }
 regex = "1"
+
+[dev-dependencies]
+test-generator = "0.3.0"

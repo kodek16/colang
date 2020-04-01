@@ -1,0 +1,8 @@
+fun main() {
+  assert(2 + 2 == 4);
+  assert(2 + -2 == 0);
+  assert(10 - 6 == 4);
+  assert(0 - 1 == -1);
+  assert(3 * 5 == 15);
+  assert(7 * 0 == 0);
+}

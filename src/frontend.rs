@@ -10,7 +10,7 @@ use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::grammar;
 use crate::program;
-use crate::program::internal::populate_internal_symbols;
+use crate::program::internal::{populate_internal_symbols, InternalFunctionTag};
 use crate::program::{BlockBuilder, Parameter, UserDefinedFunction, Variable};
 use crate::scope::Scope;
 use crate::typing::Type;
@@ -404,17 +404,19 @@ fn compile_binary_op_expr(
     expression: ast::BinaryOperatorExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let operator = match expression.operator {
-        ast::BinaryOperator::Add => program::BinaryOperator::AddInt,
-        ast::BinaryOperator::Sub => program::BinaryOperator::SubInt,
-        ast::BinaryOperator::Mul => program::BinaryOperator::MulInt,
-        ast::BinaryOperator::Less => program::BinaryOperator::LessInt,
-        ast::BinaryOperator::Greater => program::BinaryOperator::GreaterInt,
-        ast::BinaryOperator::LessEq => program::BinaryOperator::LessEqInt,
-        ast::BinaryOperator::GreaterEq => program::BinaryOperator::GreaterEqInt,
-        ast::BinaryOperator::Eq => program::BinaryOperator::EqInt,
-        ast::BinaryOperator::NotEq => program::BinaryOperator::NotEqInt,
+    let tag = match expression.operator {
+        ast::BinaryOperator::Add => InternalFunctionTag::AddInt,
+        ast::BinaryOperator::Sub => InternalFunctionTag::SubInt,
+        ast::BinaryOperator::Mul => InternalFunctionTag::MulInt,
+        ast::BinaryOperator::Less => InternalFunctionTag::LessInt,
+        ast::BinaryOperator::Greater => InternalFunctionTag::GreaterInt,
+        ast::BinaryOperator::LessEq => InternalFunctionTag::LessEqInt,
+        ast::BinaryOperator::GreaterEq => InternalFunctionTag::GreaterEqInt,
+        ast::BinaryOperator::Eq => InternalFunctionTag::EqInt,
+        ast::BinaryOperator::NotEq => InternalFunctionTag::NotEqInt,
     };
+    let function = Rc::clone(context.program.internal_function(tag));
+
     let lhs = compile_expression(*expression.lhs, None, context);
     let rhs = compile_expression(*expression.rhs, None, context);
 
@@ -422,8 +424,8 @@ fn compile_binary_op_expr(
         return program::Expression::error(expression.span);
     }
 
-    let result =
-        program::BinaryOpExpr::new(operator, lhs, rhs, context.program.types(), expression.span);
+    let result = program::CallExpr::new(function, vec![lhs, rhs], expression.span);
+
     match result {
         Ok(expr) => expr,
         Err(error) => {

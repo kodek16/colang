@@ -7,10 +7,10 @@ use super::Backend;
 use crate::backends::interpreter::cin::Cin;
 use crate::program::internal::InternalFunctionTag;
 use crate::program::{
-    AllocStmt, ArrayFromCopyExpr, ArrayFromElementsExpr, AssignStmt, BinaryOpExpr, BinaryOperator,
-    BlockExpr, CallExpr, DeallocStmt, ExprStmt, Expression, ExpressionKind, Function, IfExpr,
-    IndexExpr, InternalFunction, LiteralExpr, Program, ReadStmt, ReturnStmt, Statement, Symbol,
-    SymbolId, VariableExpr, WhileStmt, WriteStmt,
+    AllocStmt, ArrayFromCopyExpr, ArrayFromElementsExpr, AssignStmt, BlockExpr, CallExpr,
+    DeallocStmt, ExprStmt, Expression, ExpressionKind, Function, IfExpr, IndexExpr,
+    InternalFunction, LiteralExpr, Program, ReadStmt, ReturnStmt, Statement, Symbol, SymbolId,
+    VariableExpr, WhileStmt, WriteStmt,
 };
 use crate::typing::{Type, TypeKind};
 use std::cell::RefCell;
@@ -183,6 +183,15 @@ fn run_internal_function(function: &InternalFunction, arguments: Vec<Value>) -> 
     use InternalFunctionTag::*;
     match function.tag {
         Assert => internal::assert(arguments),
+        AddInt => internal::add_int(arguments),
+        SubInt => internal::sub_int(arguments),
+        MulInt => internal::mul_int(arguments),
+        LessInt => internal::less_int(arguments),
+        GreaterInt => internal::greater_int(arguments),
+        LessEqInt => internal::less_eq_int(arguments),
+        GreaterEqInt => internal::greater_eq_int(arguments),
+        EqInt => internal::eq_int(arguments),
+        NotEqInt => internal::not_eq_int(arguments),
     }
 }
 
@@ -275,7 +284,6 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
     match &expression.kind {
         ExpressionKind::Variable(e) => run_variable_expr(e, state),
         ExpressionKind::Literal(e) => run_literal_expr(e, state),
-        ExpressionKind::BinaryOp(e) => run_binary_op_expr(e, state),
         ExpressionKind::ArrayFromElements(e) => run_array_from_elements_expr(e, state),
         ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
         ExpressionKind::Index(e) => run_index_expr(e, state),
@@ -299,28 +307,6 @@ fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
         LiteralExpr::Bool(value) => Value::Rvalue(Rvalue::Bool(*value)),
     };
     Ok(value)
-}
-
-fn run_binary_op_expr(expression: &BinaryOpExpr, state: &mut State) -> RunResult<Value> {
-    let lhs = run_expression(expression.lhs(), state)?
-        .into_rvalue()
-        .as_int();
-    let rhs = run_expression(expression.rhs(), state)?
-        .into_rvalue()
-        .as_int();
-
-    let result = Value::Rvalue(match expression.operator {
-        BinaryOperator::AddInt => Rvalue::Int(lhs + rhs),
-        BinaryOperator::SubInt => Rvalue::Int(lhs - rhs),
-        BinaryOperator::MulInt => Rvalue::Int(lhs * rhs),
-        BinaryOperator::LessInt => Rvalue::Bool(lhs < rhs),
-        BinaryOperator::GreaterInt => Rvalue::Bool(lhs > rhs),
-        BinaryOperator::LessEqInt => Rvalue::Bool(lhs <= rhs),
-        BinaryOperator::GreaterEqInt => Rvalue::Bool(lhs >= rhs),
-        BinaryOperator::EqInt => Rvalue::Bool(lhs == rhs),
-        BinaryOperator::NotEqInt => Rvalue::Bool(lhs != rhs),
-    });
-    Ok(result)
 }
 
 fn run_array_from_elements_expr(

@@ -20,19 +20,3 @@ pub fn check_condition_is_bool(
         Ok(())
     }
 }
-
-pub fn check_operand_is_int(
-    operand: &Expression,
-    types: &TypeRegistry,
-) -> Result<(), CompilationError> {
-    let operand_type = &operand.type_;
-    if *operand_type != *types.int() {
-        let error = CompilationError::operand_is_not_int(
-            operand_type.borrow().name(),
-            operand.span.expect("Generated operand is not int"),
-        );
-        Err(error)
-    } else {
-        Ok(())
-    }
-}

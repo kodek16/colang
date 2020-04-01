@@ -129,14 +129,6 @@ impl CompilationError {
         }
     }
 
-    pub fn operand_is_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
-        CompilationError {
-            code: "E9009",
-            message: format!("operand must have type `int`, not `{}`", actual_type),
-            location: Some(location),
-        }
-    }
-
     pub fn read_target_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
         CompilationError {
             code: "E9010",

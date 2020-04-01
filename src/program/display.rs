@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 
 impl Display for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        for function in self.functions.iter() {
+        for function in self.user_functions.iter() {
             let function = function.borrow();
             if let Function::UserDefined(ref function) = *function {
                 let param_types: Vec<_> = function
@@ -154,7 +154,6 @@ impl Display for Expression {
         match &self.kind {
             ArrayFromCopy(expr) => expr.fmt(f),
             ArrayFromElements(expr) => expr.fmt(f),
-            BinaryOp(expr) => expr.fmt(f),
             Block(expr) => expr.fmt(f),
             Call(expr) => expr.fmt(f),
             If(expr) => expr.fmt(f),
@@ -187,31 +186,6 @@ impl Display for ArrayFromElementsExpr {
             write!(f, "\n{}", indent(&element.to_string()))?;
         }
         Ok(())
-    }
-}
-
-impl Display for BinaryOpExpr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        use BinaryOperator::*;
-        let operator = match self.operator {
-            AddInt => "+",
-            SubInt => "-",
-            MulInt => "*",
-            LessInt => "<",
-            GreaterInt => ">",
-            LessEqInt => "<=",
-            GreaterEqInt => ">=",
-            EqInt => "==",
-            NotEqInt => "!=",
-        };
-
-        let lhs = self.lhs().to_string();
-        let rhs = self.rhs().to_string();
-        if lhs.contains('\n') || rhs.contains('\n') {
-            write!(f, "\"{}\":\n{}\n{}", operator, indent(&lhs), indent(&rhs))
-        } else {
-            write!(f, "\"{}\"({}, {})", operator, lhs, rhs)
-        }
     }
 }
 

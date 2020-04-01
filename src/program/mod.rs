@@ -26,9 +26,11 @@ pub trait Symbol {
 #[derive(Debug)]
 pub struct Program {
     variables: Vec<Rc<RefCell<Variable>>>,
-    functions: Vec<Rc<RefCell<Function>>>,
-    types: TypeRegistry,
+    user_functions: Vec<Rc<RefCell<Function>>>,
     next_symbol_id: SymbolId,
+
+    types: TypeRegistry,
+    internal_functions: HashMap<InternalFunctionTag, Rc<RefCell<Function>>>,
 
     main_function: Option<Rc<RefCell<Function>>>,
 }
@@ -38,9 +40,10 @@ impl Program {
     pub fn new() -> Program {
         Program {
             variables: vec![],
-            functions: vec![],
-            types: TypeRegistry::new(),
+            user_functions: vec![],
             next_symbol_id: 0,
+            types: TypeRegistry::new(),
+            internal_functions: HashMap::new(),
             main_function: None,
         }
     }
@@ -55,15 +58,18 @@ impl Program {
     /// Adds a new function to the program. If the function is user-defined,
     /// it is assigned a symbol id.
     pub fn add_function(&mut self, function: Rc<RefCell<Function>>) {
-        {
-            let mut function = function.borrow_mut();
-            if let Function::UserDefined(ref mut function) = *function {
-                function.set_id(self.next_symbol_id);
+        let mut function_mut = function.borrow_mut();
+        match *function_mut {
+            Function::UserDefined(ref mut function_mut) => {
+                function_mut.set_id(self.next_symbol_id);
                 self.next_symbol_id += 1;
+                self.user_functions.push(Rc::clone(&function));
+            }
+            Function::Internal(ref function_ref) => {
+                self.internal_functions
+                    .insert(function_ref.tag, Rc::clone(&function));
             }
         }
-
-        self.functions.push(function);
     }
 
     /// Mark a function as the "main" function that the program should start
@@ -79,6 +85,10 @@ impl Program {
 
     pub fn types_mut(&mut self) -> &mut TypeRegistry {
         &mut self.types
+    }
+
+    pub fn internal_function(&self, tag: InternalFunctionTag) -> &Rc<RefCell<Function>> {
+        &self.internal_functions[&tag]
     }
 
     pub fn main_function(&self) -> impl Deref<Target = Function> + '_ {
@@ -607,19 +617,18 @@ pub enum ValueCategory {
 use crate::program::internal::InternalFunctionTag;
 pub use expressions::array_from_copy::ArrayFromCopyExpr;
 pub use expressions::array_from_elements::ArrayFromElementsExpr;
-pub use expressions::binary_op::{BinaryOpExpr, BinaryOperator};
 pub use expressions::block::{BlockBuilder, BlockExpr};
 pub use expressions::call::CallExpr;
 pub use expressions::if_::IfExpr;
 pub use expressions::index::IndexExpr;
 pub use expressions::literal::LiteralExpr;
 pub use expressions::variable::VariableExpr;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum ExpressionKind {
     Variable(VariableExpr),
     Literal(LiteralExpr),
-    BinaryOp(BinaryOpExpr),
     ArrayFromElements(ArrayFromElementsExpr),
     ArrayFromCopy(ArrayFromCopyExpr),
     Index(IndexExpr),

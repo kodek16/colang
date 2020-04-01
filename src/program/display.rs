@@ -7,19 +7,21 @@ impl Display for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for function in self.functions.iter() {
             let function = function.borrow();
-            let param_types: Vec<_> = function
-                .parameters
-                .iter()
-                .map(|param| param.borrow().type_.borrow().name().to_string())
-                .collect();
-            let param_types = param_types.join(", ");
-            let return_type = function.return_type.borrow().name().to_string();
-            write!(f, "{}: {} -> {}:", function.name, param_types, return_type)?;
-            write!(
-                f,
-                "\n{}",
-                indent(&function.body.as_ref().unwrap().to_string())
-            )?;
+            if let Function::UserDefined(ref function) = *function {
+                let param_types: Vec<_> = function
+                    .parameters
+                    .iter()
+                    .map(|param| param.borrow().type_.borrow().name().to_string())
+                    .collect();
+                let param_types = param_types.join(", ");
+                let return_type = function.return_type.borrow().name().to_string();
+                write!(f, "{}: {} -> {}:", function.name, param_types, return_type)?;
+                write!(
+                    f,
+                    "\n{}",
+                    indent(&function.body.as_ref().unwrap().to_string())
+                )?;
+            }
         }
 
         Ok(())
@@ -34,7 +36,12 @@ impl Display for Variable {
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "<{}:{}>", self.name, self.id.unwrap())
+        match self {
+            Function::UserDefined(function) => {
+                write!(f, "<{}:{}>", function.name, function.id.unwrap())
+            }
+            Function::Internal(function) => write!(f, "<{:?}:internal>", function.tag),
+        }
     }
 }
 

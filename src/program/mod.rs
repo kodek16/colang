@@ -5,6 +5,7 @@
 mod checks;
 mod display;
 pub mod expressions;
+pub mod internal;
 
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
@@ -51,10 +52,17 @@ impl Program {
         self.variables.push(variable);
     }
 
-    /// Adds a new function to the symbol table.
+    /// Adds a new function to the program. If the function is user-defined,
+    /// it is assigned a symbol id.
     pub fn add_function(&mut self, function: Rc<RefCell<Function>>) {
-        function.borrow_mut().set_id(self.next_symbol_id);
-        self.next_symbol_id += 1;
+        {
+            let mut function = function.borrow_mut();
+            if let Function::UserDefined(ref mut function) = *function {
+                function.set_id(self.next_symbol_id);
+                self.next_symbol_id += 1;
+            }
+        }
+
         self.functions.push(function);
     }
 
@@ -82,30 +90,124 @@ impl Program {
 }
 
 #[derive(Debug)]
-pub struct Function {
+pub enum Function {
+    UserDefined(UserDefinedFunction),
+    Internal(InternalFunction),
+}
+
+pub trait Parameter {
+    fn name(&self) -> &str;
+    fn type_(&self) -> &Rc<RefCell<Type>>;
+}
+
+impl Function {
+    pub fn name(&self) -> &str {
+        match self {
+            Function::UserDefined(function) => &function.name,
+            Function::Internal(function) => &function.name,
+        }
+    }
+
+    pub fn definition_site(&self) -> Option<InputSpan> {
+        match self {
+            Function::UserDefined(function) => Some(function.definition_site),
+            Function::Internal(_) => None,
+        }
+    }
+
+    // To implement this method normally, https://github.com/rust-lang/rust/issues/27732
+    // needs to be stable: it is required if we want to coerce Ref<Variable> to Ref<dyn Parameter>.
+    // In its absence, the best thing we can do is clone the parameter data manually to break
+    // away from RefCell.
+    pub fn parameters(&self) -> Box<dyn ExactSizeIterator<Item = impl Parameter> + '_> {
+        struct SizedParameter {
+            name: String,
+            type_: Rc<RefCell<Type>>,
+        }
+        impl Parameter for SizedParameter {
+            fn name(&self) -> &str {
+                &self.name
+            }
+
+            fn type_(&self) -> &Rc<RefCell<Type>> {
+                &self.type_
+            }
+        }
+
+        match self {
+            Function::UserDefined(function) => {
+                Box::new(function.parameters.iter().map(|parameter| {
+                    let parameter = parameter.borrow();
+                    SizedParameter {
+                        name: parameter.name().to_string(),
+                        type_: Rc::clone(parameter.type_()),
+                    }
+                }))
+            }
+            Function::Internal(function) => {
+                Box::new(function.parameters.iter().map(|parameter| SizedParameter {
+                    name: parameter.name.clone(),
+                    type_: Rc::clone(&parameter.type_),
+                }))
+            }
+        }
+    }
+
+    pub fn return_type(&self) -> &Rc<RefCell<Type>> {
+        match self {
+            Function::UserDefined(ref function) => &function.return_type,
+            Function::Internal(ref function) => &function.return_type,
+        }
+    }
+
+    pub fn as_user_defined(&mut self) -> &mut UserDefinedFunction {
+        match self {
+            Function::UserDefined(ref mut function) => function,
+            Function::Internal(ref function) => panic!(
+                "Attempt to treat internal function `{}` as user-defined",
+                function.name
+            ),
+        }
+    }
+}
+
+impl Parameter for Variable {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn type_(&self) -> &Rc<RefCell<Type>> {
+        Variable::type_(&self)
+    }
+}
+
+#[derive(Debug)]
+pub struct UserDefinedFunction {
     pub name: String,
-    pub definition_site: Option<InputSpan>,
+    pub definition_site: InputSpan,
     parameters: Vec<Rc<RefCell<Variable>>>,
     return_type: Rc<RefCell<Type>>,
     body: Option<Expression>,
     id: Option<SymbolId>,
 }
 
-impl Function {
-    /// Initialize a new, empty function.
+impl UserDefinedFunction {
+    /// Initialize a new, empty function. Parameters and body are filled later.
     pub fn new(
         name: String,
         return_type: Rc<RefCell<Type>>,
-        definition_site: Option<InputSpan>,
+        definition_site: InputSpan,
     ) -> Function {
-        Function {
+        let function = UserDefinedFunction {
             name,
             definition_site,
             parameters: vec![],
             return_type,
             body: None,
             id: None,
-        }
+        };
+
+        Function::UserDefined(function)
     }
 
     pub fn fill_parameters(&mut self, parameters: Vec<Rc<RefCell<Variable>>>) {
@@ -125,8 +227,7 @@ impl Function {
             let error = CompilationError::function_body_type_mismatch(
                 &self.return_type.borrow().name(),
                 &body_type.borrow().name(),
-                self.definition_site
-                    .expect("Internal function body type mismatch"),
+                self.definition_site,
             );
             return Err(error);
         }
@@ -145,6 +246,48 @@ impl Function {
 
     pub fn body(&self) -> &Expression {
         &self.body.as_ref().expect("function body was not filled")
+    }
+}
+
+#[derive(Debug)]
+pub struct InternalFunction {
+    pub name: String,
+    pub tag: InternalFunctionTag,
+    parameters: Vec<InternalParameter>,
+    return_type: Rc<RefCell<Type>>,
+}
+
+#[derive(Debug)]
+pub struct InternalParameter {
+    pub name: String,
+    pub type_: Rc<RefCell<Type>>,
+}
+
+impl InternalFunction {
+    pub fn new(
+        name: String,
+        tag: InternalFunctionTag,
+        parameters: Vec<InternalParameter>,
+        return_type: Rc<RefCell<Type>>,
+    ) -> Function {
+        let function = InternalFunction {
+            name,
+            tag,
+            parameters,
+            return_type,
+        };
+
+        Function::Internal(function)
+    }
+}
+
+impl Parameter for InternalParameter {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn type_(&self) -> &Rc<RefCell<Type>> {
+        &self.type_
     }
 }
 
@@ -451,6 +594,7 @@ pub enum ValueCategory {
     Rvalue,
 }
 
+use crate::program::internal::InternalFunctionTag;
 pub use expressions::array_from_copy::ArrayFromCopyExpr;
 pub use expressions::array_from_elements::ArrayFromElementsExpr;
 pub use expressions::binary_op::{BinaryOpExpr, BinaryOperator};
@@ -507,7 +651,8 @@ impl Expression {
 }
 
 mod private {
-    use super::{Function, Symbol, SymbolId, Variable};
+    use super::{Symbol, SymbolId, Variable};
+    use crate::program::UserDefinedFunction;
 
     /// Private trait that provides the default behavior for initializing symbol IDs.
     pub trait SymbolImpl: Symbol {
@@ -535,7 +680,7 @@ mod private {
         }
     }
 
-    impl SymbolImpl for Function {
+    impl SymbolImpl for UserDefinedFunction {
         fn id_option(&self) -> &Option<SymbolId> {
             &self.id
         }

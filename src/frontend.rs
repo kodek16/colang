@@ -9,7 +9,7 @@ use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::grammar;
 use crate::program;
-use crate::program::{BlockBuilder, Function, Variable};
+use crate::program::{BlockBuilder, UserDefinedFunction, Variable};
 use crate::scope::Scope;
 use crate::typing::Type;
 
@@ -97,7 +97,7 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
         None => Rc::clone(context.program.types().void()),
     };
 
-    let function = Function::new(name.text, return_type, Some(function_def.signature_span));
+    let function = UserDefinedFunction::new(name.text, return_type, function_def.signature_span);
     let function = Rc::new(RefCell::new(function));
     context.program.add_function(Rc::clone(&function));
     if let Err(error) = context.scope.add_function(Rc::clone(&function)) {
@@ -111,14 +111,21 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
         .into_iter()
         .flat_map(|parameter| compile_parameter(parameter, context))
         .collect();
-    function.borrow_mut().fill_parameters(parameters);
+    function
+        .borrow_mut()
+        .as_user_defined()
+        .fill_parameters(parameters);
 
     let body = compile_block_expr(function_def.body, context);
 
     context.scope.pop();
 
     let body_type = Rc::clone(&body.type_);
-    if let Err(error) = function.borrow_mut().fill_body(body, body_type) {
+    if let Err(error) = function
+        .borrow_mut()
+        .as_user_defined()
+        .fill_body(body, body_type)
+    {
         context.errors.push(error)
     };
 }

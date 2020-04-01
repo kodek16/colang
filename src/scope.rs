@@ -234,11 +234,11 @@ impl NamedEntityKind for Variable {
 
 impl NamedEntityKind for Function {
     fn name(&self) -> String {
-        self.name.clone()
+        self.name().to_string()
     }
 
     fn definition_site(&self) -> Option<InputSpan> {
-        self.definition_site
+        self.definition_site()
     }
 
     fn to_named(function: Rc<RefCell<Function>>) -> NamedEntity {

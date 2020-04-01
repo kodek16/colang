@@ -167,8 +167,13 @@ impl State {
 type RunResult<T> = Result<T, Box<dyn Error>>;
 
 fn run_function(function: impl Deref<Target = Function>, state: &mut State) -> RunResult<Value> {
-    let body = function.body();
-    run_expression(body, state)
+    match *function {
+        Function::UserDefined(ref function) => {
+            let body = function.body();
+            run_expression(body, state)
+        }
+        Function::Internal(ref function) => unimplemented!(),
+    }
 }
 
 fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
@@ -367,27 +372,33 @@ fn run_index_expr(expression: &IndexExpr, state: &mut State) -> RunResult<Value>
 
 fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
     let function = expression.function();
-    let parameters = function.parameters();
 
-    let arguments: RunResult<Vec<Value>> = expression
-        .arguments()
-        .map(|argument| run_expression(argument, state))
-        .collect();
-    let arguments = arguments?;
+    match *function {
+        Function::UserDefined(ref function) => {
+            let parameters = function.parameters();
 
-    for (parameter, value) in parameters.zip(arguments.into_iter()) {
-        let variable_id = parameter.id();
-        state.push(variable_id, value.into_rvalue())
+            let arguments: RunResult<Vec<Value>> = expression
+                .arguments()
+                .map(|argument| run_expression(argument, state))
+                .collect();
+            let arguments = arguments?;
+
+            for (parameter, value) in parameters.zip(arguments.into_iter()) {
+                let variable_id = parameter.id();
+                state.push(variable_id, value.into_rvalue())
+            }
+
+            let function_result = run_function(expression.function(), state);
+
+            for parameter in function.parameters() {
+                let variable_id = parameter.id();
+                state.pop(variable_id)
+            }
+
+            function_result
+        }
+        Function::Internal(ref function) => unimplemented!(),
     }
-
-    let function_result = run_function(expression.function(), state);
-
-    for parameter in function.parameters() {
-        let variable_id = parameter.id();
-        state.pop(variable_id)
-    }
-
-    function_result
 }
 
 fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {

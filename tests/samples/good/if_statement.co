@@ -1,0 +1,20 @@
+fun main() {
+  var x = 42;
+  var result: int;
+
+  if (x <= 50) {
+    result = -1;
+  } else {
+    result = 1;
+  }
+
+  assert(result == -1);
+
+  if (x <= 30) {
+    result = -1;
+  } else {
+    result = 1;
+  }
+
+  assert(result == 1);
+}

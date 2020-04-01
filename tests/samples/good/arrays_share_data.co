@@ -1,0 +1,9 @@
+fun main() {
+  var a = [1, 2, 3];
+  var b = a;
+  assert(b[0] == 1);
+
+  b[0] = 10;
+  assert(b[0] == 10);
+  assert(a[0] == 10);
+}

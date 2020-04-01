@@ -1,0 +1,5 @@
+fun main() {
+  var x = {
+    var z = 42;
+  }
+}

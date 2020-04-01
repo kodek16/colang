@@ -1,4 +1,0 @@
-var x;
-read x;
-var y = x + 1;
-write y;

@@ -1,6 +1,0 @@
-var x = {
-  var x: int;
-  read x;
-  x * 2
-};
-write x;

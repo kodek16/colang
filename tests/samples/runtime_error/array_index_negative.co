@@ -1,0 +1,4 @@
+fun main() {
+  var arr = [1, 2, 3];
+  write arr[-1];
+}

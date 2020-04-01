@@ -1,0 +1,9 @@
+fun log_twice(x: int) {
+  write x;
+  write x;
+}
+
+fun main() {
+  var x = 1;
+  log_twice(x);
+}

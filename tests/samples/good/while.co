@@ -1,0 +1,7 @@
+fun main() {
+  var x = 2;
+  while (x <= 10) {
+    x = x * 2;
+  }
+  assert(x == 16);
+}

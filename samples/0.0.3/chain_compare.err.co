@@ -1,5 +1,0 @@
-var x: int;
-var y: int;
-if (x <= y <= x) {
-    write x;
-}

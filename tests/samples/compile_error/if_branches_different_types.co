@@ -1,0 +1,8 @@
+fun main() {
+  var x = 42;
+  var y = if (x <= 50) {
+    -1
+  } else {
+    true
+  }
+}

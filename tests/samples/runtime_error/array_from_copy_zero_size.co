@@ -1,0 +1,4 @@
+fun main() {
+  var size = 0;
+  var arr = [true; size];
+}

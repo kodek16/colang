@@ -1,0 +1,7 @@
+fun foo() {
+  write 42;
+}
+
+fun main() {
+  var x = foo();
+}

@@ -1,0 +1,5 @@
+fun main() {
+  var x = 1;
+  write x;
+  write 2;
+}

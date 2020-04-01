@@ -1,0 +1,12 @@
+fun main() {
+  var x = {
+    var t = 2;
+    t * t
+  };
+  assert(x == 4);
+
+  write {
+    var z = x + 1;
+    z * 3
+  };
+}

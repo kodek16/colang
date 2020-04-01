@@ -1,0 +1,6 @@
+fun main() {
+  var x: int;
+  var y = 42;
+  var z = x + y;
+  assert(z == 42);
+}

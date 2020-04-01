@@ -1,0 +1,8 @@
+fun foo(): int {
+  42
+}
+
+fun main() {
+  var x = foo();
+  assert(x == 42);
+}

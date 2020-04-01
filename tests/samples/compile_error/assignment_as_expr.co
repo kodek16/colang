@@ -1,0 +1,6 @@
+fun main() {
+  var x: int;
+  if (x = 5) {
+    write 42;
+  }
+}

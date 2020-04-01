@@ -1,13 +1,12 @@
 fun fact(x: int): int {
   if (x <= 1) {
-    x
+    1
   } else {
     x * fact(x - 1)
   }
 }
 
 fun main() {
-  var x: int;
-  read x;
-  write fact(x);
+  assert(fact(4) == 24);
+  assert(fact(5) == 120);
 }

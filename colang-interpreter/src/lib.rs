@@ -3,16 +3,16 @@
 mod cin;
 mod internal;
 
-use super::Backend;
-use crate::backends::interpreter::cin::Cin;
-use crate::program::internal::InternalFunctionTag;
-use crate::program::{
+use colang::backends::Backend;
+use cin::Cin;
+use colang::program::internal::InternalFunctionTag;
+use colang::program::{
     AllocStmt, ArrayFromCopyExpr, ArrayFromElementsExpr, AssignStmt, BlockExpr, CallExpr,
     DeallocStmt, ExprStmt, Expression, ExpressionKind, Function, IfExpr, IndexExpr,
     InternalFunction, LiteralExpr, Program, ReadStmt, ReturnStmt, Statement, Symbol, SymbolId,
     VariableExpr, WhileStmt, WriteStmt,
 };
-use crate::typing::{Type, TypeKind};
+use colang::typing::{Type, TypeKind};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
@@ -41,7 +41,7 @@ impl Backend for InterpreterBackend {
 }
 
 #[derive(Clone)]
-enum Value {
+pub enum Value {
     Lvalue(Lvalue),
     Rvalue(Rvalue),
 }
@@ -63,7 +63,7 @@ impl Value {
 }
 
 #[derive(Clone)]
-struct Lvalue(Rc<RefCell<Rvalue>>);
+pub struct Lvalue(Rc<RefCell<Rvalue>>);
 
 impl Lvalue {
     pub fn store(rvalue: Rvalue) -> Lvalue {
@@ -81,7 +81,7 @@ impl Lvalue {
 
 /// Every value that exists in the program belongs to this type.
 #[derive(Clone)]
-enum Rvalue {
+pub enum Rvalue {
     Int(i32),
     Bool(bool),
     Array(Rc<RefCell<Vec<Lvalue>>>),

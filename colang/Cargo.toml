@@ -1,0 +1,16 @@
+[package]
+name = "colang"
+version = "0.0.6"
+authors = ["Pavel Senchanka <pavel.senchanka@gmail.com>"]
+edition = "2018"
+
+
+[build-dependencies]
+# We can switch to a release once comment support lands.
+lalrpop = { git = "https://github.com/lalrpop/lalrpop", features = ["lexer"] }
+
+
+[dependencies]
+codespan-reporting = "0.9.1"
+lalrpop-util = { git = "https://github.com/lalrpop/lalrpop", features = ["lexer"] }
+regex = "1"

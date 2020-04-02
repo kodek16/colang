@@ -1,0 +1,14 @@
+[package]
+name = "colang-interpreter"
+version = "0.0.6"
+authors = ["Pavel Senchanka <pavel.senchanka@gmail.com>"]
+edition = "2018"
+
+
+[dependencies]
+colang = { path = "../colang" }
+codespan-reporting = "0.9.1"
+
+
+[dev-dependencies]
+test-generator = "0.3.0"

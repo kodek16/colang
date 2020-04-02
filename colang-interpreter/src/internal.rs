@@ -1,8 +1,8 @@
 //! Internal symbols implementation.
 
-use crate::backends::interpreter::{RunResult, Rvalue, Value};
+use crate::{RunResult, Rvalue, Value};
 
-pub(in crate::backends::interpreter) fn assert(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn assert(mut arguments: Vec<Value>) -> RunResult<Value> {
     let value = arguments.remove(0);
 
     let value = value.into_rvalue().as_bool();
@@ -13,43 +13,43 @@ pub(in crate::backends::interpreter) fn assert(mut arguments: Vec<Value>) -> Run
     Ok(Value::Rvalue(Rvalue::Void))
 }
 
-pub(in crate::backends::interpreter) fn add_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn add_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Int(lhs + rhs)))
 }
 
-pub(in crate::backends::interpreter) fn sub_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn sub_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Int(lhs - rhs)))
 }
 
-pub(in crate::backends::interpreter) fn mul_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn mul_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Int(lhs * rhs)))
 }
 
-pub(in crate::backends::interpreter) fn less_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn less_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Bool(lhs < rhs)))
 }
 
-pub(in crate::backends::interpreter) fn greater_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn greater_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Bool(lhs > rhs)))
 }
 
-pub(in crate::backends::interpreter) fn less_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn less_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Bool(lhs <= rhs)))
 }
 
-pub(in crate::backends::interpreter) fn greater_eq_int(
+pub fn greater_eq_int(
     mut arguments: Vec<Value>,
 ) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
@@ -57,13 +57,13 @@ pub(in crate::backends::interpreter) fn greater_eq_int(
     Ok(Value::Rvalue(Rvalue::Bool(lhs >= rhs)))
 }
 
-pub(in crate::backends::interpreter) fn eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Bool(lhs == rhs)))
 }
 
-pub(in crate::backends::interpreter) fn not_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn not_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Bool(lhs != rhs)))

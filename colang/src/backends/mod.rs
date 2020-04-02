@@ -5,7 +5,6 @@
 use crate::program::Program;
 
 pub mod debug;
-pub mod interpreter;
 
 /// Common backend interface.
 pub trait Backend {

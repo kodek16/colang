@@ -1,7 +1,7 @@
 use std::env;
 use std::process;
 
-use colang::{run, Config, RunResult};
+use colang_cli::{run, Config, RunResult};
 
 fn main() {
     let config = Config::new(env::args()).unwrap_or_else(|err| {

@@ -1,23 +1,12 @@
-use lalrpop_util::lalrpop_mod;
-
-mod ast;
-pub mod backends;
-mod errors;
-mod frontend;
-mod program;
-mod scope;
-mod typing;
-lalrpop_mod!(pub grammar);
-
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use std::env::Args;
 use std::fs;
 
-use backends::debug::DebugBackend;
-use backends::interpreter::InterpreterBackend;
-use backends::Backend;
-use errors::CompilationError;
+use colang::backends::debug::DebugBackend;
+use colang::backends::Backend;
+use colang::errors::CompilationError;
+use colang_interpreter::InterpreterBackend;
 
 pub struct Config {
     pub source_path: String,
@@ -76,7 +65,7 @@ pub fn run(config: Config) -> RunResult {
         }
     };
 
-    let program = match frontend::run(&source_code) {
+    let program = match colang::run(&source_code) {
         Ok(program) => program,
         Err(errors) => {
             report_compilation_errors(

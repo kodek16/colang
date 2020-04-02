@@ -1,15 +1,22 @@
 //! Compiler frontend transforms the source code into an intermediate representation
 //! defined in `program`. All static checks are performed during this phase.
 
+use lalrpop_util::lalrpop_mod;
+
+mod ast;
+pub mod backends;
+pub mod errors;
+pub mod program;
+mod scope;
+pub mod typing;
+lalrpop_mod!(pub grammar);
+
 use std::cell::RefCell;
 use std::iter;
 use std::rc::Rc;
 
-use crate::ast;
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::grammar;
-use crate::program;
 use crate::program::internal::{populate_internal_symbols, InternalFunctionTag};
 use crate::program::{BlockBuilder, Parameter, UserDefinedFunction, Variable};
 use crate::scope::Scope;

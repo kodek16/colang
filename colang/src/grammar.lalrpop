@@ -214,32 +214,56 @@ BlockExpr: Expression = {
 };
 
 // Lowest precedence level.
-BinaryOpExpr = Expr4;
+BinaryOpExpr = Expr5;
 
-Expr4 = LeftAssocBinaryOpExprTier<Expr4Op, Expr3>;
-Expr4Op: BinaryOperator = {
+Expr5 = LeftAssocBinaryOpExprTier<Expr5Op, Expr4>;
+Expr5Op: BinaryOperator = {
     "==" => BinaryOperator::Eq,
     "!=" => BinaryOperator::NotEq,
 }
 
-Expr3 = LeftAssocBinaryOpExprTier<Expr3Op, Expr2>;
-Expr3Op: BinaryOperator = {
+Expr4 = LeftAssocBinaryOpExprTier<Expr4Op, Expr3>;
+Expr4Op: BinaryOperator = {
     "<" => BinaryOperator::Less,
     ">" => BinaryOperator::Greater,
     "<=" => BinaryOperator::LessEq,
     ">=" => BinaryOperator::GreaterEq,
 }
 
-Expr2 = LeftAssocBinaryOpExprTier<Expr2Op, Expr1>;
-Expr2Op: BinaryOperator = {
+Expr3 = LeftAssocBinaryOpExprTier<Expr3Op, Expr2>;
+Expr3Op: BinaryOperator = {
     "+" => BinaryOperator::Add,
     "-" => BinaryOperator::Sub,
 }
 
-Expr1 = LeftAssocBinaryOpExprTier<Expr1Op, Expr0>;
-Expr1Op: BinaryOperator = {
+Expr2 = LeftAssocBinaryOpExprTier<Expr2Op, Expr1>;
+Expr2Op: BinaryOperator = {
     "*" => BinaryOperator::Mul,
 }
+
+Expr1: Expression = {
+    AddressExpr,
+    DerefExpr,
+    Expr0,
+};
+
+AddressExpr: Expression = {
+    <start:@L> "&" <target:Expr0> <end:@R> => {
+        Expression::Address(AddressExpr {
+            target: Box::new(target),
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+DerefExpr: Expression = {
+    <start:@L> "*" <pointer:Expr0> <end:@R> => {
+        Expression::Deref(DerefExpr {
+            pointer: Box::new(pointer),
+            span: InputSpan { start, end },
+        })
+    },
+};
 
 Expr0: Expression = {
     VariableExpr,
@@ -355,6 +379,7 @@ Block: BlockExpr = {
 TypeExpr: TypeExpr = {
     ScalarTypeExpr,
     ArrayTypeExpr,
+    PointerTypeExpr,
 };
 
 ScalarTypeExpr: TypeExpr = {
@@ -370,6 +395,15 @@ ArrayTypeExpr: TypeExpr = {
     <start:@L> "[" <element:TypeExpr> "]" <end:@R> => {
         TypeExpr::Array(ArrayTypeExpr {
             element: Box::new(element),
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+PointerTypeExpr: TypeExpr = {
+    <start:@L> "&" <target:TypeExpr> <end:@R> => {
+        TypeExpr::Pointer(PointerTypeExpr {
+            target: Box::new(target),
             span: InputSpan { start, end },
         })
     },

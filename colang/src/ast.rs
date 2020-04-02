@@ -103,6 +103,8 @@ pub enum Expression {
     IntLiteral(IntLiteralExpr),
     BoolLiteral(BoolLiteralExpr),
     BinaryOp(BinaryOperatorExpr),
+    Address(AddressExpr),
+    Deref(DerefExpr),
     ArrayFromElements(ArrayFromElementsExpr),
     ArrayFromCopy(ArrayFromCopyExpr),
     Index(IndexExpr),
@@ -119,6 +121,8 @@ impl Expression {
             IntLiteral(e) => e.span,
             BoolLiteral(e) => e.span,
             BinaryOp(e) => e.span,
+            Address(e) => e.span,
+            Deref(e) => e.span,
             ArrayFromElements(e) => e.span,
             ArrayFromCopy(e) => e.span,
             Index(e) => e.span,
@@ -146,6 +150,14 @@ impl Expression {
                 ..e
             }),
             Expression::BinaryOp(e) => Expression::BinaryOp(BinaryOperatorExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::Address(e) => Expression::Address(AddressExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::Deref(e) => Expression::Deref(DerefExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -223,6 +235,20 @@ pub struct BinaryOperatorExpr {
 }
 
 #[derive(Debug)]
+pub struct AddressExpr {
+    pub target: Box<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct DerefExpr {
+    pub pointer: Box<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
 pub struct ArrayFromElementsExpr {
     pub elements: Vec<Expression>,
 
@@ -274,6 +300,7 @@ pub struct BlockExpr {
 pub enum TypeExpr {
     Scalar(ScalarTypeExpr),
     Array(ArrayTypeExpr),
+    Pointer(PointerTypeExpr),
 }
 
 #[derive(Debug)]
@@ -286,6 +313,13 @@ pub struct ScalarTypeExpr {
 #[derive(Debug)]
 pub struct ArrayTypeExpr {
     pub element: Box<TypeExpr>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct PointerTypeExpr {
+    pub target: Box<TypeExpr>,
 
     pub span: InputSpan,
 }

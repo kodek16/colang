@@ -363,6 +363,8 @@ fn compile_expression(
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
         ast::Expression::BoolLiteral(e) => compile_bool_literal_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
+        ast::Expression::Address(e) => compile_address_expr(e, type_hint, context),
+        ast::Expression::Deref(e) => compile_deref_expr(e, type_hint, context),
         ast::Expression::ArrayFromElements(e) => {
             compile_array_from_elements_expr(e, type_hint, context)
         }
@@ -435,6 +437,45 @@ fn compile_binary_op_expr(
 
     match result {
         Ok(expr) => expr,
+        Err(error) => {
+            context.errors.push(error);
+            program::Expression::error(expression.span)
+        }
+    }
+}
+
+fn compile_address_expr(
+    expression: ast::AddressExpr,
+    type_hint: Option<Rc<RefCell<Type>>>,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let hint =
+        type_hint.and_then(|hint| hint.borrow().pointer_target_type(context.program.types()));
+
+    let target = compile_expression(*expression.target, hint, context);
+
+    let result = program::AddressExpr::new(target, context.program.types_mut());
+    match result {
+        Ok(expression) => expression,
+        Err(error) => {
+            context.errors.push(error);
+            program::Expression::error(expression.span)
+        }
+    }
+}
+
+fn compile_deref_expr(
+    expression: ast::DerefExpr,
+    type_hint: Option<Rc<RefCell<Type>>>,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let hint = type_hint.map(|hint| context.program.types_mut().pointer_to(&hint));
+
+    let pointer = compile_expression(*expression.pointer, hint, context);
+
+    let result = program::DerefExpr::new(pointer, context.program.types());
+    match result {
+        Ok(expression) => expression,
         Err(error) => {
             context.errors.push(error);
             program::Expression::error(expression.span)
@@ -611,6 +652,7 @@ fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) ->
     match type_expr {
         ast::TypeExpr::Scalar(type_expr) => compile_scalar_type_expr(type_expr, context),
         ast::TypeExpr::Array(type_expr) => compile_array_type_expr(type_expr, context),
+        ast::TypeExpr::Pointer(type_expr) => compile_pointer_type_expr(type_expr, context),
     }
 }
 
@@ -635,9 +677,13 @@ fn compile_array_type_expr(
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
     let element = compile_type_expr(*type_expr.element, context);
-    if element.borrow().is_error() {
-        return Type::error();
-    }
-
     context.program.types_mut().array_of(&element)
+}
+
+fn compile_pointer_type_expr(
+    type_expr: ast::PointerTypeExpr,
+    context: &mut CompilerContext,
+) -> Rc<RefCell<Type>> {
+    let target = compile_type_expr(*type_expr.target, context);
+    context.program.types_mut().pointer_to(&target)
 }

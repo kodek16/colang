@@ -277,6 +277,8 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
     match &expression.kind {
         ExpressionKind::Variable(e) => run_variable_expr(e, state),
         ExpressionKind::Literal(e) => run_literal_expr(e, state),
+        ExpressionKind::Address(e) => run_address_expr(e, state),
+        ExpressionKind::Deref(e) => run_deref_expr(e, state),
         ExpressionKind::ArrayFromElements(e) => run_array_from_elements_expr(e, state),
         ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
         ExpressionKind::Index(e) => run_index_expr(e, state),
@@ -300,6 +302,14 @@ fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
         LiteralExpr::Bool(value) => Value::Rvalue(Rvalue::Bool(*value)),
     };
     Ok(value)
+}
+
+fn run_address_expr(expression: &AddressExpr, state: &mut State) -> RunResult<Value> {
+    unimplemented!()
+}
+
+fn run_deref_expr(expression: &DerefExpr, state: &mut State) -> RunResult<Value> {
+    unimplemented!()
 }
 
 fn run_array_from_elements_expr(
@@ -420,6 +430,7 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
         TypeKind::Int => Rvalue::Int(0),
         TypeKind::Bool => Rvalue::Bool(false),
         TypeKind::Array(_) => Rvalue::Array(Rc::new(RefCell::new(vec![]))),
+        TypeKind::Pointer(_) => unimplemented!(),
         TypeKind::Error => panic_error(),
     }
 }

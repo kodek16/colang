@@ -349,6 +349,25 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn address_of_rvalue(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9029",
+            message: format!("cannot take address of an rvalue"),
+            location: Some(location),
+        }
+    }
+
+    pub fn can_only_dereference_pointer(
+        actual_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9030",
+            message: format!("can only dereference pointers, not `{}`", actual_type),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

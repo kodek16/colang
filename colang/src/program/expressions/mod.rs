@@ -3,10 +3,12 @@ use crate::program::{Type, TypeRegistry, ValueCategory};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+pub mod address;
 pub mod array_from_copy;
 pub mod array_from_elements;
 pub mod block;
 pub mod call;
+pub mod deref;
 pub mod if_;
 pub mod index;
 pub mod literal;
@@ -24,6 +26,8 @@ pub struct Expression {
 pub enum ExpressionKind {
     Variable(variable::VariableExpr),
     Literal(literal::LiteralExpr),
+    Address(address::AddressExpr),
+    Deref(deref::DerefExpr),
     ArrayFromElements(array_from_elements::ArrayFromElementsExpr),
     ArrayFromCopy(array_from_copy::ArrayFromCopyExpr),
     Index(index::IndexExpr),

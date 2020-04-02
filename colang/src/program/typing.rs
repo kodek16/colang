@@ -39,6 +39,14 @@ impl Type {
         }
     }
 
+    /// If `self` is a pointer type, returns the type of target.
+    pub fn pointer_target_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
+        match self.kind {
+            TypeKind::Pointer(ref target_kind) => Some(Rc::clone(&registry.instances[target_kind])),
+            _ => None,
+        }
+    }
+
     /// If `self` is an array type, returns the type of elements.
     pub fn element_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
         match self.kind {
@@ -55,6 +63,7 @@ pub enum TypeKind {
     Bool,
 
     Array(Box<TypeKind>),
+    Pointer(Box<TypeKind>),
 
     /// An invalid type. It can never appear in a valid program.
     Error,
@@ -123,6 +132,27 @@ impl TypeRegistry {
                 }))
             });
         Rc::clone(array_type)
+    }
+
+    pub fn pointer_to(&mut self, target_type: &Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
+        let target_type_name = target_type.borrow().name.clone();
+        let target_type_kind = target_type.borrow().kind.clone();
+        if target_type_kind == TypeKind::Error {
+            return Type::error();
+        }
+
+        let pointer_type_kind = TypeKind::Pointer(Box::new(target_type_kind));
+
+        let pointer_type = self
+            .instances
+            .entry(pointer_type_kind.clone())
+            .or_insert_with(|| {
+                Rc::new(RefCell::new(Type {
+                    kind: pointer_type_kind,
+                    name: format!("&{}", target_type_name),
+                }))
+            });
+        Rc::clone(pointer_type)
     }
 
     pub fn primitive_types(&self) -> Vec<&Rc<RefCell<Type>>> {

@@ -16,6 +16,7 @@ impl Display for Program {
                 let return_type = function.return_type().name().to_string();
                 write!(f, "{}: {} -> {}:", function.name, param_types, return_type)?;
                 write!(f, "\n{}", indent(&function.body().to_string()))?;
+                write!(f, "\n\n");
             }
         }
 
@@ -147,16 +148,30 @@ impl Display for Expression {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use ExpressionKind::*;
         match &self.kind {
+            Address(expr) => expr.fmt(f),
             ArrayFromCopy(expr) => expr.fmt(f),
             ArrayFromElements(expr) => expr.fmt(f),
             Block(expr) => expr.fmt(f),
             Call(expr) => expr.fmt(f),
+            Deref(expr) => expr.fmt(f),
             If(expr) => expr.fmt(f),
             Index(expr) => expr.fmt(f),
             Literal(expr) => expr.fmt(f),
             Variable(expr) => expr.fmt(f),
             Empty => write!(f, "()"),
             Error => write!(f, "<error>"),
+        }
+    }
+}
+
+impl Display for AddressExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let target = self.target().to_string();
+
+        if target.contains('\n') {
+            write!(f, "address_of:\n{}", indent(&target))
+        } else {
+            write!(f, "address_of({})", target)
         }
     }
 }
@@ -209,6 +224,18 @@ impl Display for CallExpr {
             write!(f, "call {}({})", function, args)?;
         }
         Ok(())
+    }
+}
+
+impl Display for DerefExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let pointer = self.pointer().to_string();
+
+        if pointer.contains('\n') {
+            write!(f, "deref:\n{}", indent(&pointer))
+        } else {
+            write!(f, "deref({})", pointer)
+        }
     }
 }
 

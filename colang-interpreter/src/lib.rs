@@ -3,16 +3,9 @@
 mod cin;
 mod internal;
 
-use colang::backends::Backend;
 use cin::Cin;
-use colang::program::internal::InternalFunctionTag;
-use colang::program::{
-    AllocStmt, ArrayFromCopyExpr, ArrayFromElementsExpr, AssignStmt, BlockExpr, CallExpr,
-    DeallocStmt, ExprStmt, Expression, ExpressionKind, Function, IfExpr, IndexExpr,
-    InternalFunction, LiteralExpr, Program, ReadStmt, ReturnStmt, Statement, Symbol, SymbolId,
-    VariableExpr, WhileStmt, WriteStmt,
-};
-use colang::typing::{Type, TypeKind};
+use colang::backends::Backend;
+use colang::program::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
@@ -195,27 +188,27 @@ fn run_internal_function(function: &InternalFunction, arguments: Vec<Value>) -> 
     }
 }
 
-fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
-    match statement {
-        Statement::Alloc(ref s) => run_alloc(s, state),
-        Statement::Dealloc(ref s) => run_dealloc(s, state),
-        Statement::Read(ref s) => run_read(s, state),
-        Statement::Write(ref s) => run_write(s, state),
-        Statement::While(ref s) => run_while(s, state),
-        Statement::Assign(ref s) => run_assign(s, state),
-        Statement::Return(ref s) => run_return(s, state),
-        Statement::Expr(ref s) => run_expr_stmt(s, state),
+fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()> {
+    match instruction {
+        Instruction::Alloc(ref s) => run_alloc(s, state),
+        Instruction::Dealloc(ref s) => run_dealloc(s, state),
+        Instruction::Read(ref s) => run_read(s, state),
+        Instruction::Write(ref s) => run_write(s, state),
+        Instruction::While(ref s) => run_while(s, state),
+        Instruction::Assign(ref s) => run_assign(s, state),
+        Instruction::Return(ref s) => run_return(s, state),
+        Instruction::Eval(ref s) => run_eval(s, state),
     }
 }
 
-fn run_alloc(statement: &AllocStmt, state: &mut State) -> RunResult<()> {
-    let variable_id = statement.variable().id();
+fn run_alloc(instruction: &AllocInstruction, state: &mut State) -> RunResult<()> {
+    let variable_id = instruction.variable().id();
 
-    let initial_value = match statement.initializer() {
+    let initial_value = match instruction.initializer() {
         Some(initializer) => run_expression(initializer, state)?.into_rvalue(),
         None => {
-            let variable = statement.variable();
-            let variable_type = variable.type_().borrow();
+            let variable = instruction.variable();
+            let variable_type = variable.type_();
             default_value_for_type(&variable_type)
         }
     };
@@ -224,14 +217,14 @@ fn run_alloc(statement: &AllocStmt, state: &mut State) -> RunResult<()> {
     Ok(())
 }
 
-fn run_dealloc(statement: &DeallocStmt, state: &mut State) -> RunResult<()> {
-    let variable_id = statement.variable().id();
+fn run_dealloc(instruction: &DeallocInstruction, state: &mut State) -> RunResult<()> {
+    let variable_id = instruction.variable().id();
     state.pop(variable_id);
     Ok(())
 }
 
-fn run_read(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
-    let target = run_expression(statement.target(), state)?.into_lvalue();
+fn run_read(instruction: &ReadInstruction, state: &mut State) -> RunResult<()> {
+    let target = run_expression(instruction.target(), state)?.into_lvalue();
     let word = state.cin.read_word()?;
     let new_value: i32 = word
         .parse()
@@ -240,8 +233,8 @@ fn run_read(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
     Ok(())
 }
 
-fn run_write(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
-    let value = run_expression(statement.expression(), state)?.into_rvalue();
+fn run_write(instruction: &WriteInstruction, state: &mut State) -> RunResult<()> {
+    let value = run_expression(instruction.expression(), state)?.into_rvalue();
     match value {
         Rvalue::Int(x) => println!("{}", x),
         _ => panic_wrong_type("int", value.type_()),
@@ -249,34 +242,34 @@ fn run_write(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
     Ok(())
 }
 
-fn run_while(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
-    let mut cond = run_expression(statement.cond(), state)?
+fn run_while(instruction: &WhileInstruction, state: &mut State) -> RunResult<()> {
+    let mut cond = run_expression(instruction.cond(), state)?
         .into_rvalue()
         .as_bool();
     while cond {
-        run_statement(statement.body(), state)?;
-        cond = run_expression(statement.cond(), state)?
+        run_instruction(instruction.body(), state)?;
+        cond = run_expression(instruction.cond(), state)?
             .into_rvalue()
             .as_bool();
     }
     Ok(())
 }
 
-fn run_assign(statement: &AssignStmt, state: &mut State) -> RunResult<()> {
-    let target = run_expression(statement.target(), state)?.into_lvalue();
-    let new_value = run_expression(statement.value(), state)?.into_rvalue();
+fn run_assign(instruction: &AssignInstruction, state: &mut State) -> RunResult<()> {
+    let target = run_expression(instruction.target(), state)?.into_lvalue();
+    let new_value = run_expression(instruction.value(), state)?.into_rvalue();
     *target.borrow_mut() = new_value;
     Ok(())
 }
 
-fn run_return(statement: &ReturnStmt, state: &mut State) -> RunResult<()> {
-    let value = run_expression(statement.expression(), state)?.into_rvalue();
+fn run_return(instruction: &ReturnInstruction, state: &mut State) -> RunResult<()> {
+    let value = run_expression(instruction.expression(), state)?.into_rvalue();
     state.return_value = Some(value);
     Ok(())
 }
 
-fn run_expr_stmt(statement: &ExprStmt, state: &mut State) -> RunResult<()> {
-    let _ = run_expression(statement.expression(), state)?;
+fn run_eval(instruction: &EvalInstruction, state: &mut State) -> RunResult<()> {
+    let _ = run_expression(instruction.expression(), state)?;
     Ok(())
 }
 
@@ -413,8 +406,8 @@ fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
         panic!("Interpreter is in an invalid state: return value is not None before block.")
     }
 
-    for statement in block.statements() {
-        run_statement(statement, state)?;
+    for instruction in block.instructions() {
+        run_instruction(instruction, state)?;
     }
 
     let result = state.return_value.take().unwrap_or(Rvalue::Void);

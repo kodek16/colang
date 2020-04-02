@@ -49,9 +49,7 @@ pub fn less_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     Ok(Value::Rvalue(Rvalue::Bool(lhs <= rhs)))
 }
 
-pub fn greater_eq_int(
-    mut arguments: Vec<Value>,
-) -> RunResult<Value> {
+pub fn greater_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Bool(lhs >= rhs)))

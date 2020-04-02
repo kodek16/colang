@@ -1,6 +1,5 @@
 use crate::ast::InputSpan;
-use crate::program::{Expression, ExpressionKind, ValueCategory};
-use crate::typing::{Type, TypeRegistry};
+use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
 
 use crate::errors::CompilationError;
 use std::cell::RefCell;

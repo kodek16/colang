@@ -9,18 +9,13 @@ impl Display for Program {
             let function = function.borrow();
             if let Function::UserDefined(ref function) = *function {
                 let param_types: Vec<_> = function
-                    .parameters
-                    .iter()
-                    .map(|param| param.borrow().type_.borrow().name().to_string())
+                    .parameters()
+                    .map(|param| param.type_().name().to_string())
                     .collect();
                 let param_types = param_types.join(", ");
-                let return_type = function.return_type.borrow().name().to_string();
+                let return_type = function.return_type().name().to_string();
                 write!(f, "{}: {} -> {}:", function.name, param_types, return_type)?;
-                write!(
-                    f,
-                    "\n{}",
-                    indent(&function.body.as_ref().unwrap().to_string())
-                )?;
+                write!(f, "\n{}", indent(&function.body().to_string()))?;
             }
         }
 
@@ -45,25 +40,25 @@ impl Display for Function {
     }
 }
 
-impl Display for Statement {
+impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Statement::Alloc(statement) => statement.fmt(f),
-            Statement::Dealloc(statement) => statement.fmt(f),
-            Statement::Read(statement) => statement.fmt(f),
-            Statement::Write(statement) => statement.fmt(f),
-            Statement::While(statement) => statement.fmt(f),
-            Statement::Assign(statement) => statement.fmt(f),
-            Statement::Return(statement) => statement.fmt(f),
-            Statement::Expr(statement) => statement.fmt(f),
+            Instruction::Alloc(statement) => statement.fmt(f),
+            Instruction::Dealloc(statement) => statement.fmt(f),
+            Instruction::Read(statement) => statement.fmt(f),
+            Instruction::Write(statement) => statement.fmt(f),
+            Instruction::While(statement) => statement.fmt(f),
+            Instruction::Assign(statement) => statement.fmt(f),
+            Instruction::Return(statement) => statement.fmt(f),
+            Instruction::Eval(statement) => statement.fmt(f),
         }
     }
 }
 
-impl Display for AllocStmt {
+impl Display for AllocInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "alloc {}", self.variable.borrow())?;
-        if let Some(ref initializer) = self.initializer {
+        write!(f, "alloc {}", *self.variable())?;
+        if let Some(ref initializer) = self.initializer() {
             let initializer = initializer.to_string();
             if initializer.contains('\n') {
                 write!(f, ":\n{}", indent(&initializer))?;
@@ -75,15 +70,15 @@ impl Display for AllocStmt {
     }
 }
 
-impl Display for DeallocStmt {
+impl Display for DeallocInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "dealloc {}", self.variable.borrow())
+        write!(f, "dealloc {}", *self.variable())
     }
 }
 
-impl Display for ReadStmt {
+impl Display for ReadInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let target = self.target.to_string();
+        let target = self.target().to_string();
         if target.contains('\n') {
             write!(f, "read:\n{}", indent(&target))
         } else {
@@ -92,9 +87,9 @@ impl Display for ReadStmt {
     }
 }
 
-impl Display for WriteStmt {
+impl Display for WriteInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let expression = self.expression.to_string();
+        let expression = self.expression().to_string();
         if expression.contains('\n') {
             write!(f, "write:\n{}", indent(&expression))
         } else {
@@ -103,21 +98,21 @@ impl Display for WriteStmt {
     }
 }
 
-impl Display for WhileStmt {
+impl Display for WhileInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "while {}:\n{}",
-            self.cond,
-            indent(&self.body.to_string())
+            self.cond(),
+            indent(&self.body().to_string())
         )
     }
 }
 
-impl Display for AssignStmt {
+impl Display for AssignInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let target = self.target.to_string();
-        let value = self.value.to_string();
+        let target = self.target().to_string();
+        let value = self.value().to_string();
         if target.contains('\n') || value.contains('\n') {
             write!(f, "assign:\n{}\n{}", indent(&target), indent(&value))
         } else {
@@ -126,9 +121,9 @@ impl Display for AssignStmt {
     }
 }
 
-impl Display for ReturnStmt {
+impl Display for ReturnInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let expression = self.expression.to_string();
+        let expression = self.expression().to_string();
         if expression.contains('\n') {
             write!(f, "return:\n{}", indent(&expression))
         } else {
@@ -137,9 +132,9 @@ impl Display for ReturnStmt {
     }
 }
 
-impl Display for ExprStmt {
+impl Display for EvalInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let expression = self.expression.to_string();
+        let expression = self.expression().to_string();
         if expression.contains('\n') {
             write!(f, "of_expr:\n{}", indent(&expression))
         } else {
@@ -192,7 +187,7 @@ impl Display for ArrayFromElementsExpr {
 impl Display for BlockExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "block:")?;
-        for statement in self.statements() {
+        for statement in self.instructions() {
             write!(f, "\n{}", indent(&statement.to_string()))?;
         }
         Ok(())

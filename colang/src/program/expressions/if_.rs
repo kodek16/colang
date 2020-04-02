@@ -1,6 +1,5 @@
 use crate::ast::InputSpan;
-use crate::program::{checks, Expression, ExpressionKind, ValueCategory};
-use crate::typing::TypeRegistry;
+use crate::program::{checks, Expression, ExpressionKind, TypeRegistry, ValueCategory};
 
 use crate::errors::CompilationError;
 

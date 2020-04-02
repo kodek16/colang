@@ -2,9 +2,8 @@
 //! symbols, but they have no source-backed definition, and they are
 //! instead treated by backends in special ways.
 
-use crate::program::{Function, InternalFunction, InternalParameter, Program};
+use crate::program::{Function, InternalFunction, InternalParameter, Program, Type, TypeRegistry};
 use crate::scope::Scope;
-use crate::typing::{Type, TypeRegistry};
 use std::cell::RefCell;
 use std::rc::Rc;
 

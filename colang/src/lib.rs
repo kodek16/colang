@@ -4,11 +4,11 @@
 use lalrpop_util::lalrpop_mod;
 
 mod ast;
+mod scope;
+
 pub mod backends;
 pub mod errors;
 pub mod program;
-mod scope;
-pub mod typing;
 lalrpop_mod!(pub grammar);
 
 use std::cell::RefCell;
@@ -17,10 +17,10 @@ use std::rc::Rc;
 
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::internal::{populate_internal_symbols, InternalFunctionTag};
-use crate::program::{BlockBuilder, Parameter, UserDefinedFunction, Variable};
+use crate::program::{
+    BlockBuilder, InternalFunctionTag, Parameter, Type, UserDefinedFunction, Variable,
+};
 use crate::scope::Scope;
-use crate::typing::Type;
 
 pub fn run(source_code: &str) -> Result<program::Program, Vec<CompilationError>> {
     let program_ast =
@@ -47,7 +47,7 @@ impl CompilerContext {
     pub fn new() -> CompilerContext {
         let mut program = program::Program::new();
         let mut scope = Scope::new(&program);
-        populate_internal_symbols(&mut program, &mut scope);
+        program::populate_internal_symbols(&mut program, &mut scope);
         CompilerContext {
             program,
             scope,
@@ -83,17 +83,17 @@ fn compile(program_ast: ast::Program) -> Result<program::Program, Vec<Compilatio
 
 /// Represents an object that expects statements to be written into it.
 trait StatementSink {
-    fn emit(&mut self, statement: program::Statement);
+    fn emit(&mut self, statement: program::Instruction);
 }
 
 impl StatementSink for BlockBuilder {
-    fn emit(&mut self, statement: program::Statement) {
-        self.append_statement(statement)
+    fn emit(&mut self, statement: program::Instruction) {
+        self.append_instruction(statement)
     }
 }
 
-impl StatementSink for Option<program::Statement> {
-    fn emit(&mut self, statement: program::Statement) {
+impl StatementSink for Option<program::Instruction> {
+    fn emit(&mut self, statement: program::Instruction) {
         *self = Some(statement);
     }
 }
@@ -213,7 +213,7 @@ fn compile_var_decl_entry(
 
     let variable = create_variable(name.text, type_, Some(declaration.span), context);
     if let Some(variable) = variable {
-        let result = program::AllocStmt::new(&variable, initializer, declaration.span);
+        let result = program::AllocInstruction::new(&variable, initializer, declaration.span);
         match result {
             Ok(statement) => sink.emit(statement),
             Err(error) => context.errors.push(error),
@@ -229,7 +229,7 @@ fn create_variable(
     definition_site: Option<InputSpan>,
     context: &mut CompilerContext,
 ) -> Option<Rc<RefCell<Variable>>> {
-    let result = Variable::new(name, type_, definition_site, &context.program);
+    let result = Variable::new(name, type_, definition_site, context.program.types());
     let variable = match result {
         Ok(variable) => Rc::new(RefCell::new(variable)),
         Err(error) => {
@@ -265,7 +265,7 @@ fn compile_read_entry(
         return;
     }
 
-    let result = program::ReadStmt::new(target, context.program.types());
+    let result = program::ReadInstruction::new(target, context.program.types());
     match result {
         Ok(statement) => sink.emit(statement),
         Err(error) => context.errors.push(error),
@@ -283,7 +283,7 @@ fn compile_write_stmt(
         return;
     }
 
-    let result = program::WriteStmt::new(expression, &context.program, expr_span);
+    let result = program::WriteInstruction::new(expression, context.program.types(), expr_span);
     match result {
         Ok(statement) => sink.emit(statement),
         Err(error) => context.errors.push(error),
@@ -308,13 +308,13 @@ fn compile_while_stmt(
         let error = CompilationError::while_body_not_void(&body_type.borrow().name(), body_span);
         context.errors.push(error)
     }
-    let body = program::ExprStmt::new(body);
+    let body = program::EvalInstruction::new(body);
 
     if cond.is_error() {
         return;
     }
 
-    let result = program::WhileStmt::new(cond, body, context.program.types());
+    let result = program::WhileInstruction::new(cond, body, context.program.types());
     match result {
         Ok(statement) => sink.emit(statement),
         Err(error) => context.errors.push(error),
@@ -332,7 +332,7 @@ fn compile_assign_stmt(
         return;
     }
 
-    let result = program::AssignStmt::new(lhs, rhs, statement.span);
+    let result = program::AssignInstruction::new(lhs, rhs, statement.span);
     match result {
         Ok(statement) => sink.emit(statement),
         Err(error) => context.errors.push(error),
@@ -349,7 +349,7 @@ fn compile_expr_stmt(
         return;
     }
 
-    let result = program::ExprStmt::new(expression);
+    let result = program::EvalInstruction::new(expression);
     sink.emit(result);
 }
 
@@ -382,7 +382,7 @@ fn compile_variable_expr(
 
     let variable = context.scope.lookup_variable(&name.text, expression.span);
     match variable {
-        Ok(variable) if variable.borrow().type_().borrow().is_error() => {
+        Ok(variable) if variable.borrow().type_().is_error() => {
             program::Expression::error(expression.span)
         }
         Ok(variable) => program::VariableExpr::new(variable, expression.span),

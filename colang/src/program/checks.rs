@@ -1,6 +1,5 @@
 use crate::errors::CompilationError;
-use crate::program::Expression;
-use crate::typing::TypeRegistry;
+use crate::program::{Expression, TypeRegistry};
 
 /// Convenience function for checking condition type.
 pub fn check_condition_is_bool(

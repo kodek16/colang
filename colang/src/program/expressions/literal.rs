@@ -1,6 +1,5 @@
 use crate::ast::InputSpan;
-use crate::program::{Expression, ExpressionKind, ValueCategory};
-use crate::typing::TypeRegistry;
+use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
 
 use std::rc::Rc;
 

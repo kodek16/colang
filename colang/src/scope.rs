@@ -6,8 +6,7 @@ use std::rc::Rc;
 
 use crate::ast::InputSpan;
 use crate::errors::{CompilationError, Word};
-use crate::program::{Function, Program, Variable};
-use crate::typing::Type;
+use crate::program::{Function, Program, Type, Variable};
 
 enum NamedEntity {
     Variable(Rc<RefCell<Variable>>),

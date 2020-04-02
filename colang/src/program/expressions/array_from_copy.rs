@@ -1,7 +1,6 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Expression, ExpressionKind, ValueCategory};
-use crate::typing::TypeRegistry;
+use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
 
 #[derive(Debug)]
 pub struct ArrayFromCopyExpr {

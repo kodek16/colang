@@ -15,7 +15,7 @@ impl VariableExpr {
         let kind = ExpressionKind::Variable(VariableExpr {
             variable: Rc::clone(variable),
         });
-        let type_ = Rc::clone(&variable.borrow().type_());
+        let type_ = Rc::clone(&variable.borrow().type_);
         Expression {
             kind,
             type_,
@@ -24,7 +24,6 @@ impl VariableExpr {
         }
     }
 
-    /// Borrow the variable immutably.
     pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
         self.variable.borrow()
     }

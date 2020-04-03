@@ -16,7 +16,7 @@ impl Display for Program {
                 let return_type = function.return_type().name().to_string();
                 write!(f, "{}: {} -> {}:", function.name, param_types, return_type)?;
                 write!(f, "\n{}", indent(&function.body().to_string()))?;
-                write!(f, "\n\n");
+                write!(f, "\n\n")?;
             }
         }
 

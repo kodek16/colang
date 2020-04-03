@@ -78,6 +78,7 @@ pub enum Rvalue {
     Int(i32),
     Bool(bool),
     Array(Rc<RefCell<Vec<Lvalue>>>),
+    Pointer(Option<Lvalue>),
     Void,
 }
 
@@ -103,6 +104,13 @@ impl Rvalue {
         }
     }
 
+    pub fn into_pointer(self) -> Option<Lvalue> {
+        match self {
+            Rvalue::Pointer(p) => p,
+            _ => panic_wrong_type("pointer", self.type_()),
+        }
+    }
+
     /// A quick-and-dirty information source about value types in runtime.
     /// This is _not_ meant to be an actual RTTI solution, it is only meant
     /// to be used in type mismatch panics, which should not occur under
@@ -113,6 +121,7 @@ impl Rvalue {
             Int(_) => "int",
             Bool(_) => "bool",
             Array(_) => "array",
+            Pointer(_) => "pointer",
             Void => "void",
         }
     }
@@ -305,11 +314,22 @@ fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
 }
 
 fn run_address_expr(expression: &AddressExpr, state: &mut State) -> RunResult<Value> {
-    unimplemented!()
+    let lvalue = run_expression(expression.target(), state)?.into_lvalue();
+    Ok(Value::Rvalue(Rvalue::Pointer(Some(lvalue))))
 }
 
 fn run_deref_expr(expression: &DerefExpr, state: &mut State) -> RunResult<Value> {
-    unimplemented!()
+    let lvalue = run_expression(expression.pointer(), state)?
+        .into_rvalue()
+        .into_pointer();
+    let lvalue = match lvalue {
+        Some(lvalue) => lvalue,
+        None => {
+            let error = "Attempted to dereference null pointer.";
+            return Err(error.into());
+        }
+    };
+    Ok(Value::Lvalue(lvalue))
 }
 
 fn run_array_from_elements_expr(
@@ -430,7 +450,7 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
         TypeKind::Int => Rvalue::Int(0),
         TypeKind::Bool => Rvalue::Bool(false),
         TypeKind::Array(_) => Rvalue::Array(Rc::new(RefCell::new(vec![]))),
-        TypeKind::Pointer(_) => unimplemented!(),
+        TypeKind::Pointer(_) => Rvalue::Pointer(None),
         TypeKind::Error => panic_error(),
     }
 }

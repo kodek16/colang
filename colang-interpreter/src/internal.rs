@@ -75,16 +75,13 @@ pub fn int_abs(mut arguments: Vec<Value>) -> RunResult<Value> {
 
 pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {
     let element = arguments.pop().unwrap().into_rvalue();
-    let array = arguments.pop().unwrap().into_rvalue().into_pointer();
-    let array = match array {
-        Some(array) => array,
-        None => {
-            let error = "`self` is null in method";
-            return Err(error.into());
-        }
-    };
+    let array_pointer = arguments
+        .pop()
+        .unwrap()
+        .into_rvalue()
+        .into_pointer_to_self()?;
 
-    array
+    array_pointer
         .0
         .borrow()
         .clone()
@@ -92,4 +89,35 @@ pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {
         .borrow_mut()
         .push(Lvalue::store(element));
     Ok(Value::Rvalue(Rvalue::Void))
+}
+
+pub fn array_pop(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let array_pointer = arguments
+        .pop()
+        .unwrap()
+        .into_rvalue()
+        .into_pointer_to_self()?;
+    let result = array_pointer
+        .0
+        .borrow()
+        .clone()
+        .into_array()
+        .borrow_mut()
+        .pop();
+    match result {
+        Some(result) => {
+            let rvalue = result.0.borrow().clone();
+            Ok(Value::Rvalue(rvalue))
+        }
+        None => {
+            let error = "Cannot pop from empty array";
+            Err(error.into())
+        }
+    }
+}
+
+pub fn array_len(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let array = arguments.pop().unwrap().into_rvalue().into_array();
+    let result = array.borrow().len();
+    Ok(Value::Rvalue(Rvalue::Int(result as i32)))
 }

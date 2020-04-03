@@ -226,31 +226,24 @@ pub fn create_array_template() -> Rc<RefCell<TypeTemplate>> {
 
     method_templates.insert(
         "push".to_string(),
-        Box::new(|mut types, program| {
-            assert_eq!(types.len(), 1);
-            let element_type = types.pop().unwrap();
-
-            let internal_function_tag =
-                InternalFunctionTag::ArrayPush(element_type.borrow().kind().clone());
-
-            if program
-                .internal_functions
-                .contains_key(&internal_function_tag)
-            {
-                Rc::clone(&program.internal_functions[&internal_function_tag])
-            } else {
-                let method = Rc::new(RefCell::new(
-                    crate::program::internal::create_array_push_method(
-                        element_type,
-                        &mut program.types,
-                    ),
-                ));
-                program
-                    .internal_functions
-                    .insert(internal_function_tag, Rc::clone(&method));
-                method
-            }
-        }),
+        create_array_internal_method_template(
+            InternalFunctionTag::ArrayPush,
+            crate::program::internal::create_array_push_method,
+        ),
+    );
+    method_templates.insert(
+        "pop".to_string(),
+        create_array_internal_method_template(
+            InternalFunctionTag::ArrayPop,
+            crate::program::internal::create_array_pop_method,
+        ),
+    );
+    method_templates.insert(
+        "len".to_string(),
+        create_array_internal_method_template(
+            InternalFunctionTag::ArrayLen,
+            crate::program::internal::create_array_len_method,
+        ),
     );
 
     Rc::new(RefCell::new(TypeTemplate {
@@ -312,4 +305,32 @@ pub fn create_pointer_template() -> Rc<RefCell<TypeTemplate>> {
         }),
         method_templates: HashMap::new(),
     }))
+}
+
+fn create_array_internal_method_template(
+    tag: impl Fn(TypeKind) -> InternalFunctionTag + 'static,
+    internal_method_constructor: impl Fn(&Rc<RefCell<Type>>, &mut TypeRegistry) -> Function + 'static,
+) -> Box<dyn Fn(Vec<&Rc<RefCell<Type>>>, &mut Program) -> Rc<RefCell<Function>>> {
+    Box::new(move |mut types, program| {
+        assert_eq!(types.len(), 1);
+        let element_type = types.pop().unwrap();
+
+        let internal_function_tag = tag(element_type.borrow().kind().clone());
+
+        if program
+            .internal_functions
+            .contains_key(&internal_function_tag)
+        {
+            Rc::clone(&program.internal_functions[&internal_function_tag])
+        } else {
+            let method = Rc::new(RefCell::new(internal_method_constructor(
+                element_type,
+                &mut program.types,
+            )));
+            program
+                .internal_functions
+                .insert(internal_function_tag, Rc::clone(&method));
+            method
+        }
+    })
 }

@@ -1,0 +1,5 @@
+fun main() {
+  var v = [true; 5];
+  assert(v.pop());
+  assert(v.len() == 4);
+}

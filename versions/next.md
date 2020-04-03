@@ -12,3 +12,5 @@
 - Added internal method `abs: (Self) -> int` for type `int`.
 - Added internal method `push: (&Self, T) -> void` for all arrays
   `[T]`. Arrays are now actually growable.
+- Added internal method `pop: (&Self) -> T` for all arrays `[T]`.
+- Added internal method `len: (Self) -> int` for all arrays `[T]`.

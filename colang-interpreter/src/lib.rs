@@ -111,6 +111,16 @@ impl Rvalue {
         }
     }
 
+    pub fn into_pointer_to_self(self) -> RunResult<Lvalue> {
+        match self.into_pointer() {
+            Some(pointer) => Ok(pointer),
+            None => {
+                let error = "`self` is null in method";
+                return Err(error.into());
+            }
+        }
+    }
+
     /// A quick-and-dirty information source about value types in runtime.
     /// This is _not_ meant to be an actual RTTI solution, it is only meant
     /// to be used in type mismatch panics, which should not occur under
@@ -196,6 +206,8 @@ fn run_internal_function(function: &InternalFunction, arguments: Vec<Value>) -> 
         NotEqInt => internal::not_eq_int(arguments),
         IntAbs => internal::int_abs(arguments),
         ArrayPush(_) => internal::array_push(arguments),
+        ArrayPop(_) => internal::array_pop(arguments),
+        ArrayLen(_) => internal::array_len(arguments),
     }
 }
 

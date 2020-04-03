@@ -1,0 +1,10 @@
+fun main() {
+  var a = [10, 20, 50];
+  assert(a.len() == 3);
+
+  a.push(100);
+  assert(a.len() == 4);
+
+  assert(a.pop() == 100);
+  assert(a.len() == 3);
+}

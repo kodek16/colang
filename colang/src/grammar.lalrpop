@@ -273,6 +273,7 @@ Expr0: Expression = {
     ArrayFromCopyExpr,
     IndexExpr,
     CallExpr,
+    MethodCallExpr,
     ParensExpr,
 };
 
@@ -336,6 +337,17 @@ CallExpr: Expression = {
     <start: @L> <function_name:Ident> "(" <arguments:CommaSeparated<Expr>> ")" <end: @R> => {
         Expression::Call(CallExpr {
             function_name,
+            arguments,
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+MethodCallExpr: Expression = {
+    <start:@L> <receiver:Expr0> "." <method:Ident> "(" <arguments:CommaSeparated<Expr>> ")" <end:@R> => {
+        Expression::MethodCall(MethodCallExpr {
+            receiver: Box::new(receiver),
+            method,
             arguments,
             span: InputSpan { start, end },
         })

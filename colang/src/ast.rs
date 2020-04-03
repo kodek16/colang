@@ -109,6 +109,7 @@ pub enum Expression {
     ArrayFromCopy(ArrayFromCopyExpr),
     Index(IndexExpr),
     Call(CallExpr),
+    MethodCall(MethodCallExpr),
     If(IfExpr),
     Block(BlockExpr),
 }
@@ -127,6 +128,7 @@ impl Expression {
             ArrayFromCopy(e) => e.span,
             Index(e) => e.span,
             Call(e) => e.span,
+            MethodCall(e) => e.span,
             If(e) => e.span,
             Block(e) => e.span,
         }
@@ -176,6 +178,10 @@ impl Expression {
                 ..e
             }),
             Expression::Call(e) => Expression::Call(CallExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::MethodCall(e) => Expression::MethodCall(MethodCallExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -274,6 +280,15 @@ pub struct IndexExpr {
 #[derive(Debug)]
 pub struct CallExpr {
     pub function_name: Identifier,
+    pub arguments: Vec<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct MethodCallExpr {
+    pub receiver: Box<Expression>,
+    pub method: Identifier,
     pub arguments: Vec<Expression>,
 
     pub span: InputSpan,

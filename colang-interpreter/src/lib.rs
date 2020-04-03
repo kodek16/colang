@@ -194,6 +194,7 @@ fn run_internal_function(function: &InternalFunction, arguments: Vec<Value>) -> 
         GreaterEqInt => internal::greater_eq_int(arguments),
         EqInt => internal::eq_int(arguments),
         NotEqInt => internal::not_eq_int(arguments),
+        IntAbs => internal::int_abs(arguments),
     }
 }
 

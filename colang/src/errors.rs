@@ -368,6 +368,14 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn self_must_be_lvalue(method_name: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9031",
+            message: format!("`self` must be an lvalue for method `{}`", method_name),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

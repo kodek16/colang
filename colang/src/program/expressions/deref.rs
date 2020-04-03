@@ -1,3 +1,4 @@
+use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
 
@@ -10,6 +11,7 @@ impl DerefExpr {
     pub(crate) fn new(
         pointer: Expression,
         types: &TypeRegistry,
+        span: InputSpan,
     ) -> Result<Expression, CompilationError> {
         let target_type = pointer.type_.borrow().pointer_target_type(types);
 
@@ -26,7 +28,6 @@ impl DerefExpr {
             }
         };
 
-        let span = pointer.span;
         let kind = ExpressionKind::Deref(DerefExpr {
             pointer: Box::new(pointer),
         });
@@ -35,7 +36,7 @@ impl DerefExpr {
             kind,
             type_: target_type,
             value_category: ValueCategory::Lvalue,
-            span,
+            span: Some(span),
         };
         Ok(expression)
     }

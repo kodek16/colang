@@ -1,6 +1,6 @@
 [package]
 name = "colang-cli"
-version = "0.0.6"
+version = "0.0.7"
 authors = ["Pavel Senchanka <pavel.senchanka@gmail.com>"]
 edition = "2018"
 

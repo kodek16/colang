@@ -2,9 +2,12 @@
 //! symbols, but they have no source-backed definition, and they are
 //! instead treated by backends in special ways.
 
-use crate::program::{Function, InternalFunction, InternalParameter, Program, Type, TypeRegistry};
+use crate::program::{
+    Function, InternalFunction, InternalParameter, Program, Type, TypeKind, TypeRegistry,
+};
 use crate::scope::Scope;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -19,9 +22,14 @@ pub enum InternalFunctionTag {
     GreaterEqInt,
     EqInt,
     NotEqInt,
+    IntAbs,
 }
 
-pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
+pub fn populate_internal_symbols(
+    program: &mut Program,
+    scope: &mut Scope,
+    type_scopes: &mut HashMap<TypeKind, Scope>,
+) {
     let functions = vec![
         create_assert_function(program.types()),
         create_add_int_function(program.types()),
@@ -43,6 +51,14 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
             function.borrow().name()
         ));
     }
+
+    let int_abs = Rc::new(RefCell::new(create_int_abs_method(program.types())));
+    program.add_function(Rc::clone(&int_abs));
+    type_scopes
+        .entry(program.types.int().borrow().kind().clone())
+        .or_insert_with(Scope::new)
+        .add_function(int_abs)
+        .expect("Couldn't register internal method.")
 }
 
 fn create_assert_function(types: &TypeRegistry) -> Function {
@@ -159,6 +175,15 @@ fn create_not_eq_int_function(types: &TypeRegistry) -> Function {
             internal_param("rhs", types.int()),
         ],
         Rc::clone(types.bool()),
+    )
+}
+
+fn create_int_abs_method(types: &TypeRegistry) -> Function {
+    InternalFunction::new(
+        "abs".to_string(),
+        InternalFunctionTag::IntAbs,
+        vec![internal_param("x", types.int())],
+        Rc::clone(types.int()),
     )
 }
 

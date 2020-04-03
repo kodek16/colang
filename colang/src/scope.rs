@@ -6,8 +6,9 @@ use std::rc::Rc;
 
 use crate::ast::InputSpan;
 use crate::errors::{CompilationError, Word};
-use crate::program::{Function, Program, Type, Variable};
+use crate::program::{Function, Type, Variable};
 
+#[derive(Debug)]
 enum NamedEntity {
     Variable(Rc<RefCell<Variable>>),
     Function(Rc<RefCell<Function>>),
@@ -24,6 +25,7 @@ impl NamedEntity {
     }
 }
 
+#[derive(Debug)]
 pub struct Scope {
     // `entities` should always be Some, Option is for interior mutability.
     entities: Option<HashMap<String, NamedEntity>>,
@@ -34,17 +36,11 @@ pub struct Scope {
 
 impl Scope {
     /// Creates a new, root scope.
-    pub fn new(program: &Program) -> Scope {
-        let mut scope = Scope {
+    pub fn new() -> Scope {
+        Scope {
             entities: Some(HashMap::new()),
             parent: None,
-        };
-
-        for type_ in program.types().primitive_types() {
-            scope.add_type(Rc::clone(type_)).unwrap();
         }
-
-        scope
     }
 
     /// Creates a new "scope frame", pushing the existing frame below it.

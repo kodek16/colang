@@ -1,0 +1,4 @@
+fun main() {
+  var x = -2;
+  assert(x.abs() == 2);
+}

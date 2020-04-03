@@ -18,9 +18,11 @@ use std::rc::Rc;
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::{
-    BlockBuilder, InternalFunctionTag, Parameter, Type, UserDefinedFunction, Variable,
+    BlockBuilder, InternalFunctionTag, Parameter, Type, TypeKind, UserDefinedFunction,
+    ValueCategory, Variable,
 };
 use crate::scope::Scope;
+use std::collections::HashMap;
 
 pub fn run(source_code: &str) -> Result<program::Program, Vec<CompilationError>> {
     let program_ast =
@@ -39,6 +41,7 @@ fn parse(source_code: &str) -> Result<ast::Program, ast::ParseError> {
 struct CompilerContext {
     program: program::Program,
     scope: Scope,
+    type_scopes: HashMap<TypeKind, Scope>,
     errors: Vec<CompilationError>,
 }
 
@@ -46,11 +49,18 @@ impl CompilerContext {
     /// Creates the initial root context.
     pub fn new() -> CompilerContext {
         let mut program = program::Program::new();
-        let mut scope = Scope::new(&program);
-        program::populate_internal_symbols(&mut program, &mut scope);
+        let mut scope = Scope::new();
+        let mut type_scopes = HashMap::new();
+
+        for type_ in program.types().primitive_types() {
+            scope.add_type(Rc::clone(type_)).unwrap();
+        }
+
+        program::populate_internal_symbols(&mut program, &mut scope, &mut type_scopes);
         CompilerContext {
             program,
             scope,
+            type_scopes,
             errors: vec![],
         }
     }
@@ -371,6 +381,7 @@ fn compile_expression(
         ast::Expression::ArrayFromCopy(e) => compile_array_from_copy_expr(e, context),
         ast::Expression::Index(e) => compile_index_expr(e, context),
         ast::Expression::Call(e) => compile_call_expr(e, context),
+        ast::Expression::MethodCall(e) => compile_method_call_expr(e, context),
         ast::Expression::If(e) => compile_if_expr(e, context),
         ast::Expression::Block(e) => compile_block_expr(e, type_hint, context),
     }
@@ -454,7 +465,7 @@ fn compile_address_expr(
 
     let target = compile_expression(*expression.target, hint, context);
 
-    let result = program::AddressExpr::new(target, context.program.types_mut());
+    let result = program::AddressExpr::new(target, context.program.types_mut(), expression.span);
     match result {
         Ok(expression) => expression,
         Err(error) => {
@@ -473,7 +484,7 @@ fn compile_deref_expr(
 
     let pointer = compile_expression(*expression.pointer, hint, context);
 
-    let result = program::DerefExpr::new(pointer, context.program.types());
+    let result = program::DerefExpr::new(pointer, context.program.types(), expression.span);
     match result {
         Ok(expression) => expression,
         Err(error) => {
@@ -580,20 +591,11 @@ fn compile_call_expr(
         }
     };
 
-    let arguments = {
-        let function = function.borrow();
-        let parameter_types = function
-            .parameters()
-            .map(|parameter| Some(Rc::clone(parameter.type_())))
-            .chain(iter::repeat(None));
-
-        expression
-            .arguments
-            .into_iter()
-            .zip(parameter_types)
-            .map(|(argument, parameter_type)| compile_expression(argument, parameter_type, context))
-            .collect()
-    };
+    let arguments = compile_arguments(
+        expression.arguments.into_iter(),
+        function.borrow().parameters(),
+        context,
+    );
 
     let result = program::CallExpr::new(function, arguments, expression.span);
     match result {
@@ -603,6 +605,93 @@ fn compile_call_expr(
             program::Expression::error(expression.span)
         }
     }
+}
+
+fn compile_method_call_expr(
+    expression: ast::MethodCallExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let receiver_span = expression.receiver.span();
+    let receiver = compile_expression(*expression.receiver, None, context);
+    if receiver.is_error() {
+        return program::Expression::error(expression.span);
+    }
+
+    let receiver_type_scope = context
+        .type_scopes
+        .entry(receiver.type_.borrow().kind().clone())
+        .or_insert_with(Scope::new);
+
+    let method = receiver_type_scope
+        .lookup_function(&expression.method.text, expression.method.span)
+        .map(Rc::clone);
+
+    let method = match method {
+        Ok(method) => method,
+        Err(error) => {
+            context.errors.push(error);
+            return program::Expression::error(expression.span);
+        }
+    };
+
+    let self_parameter = method
+        .borrow()
+        .parameters()
+        .next()
+        .expect("Method does not have a self parameter");
+
+    let self_argument = if *self_parameter.type_() == receiver.type_ {
+        // self-by-value
+        receiver
+    } else if *self_parameter.type_() == context.program.types_mut().pointer_to(&receiver.type_) {
+        // self-by-pointer
+        if receiver.value_category == ValueCategory::Lvalue {
+            // TODO handle generated span in a special way for errors.
+            program::AddressExpr::new(receiver, context.program.types_mut(), receiver_span)
+                .expect("Couldn't generate address operation for `self` in method call")
+        } else {
+            let error =
+                CompilationError::self_must_be_lvalue(&expression.method.text, receiver_span);
+            context.errors.push(error);
+            return program::Expression::error(expression.span);
+        }
+    } else {
+        panic!("Unexpected method `self` type");
+    };
+
+    let arguments = {
+        let mut other_arguments = compile_arguments(
+            expression.arguments.into_iter(),
+            method.borrow().parameters().skip(1),
+            context,
+        );
+        let mut arguments = vec![self_argument];
+        arguments.append(&mut other_arguments);
+        arguments
+    };
+
+    let result = program::CallExpr::new(method, arguments, expression.span);
+    match result {
+        Ok(expression) => expression,
+        Err(error) => {
+            context.errors.push(error);
+            program::Expression::error(expression.span)
+        }
+    }
+}
+
+fn compile_arguments(
+    arguments: impl Iterator<Item = ast::Expression>,
+    parameters: impl Iterator<Item = impl Parameter>,
+    context: &mut CompilerContext,
+) -> Vec<program::Expression> {
+    let hints = parameters
+        .map(|parameter| Some(Rc::clone(parameter.type_())))
+        .chain(iter::repeat(None));
+    arguments
+        .zip(hints)
+        .map(|(argument, hint)| compile_expression(argument, hint, context))
+        .collect()
 }
 
 fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {

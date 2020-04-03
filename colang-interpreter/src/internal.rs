@@ -66,3 +66,9 @@ pub fn not_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Bool(lhs != rhs)))
 }
+
+pub fn int_abs(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let x = arguments.pop().unwrap().into_rvalue().as_int();
+    let result = if x >= 0 { x } else { -x };
+    Ok(Value::Rvalue(Rvalue::Int(result)))
+}

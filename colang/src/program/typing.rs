@@ -8,7 +8,7 @@ use std::rc::Rc;
 // int, int8, int16, int64, int128
 // float, double
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Type {
     kind: TypeKind,
     name: String,
@@ -53,6 +53,12 @@ impl Type {
             TypeKind::Array(ref element_kind) => Some(Rc::clone(&registry.instances[element_kind])),
             _ => None,
         }
+    }
+}
+
+impl PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
     }
 }
 

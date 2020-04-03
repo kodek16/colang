@@ -1,3 +1,4 @@
+use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
 
@@ -10,6 +11,7 @@ impl AddressExpr {
     pub(crate) fn new(
         target: Expression,
         types: &mut TypeRegistry,
+        span: InputSpan,
     ) -> Result<Expression, CompilationError> {
         if target.value_category != ValueCategory::Lvalue {
             let error = CompilationError::address_of_rvalue(
@@ -20,7 +22,6 @@ impl AddressExpr {
             return Err(error);
         }
 
-        let span = target.span;
         let type_ = types.pointer_to(&target.type_);
         let kind = ExpressionKind::Address(AddressExpr {
             target: Box::new(target),
@@ -30,7 +31,7 @@ impl AddressExpr {
             kind,
             type_,
             value_category: ValueCategory::Rvalue,
-            span,
+            span: Some(span),
         };
         Ok(expression)
     }

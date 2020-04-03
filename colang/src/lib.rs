@@ -19,7 +19,7 @@ use std::rc::Rc;
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::{
-    BlockBuilder, InternalFunctionTag, Parameter, Type, TypeKind, UserDefinedFunction,
+    BlockBuilder, Function, InternalFunctionTag, Parameter, Type, TypeKind, UserDefinedFunction,
     ValueCategory, Variable,
 };
 use crate::scope::Scope;
@@ -56,7 +56,7 @@ impl CompilerContext {
             scope.add_type(Rc::clone(type_)).unwrap();
         }
 
-        program::populate_internal_symbols(&mut program, &mut scope, &mut type_scopes);
+        program::internal::populate_internal_symbols(&mut program, &mut scope, &mut type_scopes);
         CompilerContext {
             program,
             scope,
@@ -583,7 +583,7 @@ fn compile_call_expr(
         .lookup_function(&function_name, function_name_span)
         .map(Rc::clone);
 
-    let function = match function {
+    let function: Rc<RefCell<Function>> = match function {
         Ok(function) => function,
         Err(error) => {
             context.errors.push(error);
@@ -617,20 +617,47 @@ fn compile_method_call_expr(
         return program::Expression::error(expression.span);
     }
 
-    let receiver_type_scope = context
-        .type_scopes
-        .entry(receiver.type_.borrow().kind().clone())
-        .or_insert_with(Scope::new);
+    let method_name = &expression.method.text;
+    let receiver_type_kind = receiver.type_.borrow().kind().clone();
 
-    let method = receiver_type_scope
-        .lookup_function(&expression.method.text, expression.method.span)
-        .map(Rc::clone);
+    let method = {
+        let receiver_type_scope = context
+            .type_scopes
+            .entry(receiver_type_kind.clone())
+            .or_insert_with(Scope::new);
 
-    let method = match method {
+        receiver_type_scope
+            .lookup_function(method_name, expression.method.span)
+            .map(Rc::clone)
+    };
+
+    let method: Rc<RefCell<Function>> = match method {
         Ok(method) => method,
         Err(error) => {
-            context.errors.push(error);
-            return program::Expression::error(expression.span);
+            let instantiated_method = receiver
+                .type_
+                .borrow()
+                .uninstantiate(context.program.types())
+                .and_then(|(template, type_parameters)| {
+                    template.borrow().method_template(
+                        type_parameters.iter().map(|x| x).collect(),
+                        method_name,
+                        &mut context.program,
+                    )
+                });
+
+            if let Some(method) = instantiated_method {
+                context
+                    .type_scopes
+                    .get_mut(&receiver_type_kind)
+                    .unwrap()
+                    .add_function(Rc::clone(&method))
+                    .expect("Name conflict on instantiating method template");
+                method
+            } else {
+                context.errors.push(error);
+                return program::Expression::error(expression.span);
+            }
         }
     };
 

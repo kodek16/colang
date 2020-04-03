@@ -195,6 +195,7 @@ fn run_internal_function(function: &InternalFunction, arguments: Vec<Value>) -> 
         EqInt => internal::eq_int(arguments),
         NotEqInt => internal::not_eq_int(arguments),
         IntAbs => internal::int_abs(arguments),
+        ArrayPush(_) => internal::array_push(arguments),
     }
 }
 

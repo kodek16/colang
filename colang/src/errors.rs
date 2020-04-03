@@ -252,7 +252,7 @@ impl CompilationError {
         CompilationError {
             code: "E9020",
             message: format!(
-                "function `{}` expects `{}` argument(s), not `{}` as given",
+                "function `{}` expects {} argument(s), not {} as given",
                 function_name, expected, actual
             ),
             location: Some(location),

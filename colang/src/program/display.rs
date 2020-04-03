@@ -137,9 +137,9 @@ impl Display for EvalInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let expression = self.expression().to_string();
         if expression.contains('\n') {
-            write!(f, "of_expr:\n{}", indent(&expression))
+            write!(f, "eval:\n{}", indent(&expression))
         } else {
-            write!(f, "of_expr {}", expression)
+            write!(f, "eval {}", expression)
         }
     }
 }

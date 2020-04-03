@@ -1,5 +1,6 @@
 //! CO types and their properties are defined in this module.
 
+use crate::program::{Function, InternalFunctionTag, Program};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -36,6 +37,25 @@ impl Type {
         match self.kind {
             TypeKind::Error => true,
             _ => false,
+        }
+    }
+
+    /// If `self` is an instantiation of a template, retrieve the source template and
+    /// type parameters.
+    pub fn uninstantiate(
+        &self,
+        registry: &TypeRegistry,
+    ) -> Option<(Rc<RefCell<TypeTemplate>>, Vec<Rc<RefCell<Type>>>)> {
+        match self.kind {
+            TypeKind::TemplateInstance(ref template_kind, ref type_parameters) => {
+                let template = Rc::clone(&registry.templates[template_kind]);
+                let type_parameters: Vec<_> = type_parameters
+                    .iter()
+                    .map(|parameter_kind| Rc::clone(&registry.types[parameter_kind]))
+                    .collect();
+                Some((template, type_parameters))
+            }
+            _ => None,
         }
     }
 
@@ -157,6 +177,10 @@ pub struct TypeTemplate {
     kind: TypeTemplateKind,
     name: String,
     instantiate: Box<dyn Fn(Vec<&Type>, &mut TypeRegistry) -> Rc<RefCell<Type>>>,
+    method_templates: HashMap<
+        String,
+        Box<dyn Fn(Vec<&Rc<RefCell<Type>>>, &mut Program) -> Rc<RefCell<Function>>>,
+    >,
 }
 
 impl TypeTemplate {
@@ -175,6 +199,17 @@ impl TypeTemplate {
     ) -> Rc<RefCell<Type>> {
         (*self.instantiate)(type_parameters, registry)
     }
+
+    pub fn method_template(
+        &self,
+        type_parameters: Vec<&Rc<RefCell<Type>>>,
+        method_name: &str,
+        program: &mut Program,
+    ) -> Option<Rc<RefCell<Function>>> {
+        self.method_templates
+            .get(method_name)
+            .map(|method_template| (*method_template)(type_parameters, program))
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -184,6 +219,40 @@ pub enum TypeTemplateKind {
 }
 
 pub fn create_array_template() -> Rc<RefCell<TypeTemplate>> {
+    let mut method_templates: HashMap<
+        String,
+        Box<dyn Fn(Vec<&Rc<RefCell<Type>>>, &mut Program) -> Rc<RefCell<Function>>>,
+    > = HashMap::new();
+
+    method_templates.insert(
+        "push".to_string(),
+        Box::new(|mut types, program| {
+            assert_eq!(types.len(), 1);
+            let element_type = types.pop().unwrap();
+
+            let internal_function_tag =
+                InternalFunctionTag::ArrayPush(element_type.borrow().kind().clone());
+
+            if program
+                .internal_functions
+                .contains_key(&internal_function_tag)
+            {
+                Rc::clone(&program.internal_functions[&internal_function_tag])
+            } else {
+                let method = Rc::new(RefCell::new(
+                    crate::program::internal::create_array_push_method(
+                        element_type,
+                        &mut program.types,
+                    ),
+                ));
+                program
+                    .internal_functions
+                    .insert(internal_function_tag, Rc::clone(&method));
+                method
+            }
+        }),
+    );
+
     Rc::new(RefCell::new(TypeTemplate {
         kind: TypeTemplateKind::Array,
         name: "<array>".to_string(),
@@ -210,6 +279,7 @@ pub fn create_array_template() -> Rc<RefCell<TypeTemplate>> {
                 });
             Rc::clone(array_type)
         }),
+        method_templates,
     }))
 }
 
@@ -240,5 +310,6 @@ pub fn create_pointer_template() -> Rc<RefCell<TypeTemplate>> {
                 });
             Rc::clone(pointer_type)
         }),
+        method_templates: HashMap::new(),
     }))
 }

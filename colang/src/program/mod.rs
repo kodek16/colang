@@ -7,7 +7,7 @@ mod display;
 mod expressions;
 mod function;
 mod instructions;
-mod internal;
+pub(crate) mod internal;
 mod typing;
 mod variable;
 
@@ -68,7 +68,7 @@ impl Program {
             }
             Function::Internal(ref function_ref) => {
                 self.internal_functions
-                    .insert(function_ref.tag, Rc::clone(&function));
+                    .insert(function_ref.tag.clone(), Rc::clone(&function));
             }
         }
     }
@@ -132,8 +132,6 @@ pub use instructions::return_::ReturnInstruction;
 pub use instructions::while_::WhileInstruction;
 pub use instructions::write::WriteInstruction;
 pub use instructions::Instruction;
-
-pub(crate) use internal::populate_internal_symbols;
 
 mod private {
     use super::{Symbol, SymbolId, Variable};

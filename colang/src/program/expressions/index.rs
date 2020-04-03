@@ -17,7 +17,7 @@ impl IndexExpr {
         span: InputSpan,
     ) -> Result<Expression, CompilationError> {
         let collection_type = &collection.type_;
-        let element_type = collection_type.borrow().element_type(types);
+        let element_type = collection_type.borrow().array_element_type(types);
         let element_type = match element_type {
             Some(element_type) => element_type,
             None => {

@@ -22,7 +22,7 @@ impl AddressExpr {
             return Err(error);
         }
 
-        let type_ = types.pointer_to(&target.type_);
+        let type_ = types.pointer_to(&target.type_.borrow());
         let kind = ExpressionKind::Address(AddressExpr {
             target: Box::new(target),
         });

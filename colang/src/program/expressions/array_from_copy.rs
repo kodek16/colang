@@ -15,7 +15,6 @@ impl ArrayFromCopyExpr {
         types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Result<Expression, CompilationError> {
-        let element_type = &element.type_;
         let size_type = &size.type_;
         if *size_type != *types.int() {
             let error = CompilationError::array_size_not_int(
@@ -25,7 +24,7 @@ impl ArrayFromCopyExpr {
             return Err(error);
         }
 
-        let array_type = types.array_of(element_type);
+        let array_type = types.array_of(&element.type_.borrow());
         let kind = ExpressionKind::ArrayFromCopy(ArrayFromCopyExpr {
             element: Box::new(element),
             size: Box::new(size),

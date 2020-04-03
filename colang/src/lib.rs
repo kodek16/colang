@@ -12,6 +12,7 @@ pub mod program;
 lalrpop_mod!(pub grammar);
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::iter;
 use std::rc::Rc;
 
@@ -22,7 +23,6 @@ use crate::program::{
     ValueCategory, Variable,
 };
 use crate::scope::Scope;
-use std::collections::HashMap;
 
 pub fn run(source_code: &str) -> Result<program::Program, Vec<CompilationError>> {
     let program_ast =
@@ -480,7 +480,7 @@ fn compile_deref_expr(
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let hint = type_hint.map(|hint| context.program.types_mut().pointer_to(&hint));
+    let hint = type_hint.map(|hint| context.program.types_mut().pointer_to(&hint.borrow()));
 
     let pointer = compile_expression(*expression.pointer, hint, context);
 
@@ -643,7 +643,12 @@ fn compile_method_call_expr(
     let self_argument = if *self_parameter.type_() == receiver.type_ {
         // self-by-value
         receiver
-    } else if *self_parameter.type_() == context.program.types_mut().pointer_to(&receiver.type_) {
+    } else if *self_parameter.type_()
+        == context
+            .program
+            .types_mut()
+            .pointer_to(&receiver.type_.borrow())
+    {
         // self-by-pointer
         if receiver.value_category == ValueCategory::Lvalue {
             // TODO handle generated span in a special way for errors.
@@ -766,7 +771,8 @@ fn compile_array_type_expr(
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
     let element = compile_type_expr(*type_expr.element, context);
-    context.program.types_mut().array_of(&element)
+    let result = context.program.types_mut().array_of(&element.borrow());
+    result
 }
 
 fn compile_pointer_type_expr(
@@ -774,5 +780,6 @@ fn compile_pointer_type_expr(
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
     let target = compile_type_expr(*type_expr.target, context);
-    context.program.types_mut().pointer_to(&target)
+    let result = context.program.types_mut().pointer_to(&target.borrow());
+    result
 }

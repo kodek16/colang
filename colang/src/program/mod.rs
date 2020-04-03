@@ -25,7 +25,6 @@ pub trait Symbol {
     fn id(&self) -> SymbolId;
 }
 
-#[derive(Debug)]
 pub struct Program {
     variables: Vec<Rc<RefCell<Variable>>>,
     user_functions: Vec<Rc<RefCell<Function>>>,
@@ -121,7 +120,7 @@ pub use expressions::{Expression, ExpressionKind};
 
 pub use function::{Function, InternalFunction, InternalParameter, Parameter, UserDefinedFunction};
 pub use internal::InternalFunctionTag;
-pub use typing::{Type, TypeKind, TypeRegistry};
+pub use typing::{Type, TypeKind, TypeRegistry, TypeTemplateKind};
 pub use variable::Variable;
 
 pub use instructions::alloc::AllocInstruction;

@@ -450,8 +450,10 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
         TypeKind::Void => panic!("Tried to default-initialize a value of type `void`"),
         TypeKind::Int => Rvalue::Int(0),
         TypeKind::Bool => Rvalue::Bool(false),
-        TypeKind::Array(_) => Rvalue::Array(Rc::new(RefCell::new(vec![]))),
-        TypeKind::Pointer(_) => Rvalue::Pointer(None),
+        TypeKind::TemplateInstance(TypeTemplateKind::Array, _) => {
+            Rvalue::Array(Rc::new(RefCell::new(vec![])))
+        }
+        TypeKind::TemplateInstance(TypeTemplateKind::Pointer, _) => Rvalue::Pointer(None),
         TypeKind::Error => panic_error(),
     }
 }

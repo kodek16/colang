@@ -21,7 +21,7 @@ impl ArrayFromElementsExpr {
 
         let inferred_type = match inferred_type {
             Some(type_) => type_,
-            None => match type_hint.and_then(|hint| hint.borrow().element_type(types)) {
+            None => match type_hint.and_then(|hint| hint.borrow().array_element_type(types)) {
                 Some(element_type) => element_type,
                 None => {
                     let error = CompilationError::cannot_infer_empty_type(span);
@@ -51,7 +51,7 @@ impl ArrayFromElementsExpr {
         }
 
         let kind = ExpressionKind::ArrayFromElements(ArrayFromElementsExpr { elements });
-        let array_type = types.array_of(&inferred_type);
+        let array_type = types.array_of(&inferred_type.borrow());
 
         Ok(Expression {
             kind,

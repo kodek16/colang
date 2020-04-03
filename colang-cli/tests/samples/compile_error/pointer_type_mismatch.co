@@ -1,0 +1,4 @@
+fun main() {
+  var x = 2;
+  var p: &bool = &x;
+}

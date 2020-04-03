@@ -1,0 +1,9 @@
+fun square_inplace(x: &int) {
+  *x = *x * *x;
+}
+
+fun main() {
+  var x = 2;
+  square_inplace(&x);
+  assert(x == 4);
+}

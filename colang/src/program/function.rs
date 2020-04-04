@@ -1,7 +1,7 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::internal::InternalFunctionTag;
-use crate::program::{Expression, SymbolId, Type, Variable};
+use crate::program::{Expression, SymbolId, SymbolIdRegistry, Type, Variable};
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -112,7 +112,7 @@ impl Parameter for Variable {
 pub struct UserDefinedFunction {
     pub name: String,
     pub definition_site: InputSpan,
-    pub(crate) id: Option<SymbolId>,
+    pub id: SymbolId,
     parameters: Vec<Rc<RefCell<Variable>>>,
     return_type: Rc<RefCell<Type>>,
     body: Option<Expression>,
@@ -124,6 +124,7 @@ impl UserDefinedFunction {
         name: String,
         return_type: Rc<RefCell<Type>>,
         definition_site: InputSpan,
+        symbol_ids: &mut SymbolIdRegistry,
     ) -> Function {
         let function = UserDefinedFunction {
             name,
@@ -131,7 +132,7 @@ impl UserDefinedFunction {
             parameters: vec![],
             return_type,
             body: None,
-            id: None,
+            id: symbol_ids.next_id(),
         };
 
         Function::UserDefined(function)

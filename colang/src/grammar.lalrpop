@@ -3,7 +3,16 @@ use crate::ast::*;
 grammar;
 
 pub Program: Program = {
-    (<FunctionDef>)* => Program { functions: <> },
+    <program:Program?> <struct_:StructDef> => {
+        let mut program = program.unwrap_or(Program::new());
+        program.structs.push(struct_);
+        program
+    },
+    <program:Program?> <function:FunctionDef> => {
+        let mut program = program.unwrap_or(Program::new());
+        program.functions.push(function);
+        program
+    },
 };
 
 FunctionDef: FunctionDef = {
@@ -21,6 +30,26 @@ FunctionDef: FunctionDef = {
 ParameterDef: Parameter = {
     <start: @L> <name:Ident> ":" <type_:TypeExpr> <end: @R> => {
         Parameter {
+            name,
+            type_,
+            span: InputSpan { start, end },
+        }
+    },
+};
+
+StructDef: StructDef = {
+    <start:@L> KwStruct <name:Ident> <end:@R> "{" <fields:FieldDef*> "}" => {
+        StructDef {
+            name,
+            fields,
+            signature_span: InputSpan { start, end },
+        }
+    },
+};
+
+FieldDef: FieldDef = {
+    <start:@L> <name:Ident> ":" <type_:TypeExpr> <end:@R> ";" => {
+        FieldDef {
             name,
             type_,
             span: InputSpan { start, end },
@@ -447,6 +476,7 @@ KwWhile: () = { "while" }
 KwFun: () = { "fun" }
 KwTrue: () = { "true" }
 KwFalse: () = { "false" }
+KwStruct: () = { "struct" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {

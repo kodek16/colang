@@ -1,6 +1,6 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{SymbolId, Type, TypeRegistry};
+use crate::program::{Program, SymbolId, Type};
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -9,7 +9,7 @@ use std::rc::Rc;
 pub struct Variable {
     pub name: String,
     pub definition_site: Option<InputSpan>,
-    pub(crate) id: Option<SymbolId>,
+    pub id: SymbolId,
     pub(crate) type_: Rc<RefCell<Type>>,
 }
 
@@ -20,9 +20,9 @@ impl Variable {
         name: String,
         type_: Rc<RefCell<Type>>,
         definition_site: Option<InputSpan>,
-        types: &TypeRegistry,
+        program: &mut Program,
     ) -> Result<Variable, CompilationError> {
-        if type_ == *types.void() {
+        if type_ == *program.types().void() {
             let error = CompilationError::variable_of_type_void(
                 definition_site.expect("Internal variable of type `void` defined."),
             );
@@ -33,7 +33,7 @@ impl Variable {
             name,
             type_,
             definition_site,
-            id: None,
+            id: program.symbol_ids_mut().next_id(),
         })
     }
 

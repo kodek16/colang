@@ -5,6 +5,25 @@ use std::fmt::{Display, Formatter};
 
 impl Display for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "types:\n")?;
+        for type_ in self.types.all_types() {
+            let type_ = type_.borrow();
+            if type_.is_user_defined() {
+                write!(f, "{}", indent(&type_.to_string()))?;
+                for field in type_.fields() {
+                    let field = field.borrow();
+                    write!(
+                        f,
+                        "\n{}: {}",
+                        indent(&indent(&field.to_string())),
+                        field.type_.borrow().to_string()
+                    )?;
+                }
+                write!(f, "\n")?;
+            }
+        }
+        write!(f, "\n")?;
+
         for function in self.user_functions.iter() {
             let function = function.borrow();
             if let Function::UserDefined(ref function) = *function {
@@ -26,18 +45,22 @@ impl Display for Program {
 
 impl Display for Variable {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "<{}:{}>", self.name, self.id.unwrap(),)
+        write!(f, "<{}:{}>", self.name, self.id)
     }
 }
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Function::UserDefined(function) => {
-                write!(f, "<{}:{}>", function.name, function.id.unwrap())
-            }
+            Function::UserDefined(function) => write!(f, "<{}:{}>", function.name, function.id),
             Function::Internal(function) => write!(f, "<{:?}:internal>", function.tag),
         }
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name())
     }
 }
 

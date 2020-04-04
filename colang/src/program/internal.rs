@@ -3,7 +3,7 @@
 //! instead treated by backends in special ways.
 
 use crate::program::{
-    Function, InternalFunction, InternalParameter, Program, Type, TypeKind, TypeRegistry,
+    Function, InternalFunction, InternalParameter, Program, Type, TypeId, TypeRegistry,
 };
 use crate::scope::Scope;
 use std::cell::RefCell;
@@ -24,15 +24,15 @@ pub enum InternalFunctionTag {
     NotEqInt,
     IntAbs,
 
-    ArrayPush(TypeKind),
-    ArrayPop(TypeKind),
-    ArrayLen(TypeKind),
+    ArrayPush(TypeId),
+    ArrayPop(TypeId),
+    ArrayLen(TypeId),
 }
 
 pub fn populate_internal_symbols(
     program: &mut Program,
     scope: &mut Scope,
-    type_scopes: &mut HashMap<TypeKind, Scope>,
+    type_scopes: &mut HashMap<TypeId, Scope>,
 ) {
     let functions = vec![
         create_assert_function(program.types()),
@@ -59,7 +59,7 @@ pub fn populate_internal_symbols(
     let int_abs = Rc::new(RefCell::new(create_int_abs_method(program.types())));
     program.add_function(Rc::clone(&int_abs));
     type_scopes
-        .entry(program.types.int().borrow().kind().clone())
+        .entry(program.types.int().borrow().type_id().clone())
         .or_insert_with(Scope::new)
         .add_function(int_abs)
         .expect("Couldn't register internal method.")
@@ -200,7 +200,7 @@ pub fn create_array_push_method(
 
     InternalFunction::new(
         "push".to_string(),
-        InternalFunctionTag::ArrayPush(element_type.borrow().kind().clone()),
+        InternalFunctionTag::ArrayPush(element_type.borrow().type_id().clone()),
         vec![
             internal_param("self", &pointer_to_array_type),
             internal_param("element", element_type),
@@ -215,10 +215,10 @@ pub fn create_array_pop_method(
 ) -> Function {
     let array_type = types.array_of(&element_type.borrow());
     let pointer_to_array_type = types.pointer_to(&array_type.borrow());
-    
+
     InternalFunction::new(
         "pop".to_string(),
-        InternalFunctionTag::ArrayPop(element_type.borrow().kind().clone()),
+        InternalFunctionTag::ArrayPop(element_type.borrow().type_id().clone()),
         vec![internal_param("self", &pointer_to_array_type)],
         Rc::clone(element_type),
     )
@@ -229,10 +229,10 @@ pub fn create_array_len_method(
     types: &mut TypeRegistry,
 ) -> Function {
     let array_type = types.array_of(&element_type.borrow());
-    
+
     InternalFunction::new(
         "len".to_string(),
-        InternalFunctionTag::ArrayLen(element_type.borrow().kind().clone()),
+        InternalFunctionTag::ArrayLen(element_type.borrow().type_id().clone()),
         vec![internal_param("self", &array_type)],
         Rc::clone(types.int()),
     )

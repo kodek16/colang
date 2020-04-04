@@ -19,7 +19,7 @@ use std::rc::Rc;
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::{
-    BlockBuilder, Function, InternalFunctionTag, Parameter, Type, TypeKind, UserDefinedFunction,
+    BlockBuilder, Function, InternalFunctionTag, Parameter, Type, TypeId, UserDefinedFunction,
     ValueCategory, Variable,
 };
 use crate::scope::Scope;
@@ -41,7 +41,7 @@ fn parse(source_code: &str) -> Result<ast::Program, ast::ParseError> {
 struct CompilerContext {
     program: program::Program,
     scope: Scope,
-    type_scopes: HashMap<TypeKind, Scope>,
+    type_scopes: HashMap<TypeId, Scope>,
     errors: Vec<CompilationError>,
 }
 
@@ -69,6 +69,10 @@ impl CompilerContext {
 /// Compiles a CO program.
 fn compile(program_ast: ast::Program) -> Result<program::Program, Vec<CompilationError>> {
     let mut context = CompilerContext::new();
+
+    for struct_def in program_ast.structs {
+        compile_struct_def(struct_def, &mut context);
+    }
 
     for function_def in program_ast.functions {
         compile_function_def(function_def, &mut context);
@@ -102,9 +106,56 @@ impl StatementSink for BlockBuilder {
     }
 }
 
-impl StatementSink for Option<program::Instruction> {
-    fn emit(&mut self, statement: program::Instruction) {
-        *self = Some(statement);
+fn compile_struct_def(struct_def: ast::StructDef, context: &mut CompilerContext) {
+    let name = &struct_def.name.text;
+    let type_ = Type::new_struct(name.to_string(), &mut context.program);
+    let type_id = type_.borrow().type_id().clone();
+
+    if let Err(error) = context.scope.add_type(type_) {
+        context.errors.push(error);
+    }
+
+    for field_def in struct_def.fields {
+        compile_field_def(field_def, type_id.clone(), context);
+    }
+}
+
+fn compile_field_def(
+    field_def: ast::FieldDef,
+    current_type_id: TypeId,
+    context: &mut CompilerContext,
+) {
+    let type_ = compile_type_expr(field_def.type_, context);
+
+    let field = Variable::new(
+        field_def.name.text,
+        Rc::clone(&type_),
+        Some(field_def.span),
+        &mut context.program,
+    );
+    let field = match field {
+        Ok(field) => field,
+        Err(error) => {
+            context.errors.push(error);
+            return;
+        }
+    };
+    let field = Rc::new(RefCell::new(field));
+
+    context
+        .program
+        .types()
+        .lookup(&current_type_id)
+        .borrow_mut()
+        .add_field(Rc::clone(&field));
+
+    let result = context
+        .type_scopes
+        .entry(current_type_id)
+        .or_insert_with(Scope::new)
+        .add_variable(field);
+    if let Err(error) = result {
+        context.errors.push(error);
     }
 }
 
@@ -121,6 +172,7 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
         name.text,
         Rc::clone(&return_type),
         function_def.signature_span,
+        context.program.symbol_ids_mut(),
     );
     let function = Rc::new(RefCell::new(function));
     context.program.add_function(Rc::clone(&function));
@@ -239,7 +291,7 @@ fn create_variable(
     definition_site: Option<InputSpan>,
     context: &mut CompilerContext,
 ) -> Option<Rc<RefCell<Variable>>> {
-    let result = Variable::new(name, type_, definition_site, context.program.types());
+    let result = Variable::new(name, type_, definition_site, &mut context.program);
     let variable = match result {
         Ok(variable) => Rc::new(RefCell::new(variable)),
         Err(error) => {
@@ -618,12 +670,12 @@ fn compile_method_call_expr(
     }
 
     let method_name = &expression.method.text;
-    let receiver_type_kind = receiver.type_.borrow().kind().clone();
+    let receiver_type_id = receiver.type_.borrow().type_id().clone();
 
     let method = {
         let receiver_type_scope = context
             .type_scopes
-            .entry(receiver_type_kind.clone())
+            .entry(receiver_type_id.clone())
             .or_insert_with(Scope::new);
 
         receiver_type_scope
@@ -649,7 +701,7 @@ fn compile_method_call_expr(
             if let Some(method) = instantiated_method {
                 context
                     .type_scopes
-                    .get_mut(&receiver_type_kind)
+                    .get_mut(&receiver_type_id)
                     .unwrap()
                     .add_function(Rc::clone(&method))
                     .expect("Name conflict on instantiating method template");

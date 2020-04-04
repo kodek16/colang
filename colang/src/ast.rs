@@ -6,7 +6,17 @@ pub type ParseError<'a> =
 
 #[derive(Debug)]
 pub struct Program {
+    pub structs: Vec<StructDef>,
     pub functions: Vec<FunctionDef>,
+}
+
+impl Program {
+    pub fn new() -> Program {
+        Program {
+            structs: vec![],
+            functions: vec![],
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -21,6 +31,22 @@ pub struct FunctionDef {
 
 #[derive(Debug)]
 pub struct Parameter {
+    pub name: Identifier,
+    pub type_: TypeExpr,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct StructDef {
+    pub name: Identifier,
+    pub fields: Vec<FieldDef>,
+
+    pub signature_span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct FieldDef {
     pub name: Identifier,
     pub type_: TypeExpr,
 

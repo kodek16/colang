@@ -225,7 +225,7 @@ fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()
 }
 
 fn run_alloc(instruction: &AllocInstruction, state: &mut State) -> RunResult<()> {
-    let variable_id = instruction.variable().id();
+    let variable_id = instruction.variable().id;
 
     let initial_value = match instruction.initializer() {
         Some(initializer) => run_expression(initializer, state)?.into_rvalue(),
@@ -241,7 +241,7 @@ fn run_alloc(instruction: &AllocInstruction, state: &mut State) -> RunResult<()>
 }
 
 fn run_dealloc(instruction: &DeallocInstruction, state: &mut State) -> RunResult<()> {
-    let variable_id = instruction.variable().id();
+    let variable_id = instruction.variable().id;
     state.pop(variable_id);
     Ok(())
 }
@@ -314,7 +314,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
 }
 
 fn run_variable_expr(expression: &VariableExpr, state: &State) -> RunResult<Value> {
-    let variable_id = expression.variable().id();
+    let variable_id = expression.variable().id;
     let result = state.get(variable_id).clone();
     Ok(result)
 }
@@ -417,14 +417,14 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
             let parameters = function.parameters();
 
             for (parameter, value) in parameters.zip(arguments.into_iter()) {
-                let variable_id = parameter.id();
+                let variable_id = parameter.id;
                 state.push(variable_id, value.into_rvalue())
             }
 
             let function_result = run_user_function(expression.function(), state);
 
             for parameter in function.parameters() {
-                let variable_id = parameter.id();
+                let variable_id = parameter.id;
                 state.pop(variable_id)
             }
 
@@ -459,15 +459,16 @@ fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
 }
 
 fn default_value_for_type(type_: &Type) -> Rvalue {
-    match type_.kind() {
-        TypeKind::Void => panic!("Tried to default-initialize a value of type `void`"),
-        TypeKind::Int => Rvalue::Int(0),
-        TypeKind::Bool => Rvalue::Bool(false),
-        TypeKind::TemplateInstance(TypeTemplateKind::Array, _) => {
+    match type_.type_id() {
+        TypeId::Void => panic!("Tried to default-initialize a value of type `void`"),
+        TypeId::Int => Rvalue::Int(0),
+        TypeId::Bool => Rvalue::Bool(false),
+        TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
             Rvalue::Array(Rc::new(RefCell::new(vec![])))
         }
-        TypeKind::TemplateInstance(TypeTemplateKind::Pointer, _) => Rvalue::Pointer(None),
-        TypeKind::Error => panic_error(),
+        TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => Rvalue::Pointer(None),
+        TypeId::Struct(_) => unimplemented!(),
+        TypeId::Error => panic_error(),
     }
 }
 

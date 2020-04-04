@@ -1,6 +1,6 @@
 //! CO types and their properties are defined in this module.
 
-use crate::program::{Function, InternalFunctionTag, Program};
+use crate::program::{Function, InternalFunctionTag, Program, SymbolId, Variable};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -11,32 +11,68 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Type {
-    kind: TypeKind,
+    type_id: TypeId,
     name: String,
+    fields: Vec<Rc<RefCell<Variable>>>,
 }
 
 impl Type {
+    /// Creates a new user-defined struct type and registers it with the program.
+    pub fn new_struct(name: String, program: &mut Program) -> Rc<RefCell<Type>> {
+        let id = program.symbol_ids_mut().next_id();
+        let type_id = TypeId::Struct(id);
+        let type_ = Type {
+            type_id: type_id.clone(),
+            name,
+            fields: vec![],
+        };
+        let type_ = Rc::new(RefCell::new(type_));
+        program.types_mut().types.insert(type_id, Rc::clone(&type_));
+        type_
+    }
+
     /// A convenience method for constructing managed error type instances.
     /// Error type is not bound to the registry.
     pub fn error() -> Rc<RefCell<Type>> {
         Rc::new(RefCell::new(Type {
-            kind: TypeKind::Error,
+            type_id: TypeId::Error,
             name: "<error>".to_string(),
+            fields: vec![],
         }))
+    }
+
+    pub(crate) fn add_field(&mut self, field: Rc<RefCell<Variable>>) {
+        self.fields.push(field)
     }
 
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn kind(&self) -> &TypeKind {
-        &self.kind
+    pub fn type_id(&self) -> &TypeId {
+        &self.type_id
+    }
+
+    pub fn fields(&self) -> impl Iterator<Item = &Rc<RefCell<Variable>>> {
+        self.fields.iter()
     }
 
     pub fn is_error(&self) -> bool {
-        match self.kind {
-            TypeKind::Error => true,
+        match self.type_id {
+            TypeId::Error => true,
             _ => false,
+        }
+    }
+
+    pub fn is_user_defined(&self) -> bool {
+        self.symbol_id().is_some()
+    }
+
+    /// If the type is user-defined, returns its symbol id.
+    pub fn symbol_id(&self) -> Option<SymbolId> {
+        match self.type_id {
+            TypeId::Struct(symbol_id) => Some(symbol_id),
+            _ => None,
         }
     }
 
@@ -46,12 +82,12 @@ impl Type {
         &self,
         registry: &TypeRegistry,
     ) -> Option<(Rc<RefCell<TypeTemplate>>, Vec<Rc<RefCell<Type>>>)> {
-        match self.kind {
-            TypeKind::TemplateInstance(ref template_kind, ref type_parameters) => {
-                let template = Rc::clone(&registry.templates[template_kind]);
+        match self.type_id {
+            TypeId::TemplateInstance(ref template_id, ref type_parameters) => {
+                let template = Rc::clone(&registry.templates[template_id]);
                 let type_parameters: Vec<_> = type_parameters
                     .iter()
-                    .map(|parameter_kind| Rc::clone(&registry.types[parameter_kind]))
+                    .map(|parameter_type_id| Rc::clone(&registry.types[parameter_type_id]))
                     .collect();
                 Some((template, type_parameters))
             }
@@ -61,8 +97,8 @@ impl Type {
 
     /// If `self` is a pointer type, returns the type of target.
     pub fn pointer_target_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
-        match self.kind {
-            TypeKind::TemplateInstance(TypeTemplateKind::Pointer, ref type_parameters) => {
+        match self.type_id {
+            TypeId::TemplateInstance(TypeTemplateId::Pointer, ref type_parameters) => {
                 Some(Rc::clone(&registry.types[&type_parameters[0]]))
             }
             _ => None,
@@ -71,8 +107,8 @@ impl Type {
 
     /// If `self` is an array type, returns the type of elements.
     pub fn array_element_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
-        match self.kind {
-            TypeKind::TemplateInstance(TypeTemplateKind::Array, ref type_parameters) => {
+        match self.type_id {
+            TypeId::TemplateInstance(TypeTemplateId::Array, ref type_parameters) => {
                 Some(Rc::clone(&registry.types[&type_parameters[0]]))
             }
             _ => None,
@@ -82,29 +118,32 @@ impl Type {
 
 impl PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind
+        self.type_id == other.type_id
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TypeKind {
+pub enum TypeId {
     Void,
     Int,
     Bool,
 
-    TemplateInstance(TypeTemplateKind, Vec<TypeKind>),
+    TemplateInstance(TypeTemplateId, Vec<TypeId>),
+
+    /// A struct defined in the program.
+    Struct(SymbolId),
 
     /// An invalid type. It can never appear in a valid program.
     Error,
 }
 
 pub struct TypeRegistry {
-    /// All type kinds actually used in the program have an instantiation that can
+    /// All type ids actually used in the program have an instantiation that can
     /// be accessed through this collection.
-    types: HashMap<TypeKind, Rc<RefCell<Type>>>,
+    types: HashMap<TypeId, Rc<RefCell<Type>>>,
 
     /// Same as `types`, but for templates.
-    templates: HashMap<TypeTemplateKind, Rc<RefCell<TypeTemplate>>>,
+    templates: HashMap<TypeTemplateId, Rc<RefCell<TypeTemplate>>>,
 }
 
 impl TypeRegistry {
@@ -112,44 +151,51 @@ impl TypeRegistry {
     /// present in a program.
     pub fn new() -> TypeRegistry {
         let void = Rc::new(RefCell::new(Type {
-            kind: TypeKind::Void,
+            type_id: TypeId::Void,
             name: "void".to_string(),
+            fields: vec![],
         }));
         let int = Rc::new(RefCell::new(Type {
-            kind: TypeKind::Int,
+            type_id: TypeId::Int,
             name: "int".to_string(),
+            fields: vec![],
         }));
         let bool = Rc::new(RefCell::new(Type {
-            kind: TypeKind::Bool,
+            type_id: TypeId::Bool,
             name: "bool".to_string(),
+            fields: vec![],
         }));
 
         let mut types = HashMap::new();
-        types.insert(TypeKind::Void, void);
-        types.insert(TypeKind::Int, int);
-        types.insert(TypeKind::Bool, bool);
+        types.insert(TypeId::Void, void);
+        types.insert(TypeId::Int, int);
+        types.insert(TypeId::Bool, bool);
 
         let mut templates = HashMap::new();
-        templates.insert(TypeTemplateKind::Array, create_array_template());
-        templates.insert(TypeTemplateKind::Pointer, create_pointer_template());
+        templates.insert(TypeTemplateId::Array, create_array_template());
+        templates.insert(TypeTemplateId::Pointer, create_pointer_template());
 
         TypeRegistry { types, templates }
     }
 
+    pub fn lookup(&self, type_id: &TypeId) -> &Rc<RefCell<Type>> {
+        &self.types[type_id]
+    }
+
     pub fn void(&self) -> &Rc<RefCell<Type>> {
-        &self.types[&TypeKind::Void]
+        &self.types[&TypeId::Void]
     }
 
     pub fn int(&self) -> &Rc<RefCell<Type>> {
-        &self.types[&TypeKind::Int]
+        &self.types[&TypeId::Int]
     }
 
     pub fn bool(&self) -> &Rc<RefCell<Type>> {
-        &self.types[&TypeKind::Bool]
+        &self.types[&TypeId::Bool]
     }
 
     pub fn array(&self) -> &Rc<RefCell<TypeTemplate>> {
-        &self.templates[&TypeTemplateKind::Array]
+        &self.templates[&TypeTemplateId::Array]
     }
 
     pub fn array_of(&mut self, element_type: &Type) -> Rc<RefCell<Type>> {
@@ -159,7 +205,7 @@ impl TypeRegistry {
     }
 
     pub fn pointer(&self) -> &Rc<RefCell<TypeTemplate>> {
-        &self.templates[&TypeTemplateKind::Pointer]
+        &self.templates[&TypeTemplateId::Pointer]
     }
 
     pub fn pointer_to(&mut self, target_type: &Type) -> Rc<RefCell<Type>> {
@@ -171,10 +217,14 @@ impl TypeRegistry {
     pub fn primitive_types(&self) -> Vec<&Rc<RefCell<Type>>> {
         vec![self.void(), self.int(), self.bool()]
     }
+
+    pub fn all_types(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
+        self.types.values()
+    }
 }
 
 pub struct TypeTemplate {
-    kind: TypeTemplateKind,
+    type_template_id: TypeTemplateId,
     name: String,
     instantiate: Box<dyn Fn(Vec<&Type>, &mut TypeRegistry) -> Rc<RefCell<Type>>>,
     method_templates: HashMap<
@@ -188,8 +238,8 @@ impl TypeTemplate {
         &self.name
     }
 
-    pub fn kind(&self) -> &TypeTemplateKind {
-        &self.kind
+    pub fn type_template_id(&self) -> &TypeTemplateId {
+        &self.type_template_id
     }
 
     pub fn instantiate(
@@ -213,7 +263,7 @@ impl TypeTemplate {
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum TypeTemplateKind {
+pub enum TypeTemplateId {
     Array,
     Pointer,
 }
@@ -247,27 +297,28 @@ pub fn create_array_template() -> Rc<RefCell<TypeTemplate>> {
     );
 
     Rc::new(RefCell::new(TypeTemplate {
-        kind: TypeTemplateKind::Array,
+        type_template_id: TypeTemplateId::Array,
         name: "<array>".to_string(),
         instantiate: Box::new(|mut types, registry| {
             assert_eq!(types.len(), 1);
             let element_type = types.pop().unwrap();
 
-            let element_type_kind = element_type.kind.clone();
-            if element_type_kind == TypeKind::Error {
+            let element_type_id = element_type.type_id.clone();
+            if element_type_id == TypeId::Error {
                 return Type::error();
             }
 
-            let array_type_kind =
-                TypeKind::TemplateInstance(TypeTemplateKind::Array, vec![element_type_kind]);
+            let array_type_id =
+                TypeId::TemplateInstance(TypeTemplateId::Array, vec![element_type_id]);
 
             let array_type = registry
                 .types
-                .entry(array_type_kind.clone())
+                .entry(array_type_id.clone())
                 .or_insert_with(|| {
                     Rc::new(RefCell::new(Type {
-                        kind: array_type_kind,
+                        type_id: array_type_id,
                         name: format!("[{}]", element_type.name),
+                        fields: vec![],
                     }))
                 });
             Rc::clone(array_type)
@@ -278,27 +329,28 @@ pub fn create_array_template() -> Rc<RefCell<TypeTemplate>> {
 
 pub fn create_pointer_template() -> Rc<RefCell<TypeTemplate>> {
     Rc::new(RefCell::new(TypeTemplate {
-        kind: TypeTemplateKind::Pointer,
+        type_template_id: TypeTemplateId::Pointer,
         name: "<pointer>".to_string(),
         instantiate: Box::new(|mut types, registry| {
             assert_eq!(types.len(), 1);
             let target_type = types.pop().unwrap();
 
-            let target_type_kind = target_type.kind.clone();
-            if target_type_kind == TypeKind::Error {
+            let target_type_id = target_type.type_id.clone();
+            if target_type_id == TypeId::Error {
                 return Type::error();
             }
 
-            let pointer_type_kind =
-                TypeKind::TemplateInstance(TypeTemplateKind::Pointer, vec![target_type_kind]);
+            let pointer_type_id =
+                TypeId::TemplateInstance(TypeTemplateId::Pointer, vec![target_type_id]);
 
             let pointer_type = registry
                 .types
-                .entry(pointer_type_kind.clone())
+                .entry(pointer_type_id.clone())
                 .or_insert_with(|| {
                     Rc::new(RefCell::new(Type {
-                        kind: pointer_type_kind,
+                        type_id: pointer_type_id,
                         name: format!("&{}", target_type.name),
+                        fields: vec![],
                     }))
                 });
             Rc::clone(pointer_type)
@@ -308,14 +360,14 @@ pub fn create_pointer_template() -> Rc<RefCell<TypeTemplate>> {
 }
 
 fn create_array_internal_method_template(
-    tag: impl Fn(TypeKind) -> InternalFunctionTag + 'static,
+    tag: impl Fn(TypeId) -> InternalFunctionTag + 'static,
     internal_method_constructor: impl Fn(&Rc<RefCell<Type>>, &mut TypeRegistry) -> Function + 'static,
 ) -> Box<dyn Fn(Vec<&Rc<RefCell<Type>>>, &mut Program) -> Rc<RefCell<Function>>> {
     Box::new(move |mut types, program| {
         assert_eq!(types.len(), 1);
         let element_type = types.pop().unwrap();
 
-        let internal_function_tag = tag(element_type.borrow().kind().clone());
+        let internal_function_tag = tag(element_type.borrow().type_id().clone());
 
         if program
             .internal_functions

@@ -1,0 +1,12 @@
+struct Point {
+  x: int;
+  y: int;
+}
+
+fun main() {
+  var p: Point;
+  p.x = 2;
+  p.y = 4;
+  assert(p.x == 2);
+  assert(p.x + p.y == 6);
+}

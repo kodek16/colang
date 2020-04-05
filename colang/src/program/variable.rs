@@ -41,3 +41,9 @@ impl Variable {
         self.type_.borrow()
     }
 }
+
+impl PartialEq for Variable {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}

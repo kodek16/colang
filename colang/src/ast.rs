@@ -135,6 +135,7 @@ pub enum Expression {
     ArrayFromCopy(ArrayFromCopyExpr),
     Index(IndexExpr),
     Call(CallExpr),
+    FieldAccess(FieldAccessExpr),
     MethodCall(MethodCallExpr),
     If(IfExpr),
     Block(BlockExpr),
@@ -154,6 +155,7 @@ impl Expression {
             ArrayFromCopy(e) => e.span,
             Index(e) => e.span,
             Call(e) => e.span,
+            FieldAccess(e) => e.span,
             MethodCall(e) => e.span,
             If(e) => e.span,
             Block(e) => e.span,
@@ -204,6 +206,10 @@ impl Expression {
                 ..e
             }),
             Expression::Call(e) => Expression::Call(CallExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::FieldAccess(e) => Expression::FieldAccess(FieldAccessExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -299,6 +305,14 @@ pub struct ArrayFromCopyExpr {
 pub struct IndexExpr {
     pub collection: Box<Expression>,
     pub index: Box<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct FieldAccessExpr {
+    pub receiver: Box<Expression>,
+    pub field: Identifier,
 
     pub span: InputSpan,
 }

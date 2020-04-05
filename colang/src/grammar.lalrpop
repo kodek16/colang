@@ -302,6 +302,7 @@ Expr0: Expression = {
     ArrayFromCopyExpr,
     IndexExpr,
     CallExpr,
+    FieldAccessExpr,
     MethodCallExpr,
     ParensExpr,
 };
@@ -367,6 +368,16 @@ CallExpr: Expression = {
         Expression::Call(CallExpr {
             function_name,
             arguments,
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+FieldAccessExpr: Expression = {
+    <start:@L> <receiver:Expr0> "." <field:Ident> <end:@R> => {
+        Expression::FieldAccess(FieldAccessExpr {
+            receiver: Box::new(receiver),
+            field,
             span: InputSpan { start, end },
         })
     },

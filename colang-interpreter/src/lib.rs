@@ -63,6 +63,14 @@ impl Lvalue {
         Lvalue(Rc::new(RefCell::new(rvalue)))
     }
 
+    pub fn clone_contents(&self) -> Lvalue {
+        Lvalue::store(self.0.borrow().clone())
+    }
+
+    pub fn detach(&self) -> Rvalue {
+        self.0.borrow().clone()
+    }
+
     pub fn borrow(&self) -> impl Deref<Target = Rvalue> + '_ {
         self.0.borrow()
     }
@@ -73,12 +81,12 @@ impl Lvalue {
 }
 
 /// Every value that exists in the program belongs to this type.
-#[derive(Clone)]
 pub enum Rvalue {
     Int(i32),
     Bool(bool),
     Array(Rc<RefCell<Vec<Lvalue>>>),
     Pointer(Option<Lvalue>),
+    Struct(HashMap<SymbolId, Lvalue>),
     Void,
 }
 
@@ -121,6 +129,13 @@ impl Rvalue {
         }
     }
 
+    pub fn as_struct(&self) -> &HashMap<SymbolId, Lvalue> {
+        match self {
+            Rvalue::Struct(fields) => fields,
+            _ => panic_wrong_type("struct", self.type_()),
+        }
+    }
+
     /// A quick-and-dirty information source about value types in runtime.
     /// This is _not_ meant to be an actual RTTI solution, it is only meant
     /// to be used in type mismatch panics, which should not occur under
@@ -132,7 +147,28 @@ impl Rvalue {
             Bool(_) => "bool",
             Array(_) => "array",
             Pointer(_) => "pointer",
+            Struct(_) => "struct",
             Void => "void",
+        }
+    }
+}
+
+impl Clone for Rvalue {
+    fn clone(&self) -> Self {
+        use Rvalue::*;
+        match self {
+            Int(x) => Rvalue::Int(*x),
+            Bool(b) => Rvalue::Bool(*b),
+            Array(v) => Rvalue::Array(Rc::clone(v)),
+            Pointer(p) => Rvalue::Pointer(p.clone()),
+            Struct(fields) => {
+                let fields_copy = fields
+                    .iter()
+                    .map(|(id, lvalue)| (*id, lvalue.clone_contents()))
+                    .collect();
+                Rvalue::Struct(fields_copy)
+            }
+            Void => Rvalue::Void,
         }
     }
 }
@@ -306,6 +342,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
         ExpressionKind::Index(e) => run_index_expr(e, state),
         ExpressionKind::Call(e) => run_call_expr(e, state),
+        ExpressionKind::FieldAccess(e) => run_field_access_expr(e, state),
         ExpressionKind::If(e) => run_if_expr(e, state),
         ExpressionKind::Block(e) => run_block_expr(e, state),
         ExpressionKind::Empty => Ok(Value::Rvalue(Rvalue::Void)),
@@ -434,6 +471,16 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
     }
 }
 
+fn run_field_access_expr(expression: &FieldAccessExpr, state: &mut State) -> RunResult<Value> {
+    let receiver = run_expression(expression.receiver(), state)?;
+    let field_id = expression.field().id;
+    let result = match receiver {
+        Value::Lvalue(lvalue) => Value::Lvalue(lvalue.borrow().as_struct()[&field_id].clone()),
+        Value::Rvalue(rvalue) => Value::Rvalue(rvalue.as_struct()[&field_id].detach()),
+    };
+    Ok(result)
+}
+
 fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {
     let cond = run_expression(expression.cond(), state)?
         .into_rvalue()
@@ -467,7 +514,17 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
             Rvalue::Array(Rc::new(RefCell::new(vec![])))
         }
         TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => Rvalue::Pointer(None),
-        TypeId::Struct(_) => unimplemented!(),
+        TypeId::Struct(_) => {
+            let fields = type_
+                .fields()
+                .map(|field| {
+                    let field = field.borrow();
+                    let value = default_value_for_type(&field.type_());
+                    (field.id, Lvalue::store(value))
+                })
+                .collect();
+            Rvalue::Struct(fields)
+        }
         TypeId::Error => panic_error(),
     }
 }

@@ -60,7 +60,7 @@ pub fn populate_internal_symbols(
     program.add_function(Rc::clone(&int_abs));
     type_scopes
         .entry(program.types.int().borrow().type_id().clone())
-        .or_insert_with(Scope::new)
+        .or_insert_with(Scope::new_for_type)
         .add_function(int_abs)
         .expect("Couldn't register internal method.")
 }

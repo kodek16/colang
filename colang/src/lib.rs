@@ -64,6 +64,18 @@ impl CompilerContext {
             errors: vec![],
         }
     }
+
+    fn type_scope(&mut self, type_id: TypeId) -> &Scope {
+        self.type_scopes
+            .entry(type_id)
+            .or_insert_with(Scope::new_for_type)
+    }
+
+    fn type_scope_mut(&mut self, type_id: TypeId) -> &mut Scope {
+        self.type_scopes
+            .entry(type_id)
+            .or_insert_with(Scope::new_for_type)
+    }
 }
 
 /// Compiles a CO program.
@@ -150,9 +162,7 @@ fn compile_field_def(
         .add_field(Rc::clone(&field));
 
     let result = context
-        .type_scopes
-        .entry(current_type_id)
-        .or_insert_with(Scope::new)
+        .type_scope_mut(current_type_id.clone())
         .add_variable(field);
     if let Err(error) = result {
         context.errors.push(error);
@@ -433,6 +443,7 @@ fn compile_expression(
         ast::Expression::ArrayFromCopy(e) => compile_array_from_copy_expr(e, context),
         ast::Expression::Index(e) => compile_index_expr(e, context),
         ast::Expression::Call(e) => compile_call_expr(e, context),
+        ast::Expression::FieldAccess(e) => compile_field_access_expr(e, context),
         ast::Expression::MethodCall(e) => compile_method_call_expr(e, context),
         ast::Expression::If(e) => compile_if_expr(e, context),
         ast::Expression::Block(e) => compile_block_expr(e, type_hint, context),
@@ -659,6 +670,33 @@ fn compile_call_expr(
     }
 }
 
+fn compile_field_access_expr(
+    expression: ast::FieldAccessExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let receiver = compile_expression(*expression.receiver, None, context);
+    if receiver.is_error() {
+        return program::Expression::error(expression.span);
+    }
+
+    let receiver_type = &receiver.type_;
+    let receiver_type_id = receiver_type.borrow().type_id().clone();
+
+    let field = context
+        .type_scope(receiver_type_id.clone())
+        .lookup_variable(&expression.field.text, expression.field.span);
+
+    let field = match field {
+        Ok(field) => field,
+        Err(error) => {
+            context.errors.push(error);
+            return program::Expression::error(expression.span);
+        }
+    };
+
+    program::FieldAccessExpr::new(receiver, Rc::clone(&field), expression.span)
+}
+
 fn compile_method_call_expr(
     expression: ast::MethodCallExpr,
     context: &mut CompilerContext,
@@ -673,11 +711,7 @@ fn compile_method_call_expr(
     let receiver_type_id = receiver.type_.borrow().type_id().clone();
 
     let method = {
-        let receiver_type_scope = context
-            .type_scopes
-            .entry(receiver_type_id.clone())
-            .or_insert_with(Scope::new);
-
+        let receiver_type_scope = context.type_scope(receiver_type_id.clone());
         receiver_type_scope
             .lookup_function(method_name, expression.method.span)
             .map(Rc::clone)
@@ -700,9 +734,7 @@ fn compile_method_call_expr(
 
             if let Some(method) = instantiated_method {
                 context
-                    .type_scopes
-                    .get_mut(&receiver_type_id)
-                    .unwrap()
+                    .type_scope_mut(receiver_type_id.clone())
                     .add_function(Rc::clone(&method))
                     .expect("Name conflict on instantiating method template");
                 method

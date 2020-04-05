@@ -125,6 +125,7 @@ pub use expressions::array_from_elements::ArrayFromElementsExpr;
 pub use expressions::block::{BlockBuilder, BlockExpr};
 pub use expressions::call::CallExpr;
 pub use expressions::deref::DerefExpr;
+pub use expressions::field_access::FieldAccessExpr;
 pub use expressions::if_::IfExpr;
 pub use expressions::index::IndexExpr;
 pub use expressions::literal::LiteralExpr;

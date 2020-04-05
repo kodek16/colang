@@ -16,10 +16,22 @@ enum NamedEntity {
 }
 
 impl NamedEntity {
-    fn word(&self) -> Word {
+    fn word(&self, scope: &Scope) -> Word {
         match self {
-            NamedEntity::Variable(_) => Word::Variable,
-            NamedEntity::Function(_) => Word::Function,
+            NamedEntity::Variable(_) => {
+                if scope.is_type_scope {
+                    Word::Field
+                } else {
+                    Word::Variable
+                }
+            }
+            NamedEntity::Function(_) => {
+                if scope.is_type_scope {
+                    Word::Method
+                } else {
+                    Word::Function
+                }
+            }
             NamedEntity::Type(_) => Word::Type,
         }
     }
@@ -32,6 +44,11 @@ pub struct Scope {
 
     // `parent` can be None for root scope.
     parent: Option<Box<Scope>>,
+
+    /// Type scopes behave exactly the same as normal scopes, but this flag allows to
+    /// produce different error messages specific to type scopes (e.g. variables are reported
+    /// as fields, functions as methods).
+    is_type_scope: bool,
 }
 
 impl Scope {
@@ -40,6 +57,15 @@ impl Scope {
         Scope {
             entities: Some(HashMap::new()),
             parent: None,
+            is_type_scope: false,
+        }
+    }
+
+    pub fn new_for_type() -> Scope {
+        Scope {
+            entities: Some(HashMap::new()),
+            parent: None,
+            is_type_scope: true,
         }
     }
 
@@ -49,6 +75,7 @@ impl Scope {
         self.parent = Some(Box::new(Scope {
             entities: self.entities.take(),
             parent: self.parent.take(),
+            is_type_scope: self.is_type_scope,
         }));
         self.entities = Some(HashMap::new());
     }
@@ -92,7 +119,11 @@ impl Scope {
         self.lookup_entity_kind(
             name,
             reference_location,
-            Word::Variable,
+            if self.is_type_scope {
+                Word::Field
+            } else {
+                Word::Variable
+            },
             |entity| match entity {
                 NamedEntity::Variable(variable) => Some(variable),
                 _ => None,
@@ -108,7 +139,11 @@ impl Scope {
         self.lookup_entity_kind(
             name,
             reference_location,
-            Word::Function,
+            if self.is_type_scope {
+                Word::Method
+            } else {
+                Word::Function
+            },
             |entity| match entity {
                 NamedEntity::Function(function) => Some(function),
                 _ => None,
@@ -164,7 +199,7 @@ impl Scope {
                     let error = CompilationError::named_entity_kind_mismatch(
                         name,
                         word,
-                        entity.word(),
+                        entity.word(&self),
                         reference_location,
                     );
                     Err(error)
@@ -192,7 +227,7 @@ impl Scope {
             Some(existing) => {
                 let error = CompilationError::named_entity_already_exists(
                     &name,
-                    existing.word(),
+                    existing.word(&self),
                     definition_site.expect("Name collision for internal entity"),
                 );
                 Err(error)

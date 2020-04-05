@@ -1,0 +1,9 @@
+struct Point {
+  x: int;
+  y: int;
+}
+
+fun main() {
+  var p: Point;
+  write p.z;
+}

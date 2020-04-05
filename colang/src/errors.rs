@@ -83,7 +83,7 @@ impl CompilationError {
         CompilationError {
             code: "E9005",
             message: format!(
-                "`{}` is not {}, but a {}",
+                "`{}` is not {}, but {}",
                 name,
                 expected.text_with_indefinite_article(),
                 actual.text_with_indefinite_article(),
@@ -383,6 +383,8 @@ pub enum Word {
     Variable,
     Function,
     Type,
+    Field,
+    Method,
 }
 
 impl Word {
@@ -392,13 +394,15 @@ impl Word {
             Variable => "variable",
             Function => "function",
             Type => "type",
+            Field => "field",
+            Method => "method",
         }
     }
 
     fn indefinite_article(&self) -> &'static str {
         use Word::*;
         match self {
-            Variable | Function | Type => "a",
+            Variable | Function | Type | Field | Method => "a",
         }
     }
 

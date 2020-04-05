@@ -177,6 +177,7 @@ impl Display for Expression {
             Block(expr) => expr.fmt(f),
             Call(expr) => expr.fmt(f),
             Deref(expr) => expr.fmt(f),
+            FieldAccess(expr) => expr.fmt(f),
             If(expr) => expr.fmt(f),
             Index(expr) => expr.fmt(f),
             Literal(expr) => expr.fmt(f),
@@ -258,6 +259,19 @@ impl Display for DerefExpr {
             write!(f, "deref:\n{}", indent(&pointer))
         } else {
             write!(f, "deref({})", pointer)
+        }
+    }
+}
+
+impl Display for FieldAccessExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let receiver = self.receiver().to_string();
+        let field = self.field().to_string();
+
+        if receiver.contains('\n') {
+            write!(f, "field {}:\n{}", field, indent(&receiver))
+        } else {
+            write!(f, "field {}, {}", field, receiver)
         }
     }
 }

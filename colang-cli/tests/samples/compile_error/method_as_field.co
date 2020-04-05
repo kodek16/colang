@@ -1,0 +1,5 @@
+fun main() {
+  var a = [42];
+  a.len();
+  var y = a.len;
+}

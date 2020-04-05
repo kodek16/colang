@@ -376,6 +376,44 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn self_not_in_method_signature(
+        function_name: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9032",
+            message: format!(
+                "`self` can only appear as a parameter for methods, but `{}` is a function",
+                function_name
+            ),
+            location: Some(location),
+        }
+    }
+
+    pub fn self_in_function_body(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9033",
+            message: format!("`self` is not defined outside of methods"),
+            location: Some(location),
+        }
+    }
+
+    pub fn self_is_not_first_parameter(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9034",
+            message: format!("`self` must be the first parameter of the method"),
+            location: Some(location),
+        }
+    }
+
+    pub fn method_first_parameter_is_not_self(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9035",
+            message: format!("first parameter for methods must be `self`"),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

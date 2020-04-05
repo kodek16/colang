@@ -14,3 +14,8 @@
   ```
 - Struct fields can be accessed using dot-notation: if `p` is a `Point`,
   `p.x` and `p.y` are its respective fields.
+- Structs can have methods defined alongside fields. Method syntax is
+  mostly similar to usual function definitions, except that the first
+  parameter must be either `self` or `&self`.
+- Inside method bodies, `self` is a valid expression that refers to
+  the method call receiver.

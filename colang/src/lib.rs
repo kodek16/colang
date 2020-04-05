@@ -42,6 +42,9 @@ struct CompilerContext {
     program: program::Program,
     scope: Scope,
     type_scopes: HashMap<TypeId, Scope>,
+
+    /// In methods, this is the variable bound to `self`.
+    self_: Option<Rc<RefCell<Variable>>>,
     errors: Vec<CompilationError>,
 }
 
@@ -61,6 +64,7 @@ impl CompilerContext {
             program,
             scope,
             type_scopes,
+            self_: None,
             errors: vec![],
         }
     }
@@ -121,22 +125,26 @@ impl StatementSink for BlockBuilder {
 fn compile_struct_def(struct_def: ast::StructDef, context: &mut CompilerContext) {
     let name = &struct_def.name.text;
     let type_ = Type::new_struct(name.to_string(), &mut context.program);
-    let type_id = type_.borrow().type_id().clone();
 
-    if let Err(error) = context.scope.add_type(type_) {
+    if let Err(error) = context.scope.add_type(Rc::clone(&type_)) {
         context.errors.push(error);
     }
 
     for field_def in struct_def.fields {
-        compile_field_def(field_def, type_id.clone(), context);
+        compile_field_def(field_def, &type_, context);
+    }
+
+    for method_def in struct_def.methods {
+        compile_method_def(method_def, Rc::clone(&type_), context);
     }
 }
 
 fn compile_field_def(
     field_def: ast::FieldDef,
-    current_type_id: TypeId,
+    current_type: &Rc<RefCell<Type>>,
     context: &mut CompilerContext,
 ) {
+    let current_type_id = current_type.borrow().type_id().clone();
     let type_ = compile_type_expr(field_def.type_, context);
 
     let field = Variable::new(
@@ -161,25 +169,108 @@ fn compile_field_def(
         .borrow_mut()
         .add_field(Rc::clone(&field));
 
-    let result = context
-        .type_scope_mut(current_type_id.clone())
-        .add_variable(field);
+    let result = context.type_scope_mut(current_type_id).add_variable(field);
     if let Err(error) = result {
         context.errors.push(error);
     }
 }
 
+fn compile_method_def(
+    method_def: ast::FunctionDef,
+    current_type: Rc<RefCell<Type>>,
+    context: &mut CompilerContext,
+) {
+    let return_type = compile_return_type(method_def.return_type, context);
+    let method = Rc::new(RefCell::new(UserDefinedFunction::new(
+        method_def.name.text.clone(),
+        Rc::clone(&return_type),
+        method_def.signature_span,
+        context.program.symbol_ids_mut(),
+    )));
+    context.program.add_function(Rc::clone(&method));
+
+    let result = context
+        .type_scope_mut(current_type.borrow().type_id().clone())
+        .add_function(Rc::clone(&method));
+    if let Err(error) = result {
+        context.errors.push(error);
+    }
+
+    let (self_parameter, normal_parameters) = match method_def.parameters.get(0) {
+        Some(ast::Parameter::Self_(_)) => {
+            let mut parameters = method_def.parameters.into_iter();
+            let self_parameter = Some(parameters.next().unwrap().into_self());
+            let normal_parameters = parameters.collect();
+            (self_parameter, normal_parameters)
+        }
+        _ => (None, method_def.parameters),
+    };
+
+    // Parameters have their own scope.
+    context.scope.push();
+    let self_parameter = match self_parameter {
+        Some(parameter) => compile_self_parameter(parameter, Rc::clone(&current_type), context),
+        None => {
+            let error =
+                CompilationError::method_first_parameter_is_not_self(method_def.signature_span);
+            context.errors.push(error);
+
+            // For better error recovery.
+            let fake_self = create_variable(
+                "<self>".to_string(),
+                Rc::clone(&current_type),
+                None,
+                context,
+            )
+            .unwrap();
+            fake_self
+        }
+    };
+
+    let mut normal_parameters: Vec<Rc<RefCell<Variable>>> = normal_parameters
+        .into_iter()
+        .flat_map(|parameter| match parameter {
+            ast::Parameter::Self_(parameter) => {
+                let error = CompilationError::self_is_not_first_parameter(parameter.span);
+                context.errors.push(error);
+                None
+            }
+            ast::Parameter::Normal(parameter) => compile_normal_parameter(parameter, context),
+        })
+        .collect();
+
+    context.self_ = Some(Rc::clone(&self_parameter));
+
+    let mut all_parameters = vec![self_parameter];
+    all_parameters.append(&mut normal_parameters);
+    method
+        .borrow_mut()
+        .as_user_defined_mut()
+        .fill_parameters(all_parameters);
+
+    let body = compile_block_expr(method_def.body, Some(Rc::clone(&return_type)), context);
+
+    context.self_ = None;
+    context.scope.pop();
+
+    let body_type = Rc::clone(&body.type_);
+    let result = method
+        .borrow_mut()
+        .as_user_defined_mut()
+        .fill_body(body, body_type);
+    if let Err(error) = result {
+        context.errors.push(error)
+    };
+}
+
 /// Compiles the given function, adding it to the program symbol table. If any
 /// errors occur, they are added to `context`.
 fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerContext) {
-    let name = function_def.name;
-    let return_type = match function_def.return_type {
-        Some(return_type) => compile_type_expr(return_type, context),
-        None => Rc::clone(context.program.types().void()),
-    };
+    let name = &function_def.name.text;
+    let return_type = compile_return_type(function_def.return_type, context);
 
     let function = UserDefinedFunction::new(
-        name.text,
+        name.clone(),
         Rc::clone(&return_type),
         function_def.signature_span,
         context.program.symbol_ids_mut(),
@@ -195,7 +286,14 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
     let parameters: Vec<Rc<RefCell<Variable>>> = function_def
         .parameters
         .into_iter()
-        .flat_map(|parameter| compile_parameter(parameter, context))
+        .flat_map(|parameter| match parameter {
+            ast::Parameter::Self_(parameter) => {
+                let error = CompilationError::self_not_in_method_signature(&name, parameter.span);
+                context.errors.push(error);
+                None
+            }
+            ast::Parameter::Normal(parameter) => compile_normal_parameter(parameter, context),
+        })
         .collect();
     function
         .borrow_mut()
@@ -216,14 +314,41 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
     };
 }
 
-fn compile_parameter(
-    parameter: ast::Parameter,
+fn compile_return_type(
+    return_type: Option<ast::TypeExpr>,
+    context: &mut CompilerContext,
+) -> Rc<RefCell<Type>> {
+    match return_type {
+        Some(return_type) => compile_type_expr(return_type, context),
+        None => Rc::clone(context.program.types().void()),
+    }
+}
+
+fn compile_normal_parameter(
+    parameter: ast::NormalParameter,
     context: &mut CompilerContext,
 ) -> Option<Rc<RefCell<Variable>>> {
     let name = parameter.name.text;
     let type_ = compile_type_expr(parameter.type_, context);
 
     create_variable(name, type_, Some(parameter.span), context)
+}
+
+fn compile_self_parameter(
+    parameter: ast::SelfParameter,
+    current_type: Rc<RefCell<Type>>,
+    context: &mut CompilerContext,
+) -> Rc<RefCell<Variable>> {
+    let type_ = match parameter.kind {
+        ast::SelfParameterKind::ByValue => current_type,
+        ast::SelfParameterKind::ByPointer => context
+            .program
+            .types_mut()
+            .pointer_to(&current_type.borrow()),
+    };
+
+    create_variable("<self>".to_string(), type_, Some(parameter.span), context)
+        .expect("Couldn't create variable for <self> parameter")
 }
 
 /// Compiles a single statement in the syntax sense. If compilation succeeds,
@@ -434,6 +559,7 @@ fn compile_expression(
         ast::Expression::Variable(e) => compile_variable_expr(e, context),
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
         ast::Expression::BoolLiteral(e) => compile_bool_literal_expr(e, context),
+        ast::Expression::Self_(e) => compile_self_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
         ast::Expression::Address(e) => compile_address_expr(e, type_hint, context),
         ast::Expression::Deref(e) => compile_deref_expr(e, type_hint, context),
@@ -481,6 +607,20 @@ fn compile_bool_literal_expr(
     context: &CompilerContext,
 ) -> program::Expression {
     program::LiteralExpr::bool(expression.value, context.program.types(), expression.span)
+}
+
+fn compile_self_expr(
+    expression: ast::SelfExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    match context.self_ {
+        Some(ref variable) => program::VariableExpr::new(variable, expression.span),
+        None => {
+            let error = CompilationError::self_in_function_body(expression.span);
+            context.errors.push(error);
+            program::Expression::error(expression.span)
+        }
+    }
 }
 
 fn compile_binary_op_expr(

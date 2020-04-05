@@ -30,7 +30,22 @@ pub struct FunctionDef {
 }
 
 #[derive(Debug)]
-pub struct Parameter {
+pub enum Parameter {
+    Normal(NormalParameter),
+    Self_(SelfParameter),
+}
+
+impl Parameter {
+    pub fn into_self(self) -> SelfParameter {
+        match self {
+            Parameter::Self_(parameter) => parameter,
+            _ => panic!("Tried to convert a normal parameter into a `self` parameter"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct NormalParameter {
     pub name: Identifier,
     pub type_: TypeExpr,
 
@@ -38,11 +53,56 @@ pub struct Parameter {
 }
 
 #[derive(Debug)]
+pub struct SelfParameter {
+    pub kind: SelfParameterKind,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub enum SelfParameterKind {
+    ByValue,
+    ByPointer,
+}
+
+#[derive(Debug)]
 pub struct StructDef {
     pub name: Identifier,
     pub fields: Vec<FieldDef>,
+    pub methods: Vec<FunctionDef>,
 
     pub signature_span: InputSpan,
+}
+
+impl StructDef {
+    pub fn new(
+        name: Identifier,
+        members: Vec<StructMember>,
+        signature_span: InputSpan,
+    ) -> StructDef {
+        let mut fields = vec![];
+        let mut methods = vec![];
+
+        for member in members {
+            match member {
+                StructMember::Field(field_def) => fields.push(field_def),
+                StructMember::Method(method_def) => methods.push(method_def),
+            }
+        }
+
+        StructDef {
+            name,
+            fields,
+            methods,
+            signature_span,
+        }
+    }
+}
+
+// Intermediate type, not present in the final tree.
+pub enum StructMember {
+    Field(FieldDef),
+    Method(FunctionDef),
 }
 
 #[derive(Debug)]
@@ -128,6 +188,7 @@ pub enum Expression {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
     BoolLiteral(BoolLiteralExpr),
+    Self_(SelfExpr),
     BinaryOp(BinaryOperatorExpr),
     Address(AddressExpr),
     Deref(DerefExpr),
@@ -148,6 +209,7 @@ impl Expression {
             Variable(e) => e.span,
             IntLiteral(e) => e.span,
             BoolLiteral(e) => e.span,
+            Self_(e) => e.span,
             BinaryOp(e) => e.span,
             Address(e) => e.span,
             Deref(e) => e.span,
@@ -176,6 +238,10 @@ impl Expression {
                 ..e
             }),
             Expression::BoolLiteral(e) => Expression::BoolLiteral(BoolLiteralExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::Self_(e) => Expression::Self_(SelfExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -247,6 +313,11 @@ pub struct IntLiteralExpr {
 pub struct BoolLiteralExpr {
     pub value: bool,
 
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct SelfExpr {
     pub span: InputSpan,
 }
 

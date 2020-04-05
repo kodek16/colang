@@ -1,0 +1,15 @@
+struct Point {
+  x: int;
+  y: int;
+
+  fun len_squared(self): int {
+    self.x*self.x + self.y*self.y
+  }
+}
+
+fun main() {
+  var p: Point;
+  p.x = 3;
+  p.y = 4;
+  assert(p.len_squared() == 25);
+}

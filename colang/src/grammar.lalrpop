@@ -28,33 +28,63 @@ FunctionDef: FunctionDef = {
 };
 
 ParameterDef: Parameter = {
+    NormalParameterDef,
+    SelfParameterDef,
+};
+
+NormalParameterDef: Parameter = {
     <start: @L> <name:Ident> ":" <type_:TypeExpr> <end: @R> => {
-        Parameter {
+        Parameter::Normal(NormalParameter {
             name,
             type_,
             span: InputSpan { start, end },
-        }
+        })
+    },
+};
+
+SelfParameterDef: Parameter = {
+    <start:@L> KwSelf <end:@R> => {
+        Parameter::Self_(SelfParameter {
+            kind: SelfParameterKind::ByValue,
+            span: InputSpan { start, end },
+        })
+    },
+
+    <start:@L> "&" KwSelf <end:@R> => {
+        Parameter::Self_(SelfParameter {
+            kind: SelfParameterKind::ByPointer,
+            span: InputSpan { start, end },
+        })
     },
 };
 
 StructDef: StructDef = {
-    <start:@L> KwStruct <name:Ident> <end:@R> "{" <fields:FieldDef*> "}" => {
-        StructDef {
+    <start:@L> KwStruct <name:Ident> <end:@R> "{" <members:StructMember*> "}" => {
+        StructDef::new(
             name,
-            fields,
-            signature_span: InputSpan { start, end },
-        }
+            members,
+            InputSpan { start, end },
+        )
     },
 };
 
-FieldDef: FieldDef = {
+StructMember: StructMember = {
+    FieldDef,
+    MethodDef,
+};
+
+FieldDef: StructMember = {
     <start:@L> <name:Ident> ":" <type_:TypeExpr> <end:@R> ";" => {
-        FieldDef {
+        StructMember::Field(FieldDef {
             name,
             type_,
             span: InputSpan { start, end },
-        }
+        })
     },
+};
+
+MethodDef: StructMember = {
+    FunctionDef => StructMember::Method(<>),
 };
 
 Stmt: Statement = {
@@ -298,6 +328,7 @@ Expr0: Expression = {
     VariableExpr,
     IntLiteralExpr,
     BoolLiteralExpr,
+    SelfExpr,
     ArrayFromElementsExpr,
     ArrayFromCopyExpr,
     IndexExpr,
@@ -329,6 +360,14 @@ BoolLiteralExpr: Expression = {
     <start: @L> <value:BoolLiteral> <end: @R> => {
         Expression::BoolLiteral(BoolLiteralExpr {
             value,
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+SelfExpr: Expression = {
+    <start:@L> KwSelf <end:@R> => {
+        Expression::Self_(SelfExpr {
             span: InputSpan { start, end },
         })
     },
@@ -488,6 +527,7 @@ KwFun: () = { "fun" }
 KwTrue: () = { "true" }
 KwFalse: () = { "false" }
 KwStruct: () = { "struct" }
+KwSelf: () = { "self" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {

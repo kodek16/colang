@@ -1,0 +1,19 @@
+struct Point {
+  x: int;
+  y: int;
+
+  fun transpose(&self) {
+    var t = (*self).x;
+    (*self).x = (*self).y;
+    (*self).y = t;
+  }
+}
+
+fun main() {
+  var p: Point;
+  p.x = 3;
+  p.y = 4;
+  p.transpose();
+  assert(p.x == 4);
+  assert(p.y == 3);
+}

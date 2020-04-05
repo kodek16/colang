@@ -11,7 +11,7 @@ impl DerefExpr {
     pub(crate) fn new(
         pointer: Expression,
         types: &TypeRegistry,
-        span: InputSpan,
+        span: Option<InputSpan>,
     ) -> Result<Expression, CompilationError> {
         let target_type = pointer.type_.borrow().pointer_target_type(types);
 
@@ -36,7 +36,7 @@ impl DerefExpr {
             kind,
             type_: target_type,
             value_category: ValueCategory::Lvalue,
-            span: Some(span),
+            span,
         };
         Ok(expression)
     }

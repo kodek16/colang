@@ -95,6 +95,13 @@ impl Type {
         }
     }
 
+    pub fn is_pointer(&self) -> bool {
+        match self.type_id {
+            TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => true,
+            _ => false,
+        }
+    }
+
     /// If `self` is a pointer type, returns the type of target.
     pub fn pointer_target_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
         match self.type_id {

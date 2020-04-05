@@ -687,7 +687,7 @@ fn compile_deref_expr(
 
     let pointer = compile_expression(*expression.pointer, hint, context);
 
-    let result = program::DerefExpr::new(pointer, context.program.types(), expression.span);
+    let result = program::DerefExpr::new(pointer, context.program.types(), Some(expression.span));
     match result {
         Ok(expression) => expression,
         Err(error) => {
@@ -819,6 +819,9 @@ fn compile_field_access_expr(
         return program::Expression::error(expression.span);
     }
 
+    // Automatically dereference pointers.
+    let receiver = maybe_deref(receiver, context);
+
     let receiver_type = &receiver.type_;
     let receiver_type_id = receiver_type.borrow().type_id().clone();
 
@@ -846,6 +849,9 @@ fn compile_method_call_expr(
     if receiver.is_error() {
         return program::Expression::error(expression.span);
     }
+
+    // Automatically dereference pointers.
+    let receiver = maybe_deref(receiver, context);
 
     let method_name = &expression.method.text;
     let receiver_type_id = receiver.type_.borrow().type_id().clone();
@@ -1033,4 +1039,15 @@ fn compile_pointer_type_expr(
     let target = compile_type_expr(*type_expr.target, context);
     let result = context.program.types_mut().pointer_to(&target.borrow());
     result
+}
+
+/// Automatic pointer dereferencing: in some context where it's obvious that pointers
+/// have to be dereferenced, user can omit the dereference operator.
+fn maybe_deref(expression: program::Expression, context: &CompilerContext) -> program::Expression {
+    let span = expression.span;
+    if expression.type_.borrow().is_pointer() {
+        program::DerefExpr::new(expression, context.program.types(), span).unwrap()
+    } else {
+        expression
+    }
 }

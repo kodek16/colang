@@ -1,0 +1,22 @@
+struct Point {
+  x: int;
+  y: int;
+
+  fun reflect(&self) {
+    self.x = -1 * self.x;
+    self.y = -1 * self.y;
+  }
+}
+
+fun init_point(p: &Point) {
+  p.x = 1;
+  p.y = 1;
+  p.reflect();
+}
+
+fun main() {
+  var p: Point;
+  init_point(&p);
+  assert(p.x == -1);
+  assert(p.y == -1);
+}

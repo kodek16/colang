@@ -13,6 +13,7 @@ pub mod field_access;
 pub mod if_;
 pub mod index;
 pub mod literal;
+pub mod new;
 pub mod variable;
 
 #[derive(Debug)]
@@ -29,6 +30,7 @@ pub enum ExpressionKind {
     Literal(literal::LiteralExpr),
     Address(address::AddressExpr),
     Deref(deref::DerefExpr),
+    New(new::NewExpr),
     ArrayFromElements(array_from_elements::ArrayFromElementsExpr),
     ArrayFromCopy(array_from_copy::ArrayFromCopyExpr),
     Index(index::IndexExpr),

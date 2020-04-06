@@ -181,6 +181,7 @@ impl Display for Expression {
             If(expr) => expr.fmt(f),
             Index(expr) => expr.fmt(f),
             Literal(expr) => expr.fmt(f),
+            New(expr) => expr.fmt(f),
             Variable(expr) => expr.fmt(f),
             Empty => write!(f, "()"),
             Error => write!(f, "<error>"),
@@ -271,7 +272,7 @@ impl Display for FieldAccessExpr {
         if receiver.contains('\n') {
             write!(f, "field {}:\n{}", field, indent(&receiver))
         } else {
-            write!(f, "field {}, {}", field, receiver)
+            write!(f, "field({}, {})", field, receiver)
         }
     }
 }
@@ -305,6 +306,12 @@ impl Display for LiteralExpr {
             LiteralExpr::Int(value) => write!(f, "{}", value),
             LiteralExpr::Bool(value) => write!(f, "{}", value),
         }
+    }
+}
+
+impl Display for NewExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "new({})", self.target_type().borrow().to_string())
     }
 }
 

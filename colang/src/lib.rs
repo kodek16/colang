@@ -563,6 +563,7 @@ fn compile_expression(
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
         ast::Expression::Address(e) => compile_address_expr(e, type_hint, context),
         ast::Expression::Deref(e) => compile_deref_expr(e, type_hint, context),
+        ast::Expression::New(e) => compile_new_expr(e, context),
         ast::Expression::ArrayFromElements(e) => {
             compile_array_from_elements_expr(e, type_hint, context)
         }
@@ -695,6 +696,18 @@ fn compile_deref_expr(
             program::Expression::error(expression.span)
         }
     }
+}
+
+fn compile_new_expr(
+    expression: ast::NewExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let target_type = compile_type_expr(expression.target_type, context);
+    if target_type.borrow().is_error() {
+        return program::Expression::error(expression.span);
+    }
+
+    program::NewExpr::new(target_type, context.program.types_mut(), expression.span)
 }
 
 fn compile_array_from_elements_expr(

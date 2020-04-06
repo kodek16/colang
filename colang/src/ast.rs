@@ -192,6 +192,7 @@ pub enum Expression {
     BinaryOp(BinaryOperatorExpr),
     Address(AddressExpr),
     Deref(DerefExpr),
+    New(NewExpr),
     ArrayFromElements(ArrayFromElementsExpr),
     ArrayFromCopy(ArrayFromCopyExpr),
     Index(IndexExpr),
@@ -213,6 +214,7 @@ impl Expression {
             BinaryOp(e) => e.span,
             Address(e) => e.span,
             Deref(e) => e.span,
+            New(e) => e.span,
             ArrayFromElements(e) => e.span,
             ArrayFromCopy(e) => e.span,
             Index(e) => e.span,
@@ -254,6 +256,10 @@ impl Expression {
                 ..e
             }),
             Expression::Deref(e) => Expression::Deref(DerefExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::New(e) => Expression::New(NewExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -353,6 +359,13 @@ pub struct AddressExpr {
 #[derive(Debug)]
 pub struct DerefExpr {
     pub pointer: Box<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct NewExpr {
+    pub target_type: TypeExpr,
 
     pub span: InputSpan,
 }

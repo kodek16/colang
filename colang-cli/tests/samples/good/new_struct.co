@@ -1,0 +1,13 @@
+struct Wrapper {
+  x: int;
+}
+
+fun main() {
+  var a = new Wrapper;
+  a.x = 5;
+
+  var b = a;
+  b.x = 6;
+
+  assert(a.x == 6);
+}

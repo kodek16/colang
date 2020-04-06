@@ -329,6 +329,7 @@ Expr0: Expression = {
     IntLiteralExpr,
     BoolLiteralExpr,
     SelfExpr,
+    NewExpr,
     ArrayFromElementsExpr,
     ArrayFromCopyExpr,
     IndexExpr,
@@ -368,6 +369,15 @@ BoolLiteralExpr: Expression = {
 SelfExpr: Expression = {
     <start:@L> KwSelf <end:@R> => {
         Expression::Self_(SelfExpr {
+            span: InputSpan { start, end },
+        })
+    },
+};
+
+NewExpr: Expression = {
+    <start:@L> KwNew <target_type:TypeExpr> <end:@R> => {
+        Expression::New(NewExpr {
+            target_type,
             span: InputSpan { start, end },
         })
     },
@@ -528,6 +538,7 @@ KwTrue: () = { "true" }
 KwFalse: () = { "false" }
 KwStruct: () = { "struct" }
 KwSelf: () = { "self" }
+KwNew: () = { "new" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {

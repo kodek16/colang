@@ -1,0 +1,7 @@
+struct Wrapper {
+  x: int;
+}
+
+fun main() {
+  var a: Wrapper = new Wrapper;
+}

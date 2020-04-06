@@ -129,6 +129,7 @@ pub use expressions::field_access::FieldAccessExpr;
 pub use expressions::if_::IfExpr;
 pub use expressions::index::IndexExpr;
 pub use expressions::literal::LiteralExpr;
+pub use expressions::new::NewExpr;
 pub use expressions::variable::VariableExpr;
 pub use expressions::{Expression, ExpressionKind};
 

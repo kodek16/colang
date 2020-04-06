@@ -338,6 +338,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ExpressionKind::Literal(e) => run_literal_expr(e, state),
         ExpressionKind::Address(e) => run_address_expr(e, state),
         ExpressionKind::Deref(e) => run_deref_expr(e, state),
+        ExpressionKind::New(e) => run_new_expr(e, state),
         ExpressionKind::ArrayFromElements(e) => run_array_from_elements_expr(e, state),
         ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
         ExpressionKind::Index(e) => run_index_expr(e, state),
@@ -381,6 +382,11 @@ fn run_deref_expr(expression: &DerefExpr, state: &mut State) -> RunResult<Value>
         }
     };
     Ok(Value::Lvalue(lvalue))
+}
+
+fn run_new_expr(expression: &NewExpr, _: &mut State) -> RunResult<Value> {
+    let target = default_value_for_type(&expression.target_type().borrow());
+    Ok(Value::Rvalue(Rvalue::Pointer(Some(Lvalue::store(target)))))
 }
 
 fn run_array_from_elements_expr(

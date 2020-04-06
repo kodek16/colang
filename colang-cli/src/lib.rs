@@ -1,4 +1,4 @@
-use codespan_reporting::files::SimpleFile;
+use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use std::env::Args;
 use std::fs;
@@ -91,7 +91,10 @@ fn report_compilation_errors(
     plaintext_stdout: bool,
 ) {
     if !plaintext_stdout {
-        let file = SimpleFile::new(file_name, source_code);
+        let mut files = SimpleFiles::new();
+        let user_program_id = files.add(file_name, source_code);
+        let std_id = files.add("std.rs", colang::stdlib::STD_SOURCE);
+
         let writer = StandardStream::stderr(ColorChoice::Always);
         let config = codespan_reporting::term::Config::default();
 
@@ -99,8 +102,8 @@ fn report_compilation_errors(
             codespan_reporting::term::emit(
                 &mut writer.lock(),
                 &config,
-                &file,
-                &error.to_codespan(),
+                &files,
+                &error.to_codespan(user_program_id, std_id),
             )
             .unwrap();
         }

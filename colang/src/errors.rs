@@ -3,6 +3,7 @@
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::ast;
+use crate::ast::InputSpanFile;
 use ast::InputSpan;
 use ast::ParseError;
 
@@ -15,13 +16,18 @@ pub struct CompilationError {
 
 impl CompilationError {
     /// Builds a `codespan_reporting` diagnostic.
-    pub fn to_codespan(&self) -> Diagnostic<()> {
+    pub fn to_codespan<I>(&self, user_program_id: I, std_id: I) -> Diagnostic<I> {
         let mut result = Diagnostic::error()
             .with_message(&self.message)
             .with_code(self.code);
 
         if let Some(ref location) = self.location {
-            result = result.with_labels(vec![Label::primary((), location.start..location.end)]);
+            let file_id = match location.file {
+                InputSpanFile::UserProgram => user_program_id,
+                InputSpanFile::Std => std_id,
+            };
+            result =
+                result.with_labels(vec![Label::primary(file_id, location.start..location.end)]);
         }
 
         result
@@ -29,13 +35,14 @@ impl CompilationError {
 
     // Error definitions from this point onwards.
 
-    pub fn syntax_error(err: ParseError) -> CompilationError {
+    pub fn syntax_error(err: ParseError, file: InputSpanFile) -> CompilationError {
         // TODO actually handle `expected` fields.
         let (message, location) = match err {
             ParseError::User { .. } => panic!("Unexpected custom parse error."),
             ParseError::InvalidToken { location } => (
                 "Invalid token",
                 InputSpan {
+                    file,
                     start: location,
                     end: location + 1,
                 },
@@ -43,6 +50,7 @@ impl CompilationError {
             ParseError::UnrecognizedEOF { location, .. } => (
                 "Unrecognized EOF",
                 InputSpan {
+                    file,
                     start: location,
                     end: location + 1,
                 },
@@ -50,10 +58,10 @@ impl CompilationError {
             ParseError::UnrecognizedToken {
                 token: (start, _, end),
                 ..
-            } => ("Unrecognized token", InputSpan { start, end }),
+            } => ("Unrecognized token", InputSpan { file, start, end }),
             ParseError::ExtraToken {
                 token: (start, _, end),
-            } => ("Extra token", InputSpan { start, end }),
+            } => ("Extra token", InputSpan { file, start, end }),
         };
 
         CompilationError {

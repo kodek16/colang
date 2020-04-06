@@ -22,7 +22,6 @@ pub enum InternalFunctionTag {
     GreaterEqInt,
     EqInt,
     NotEqInt,
-    IntAbs,
 
     ArrayPush(TypeId),
     ArrayPop(TypeId),
@@ -32,7 +31,7 @@ pub enum InternalFunctionTag {
 pub fn populate_internal_symbols(
     program: &mut Program,
     scope: &mut Scope,
-    type_scopes: &mut HashMap<TypeId, Scope>,
+    _type_scopes: &mut HashMap<TypeId, Scope>,
 ) {
     let functions = vec![
         create_assert_function(program.types()),
@@ -55,14 +54,6 @@ pub fn populate_internal_symbols(
             function.borrow().name()
         ));
     }
-
-    let int_abs = Rc::new(RefCell::new(create_int_abs_method(program.types())));
-    program.add_function(Rc::clone(&int_abs));
-    type_scopes
-        .entry(program.types.int().borrow().type_id().clone())
-        .or_insert_with(Scope::new_for_type)
-        .add_function(int_abs)
-        .expect("Couldn't register internal method.")
 }
 
 fn create_assert_function(types: &TypeRegistry) -> Function {
@@ -179,15 +170,6 @@ fn create_not_eq_int_function(types: &TypeRegistry) -> Function {
             internal_param("rhs", types.int()),
         ],
         Rc::clone(types.bool()),
-    )
-}
-
-fn create_int_abs_method(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
-        "abs".to_string(),
-        InternalFunctionTag::IntAbs,
-        vec![internal_param("self", types.int())],
-        Rc::clone(types.int()),
     )
 }
 

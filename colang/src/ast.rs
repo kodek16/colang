@@ -472,8 +472,15 @@ pub struct Identifier {
 
 #[derive(Copy, Clone, Debug)]
 pub struct InputSpan {
+    pub file: InputSpanFile,
     pub start: usize,
     pub end: usize,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum InputSpanFile {
+    UserProgram,
+    Std,
 }
 
 impl InputSpan {
@@ -481,6 +488,10 @@ impl InputSpan {
     /// Can be useful as a placeholder, when the caller is sure that the span is not going
     /// to be displayed to the end user.
     pub fn top_of_file() -> InputSpan {
-        InputSpan { start: 0, end: 1 }
+        InputSpan {
+            file: InputSpanFile::UserProgram,
+            start: 0,
+            end: 1,
+        }
     }
 }

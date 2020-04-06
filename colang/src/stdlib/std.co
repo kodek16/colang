@@ -1,0 +1,5 @@
+// CO standard library.
+
+fun abs(x: int): int {
+  if (x >= 0) x else -1 * x
+}

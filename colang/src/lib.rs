@@ -9,6 +9,7 @@ mod scope;
 pub mod backends;
 pub mod errors;
 pub mod program;
+pub mod stdlib;
 lalrpop_mod!(pub grammar);
 
 use std::cell::RefCell;
@@ -16,7 +17,7 @@ use std::collections::HashMap;
 use std::iter;
 use std::rc::Rc;
 
-use crate::ast::InputSpan;
+use crate::ast::{InputSpan, InputSpanFile};
 use crate::errors::CompilationError;
 use crate::program::{
     BlockBuilder, Function, InternalFunctionTag, Parameter, Type, TypeId, UserDefinedFunction,
@@ -25,16 +26,23 @@ use crate::program::{
 use crate::scope::Scope;
 
 pub fn run(source_code: &str) -> Result<program::Program, Vec<CompilationError>> {
-    let program_ast =
-        parse(&source_code).map_err(|err| vec![CompilationError::syntax_error(err)])?;
+    let std_ast = parse(stdlib::STD_SOURCE, InputSpanFile::Std)
+        .map_err(|err| vec![CompilationError::syntax_error(err, InputSpanFile::Std)])?;
 
-    let program = compile(program_ast)?;
+    let program_ast = parse(&source_code, InputSpanFile::UserProgram).map_err(|err| {
+        vec![CompilationError::syntax_error(
+            err,
+            InputSpanFile::UserProgram,
+        )]
+    })?;
+
+    let program = compile(vec![std_ast, program_ast])?;
     Ok(program)
 }
 
 /// Parses the source code and returns an AST root.
-fn parse(source_code: &str) -> Result<ast::Program, ast::ParseError> {
-    grammar::ProgramParser::new().parse(source_code)
+fn parse(source_code: &str, file: InputSpanFile) -> Result<ast::Program, ast::ParseError> {
+    grammar::ProgramParser::new().parse(file, source_code)
 }
 
 /// Context that gets passed along to various compiler routines.
@@ -83,15 +91,17 @@ impl CompilerContext {
 }
 
 /// Compiles a CO program.
-fn compile(program_ast: ast::Program) -> Result<program::Program, Vec<CompilationError>> {
+fn compile(sources: Vec<ast::Program>) -> Result<program::Program, Vec<CompilationError>> {
     let mut context = CompilerContext::new();
 
-    for struct_def in program_ast.structs {
-        compile_struct_def(struct_def, &mut context);
-    }
+    for source in sources {
+        for struct_def in source.structs {
+            compile_struct_def(struct_def, &mut context);
+        }
 
-    for function_def in program_ast.functions {
-        compile_function_def(function_def, &mut context);
+        for function_def in source.functions {
+            compile_function_def(function_def, &mut context);
+        }
     }
 
     let main_function = context

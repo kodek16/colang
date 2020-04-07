@@ -422,6 +422,25 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn literal_not_utf8(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9036",
+            message: format!("literal must be a valid UTF-8 sequence"),
+            location: Some(location),
+        }
+    }
+
+    pub fn char_literal_bad_length(actual_len: usize, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9037",
+            message: format!(
+                "`char` literals must contain exactly one UTF-8 byte, not {}",
+                actual_len
+            ),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

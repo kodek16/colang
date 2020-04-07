@@ -1,6 +1,7 @@
 //! Internal symbols implementation.
 
 use crate::{Lvalue, RunResult, Rvalue, Value};
+use std::convert::TryFrom;
 
 pub fn assert(mut arguments: Vec<Value>) -> RunResult<Value> {
     let value = arguments.remove(0);
@@ -11,6 +12,20 @@ pub fn assert(mut arguments: Vec<Value>) -> RunResult<Value> {
         return Err(error.into());
     }
     Ok(Value::Rvalue(Rvalue::Void))
+}
+
+pub fn ascii_code(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let char = arguments.pop().unwrap().into_rvalue().as_char();
+    Ok(Value::Rvalue(Rvalue::Int(char as i32)))
+}
+
+pub fn ascii_char(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let code = arguments.pop().unwrap().into_rvalue().as_int();
+    let result = u8::try_from(code);
+    match result {
+        Ok(char) => Ok(Value::Rvalue(Rvalue::Char(char))),
+        Err(_) => Err(format!("`{}` is not a valid ASCII code", code).into()),
+    }
 }
 
 pub fn add_int(mut arguments: Vec<Value>) -> RunResult<Value> {

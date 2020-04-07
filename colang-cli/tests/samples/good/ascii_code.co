@@ -1,0 +1,6 @@
+fun main() {
+  var c = '\n';
+  assert(ascii_code(c) == 10);
+
+  assert(ascii_code('a') == 97);
+}

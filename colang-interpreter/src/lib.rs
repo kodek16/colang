@@ -84,6 +84,7 @@ impl Lvalue {
 pub enum Rvalue {
     Int(i32),
     Bool(bool),
+    Char(u8),
     Array(Rc<RefCell<Vec<Lvalue>>>),
     Pointer(Option<Lvalue>),
     Struct(HashMap<SymbolId, Lvalue>),
@@ -102,6 +103,13 @@ impl Rvalue {
         match self {
             Rvalue::Bool(b) => *b,
             _ => panic_wrong_type("bool", self.type_()),
+        }
+    }
+
+    pub fn as_char(&self) -> u8 {
+        match self {
+            Rvalue::Char(c) => *c,
+            _ => panic_wrong_type("char", self.type_()),
         }
     }
 
@@ -145,6 +153,7 @@ impl Rvalue {
         match self {
             Int(_) => "int",
             Bool(_) => "bool",
+            Char(_) => "char",
             Array(_) => "array",
             Pointer(_) => "pointer",
             Struct(_) => "struct",
@@ -159,6 +168,7 @@ impl Clone for Rvalue {
         match self {
             Int(x) => Rvalue::Int(*x),
             Bool(b) => Rvalue::Bool(*b),
+            Char(c) => Rvalue::Char(*c),
             Array(v) => Rvalue::Array(Rc::clone(v)),
             Pointer(p) => Rvalue::Pointer(p.clone()),
             Struct(fields) => {
@@ -231,6 +241,8 @@ fn run_internal_function(function: &InternalFunction, arguments: Vec<Value>) -> 
     use InternalFunctionTag::*;
     match function.tag {
         Assert => internal::assert(arguments),
+        AsciiCode => internal::ascii_code(arguments),
+        AsciiChar => internal::ascii_char(arguments),
         AddInt => internal::add_int(arguments),
         SubInt => internal::sub_int(arguments),
         MulInt => internal::mul_int(arguments),
@@ -360,6 +372,7 @@ fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
     let value = match expression {
         LiteralExpr::Int(value) => Value::Rvalue(Rvalue::Int(*value)),
         LiteralExpr::Bool(value) => Value::Rvalue(Rvalue::Bool(*value)),
+        LiteralExpr::Char(value) => Value::Rvalue(Rvalue::Char(*value)),
     };
     Ok(value)
 }
@@ -515,6 +528,7 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
         TypeId::Void => panic!("Tried to default-initialize a value of type `void`"),
         TypeId::Int => Rvalue::Int(0),
         TypeId::Bool => Rvalue::Bool(false),
+        TypeId::Char => Rvalue::Char(0),
         TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
             Rvalue::Array(Rc::new(RefCell::new(vec![])))
         }

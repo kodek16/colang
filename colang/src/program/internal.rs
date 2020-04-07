@@ -13,6 +13,9 @@ use std::rc::Rc;
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub enum InternalFunctionTag {
     Assert,
+    AsciiCode,
+    AsciiChar,
+
     AddInt,
     SubInt,
     MulInt,
@@ -35,6 +38,8 @@ pub fn populate_internal_symbols(
 ) {
     let functions = vec![
         create_assert_function(program.types()),
+        create_ascii_code_function(program.types()),
+        create_ascii_char_function(program.types()),
         create_add_int_function(program.types()),
         create_sub_int_function(program.types()),
         create_mul_int_function(program.types()),
@@ -62,6 +67,24 @@ fn create_assert_function(types: &TypeRegistry) -> Function {
         InternalFunctionTag::Assert,
         vec![internal_param("fact", types.bool())],
         Rc::clone(types.void()),
+    )
+}
+
+fn create_ascii_code_function(types: &TypeRegistry) -> Function {
+    InternalFunction::new(
+        "ascii_code".to_string(),
+        InternalFunctionTag::AsciiCode,
+        vec![internal_param("ch", types.char())],
+        Rc::clone(types.int()),
+    )
+}
+
+fn create_ascii_char_function(types: &TypeRegistry) -> Function {
+    InternalFunction::new(
+        "ascii_char".to_string(),
+        InternalFunctionTag::AsciiChar,
+        vec![internal_param("code", types.int())],
+        Rc::clone(types.char()),
     )
 }
 

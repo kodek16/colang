@@ -1,5 +1,8 @@
 use crate::ast::InputSpan;
-use crate::program::{Expression, ExpressionKind, Function, ValueCategory};
+use crate::program::{
+    AddressExpr, Expression, ExpressionKind, Function, InternalFunctionTag, Program, TypeId,
+    ValueCategory,
+};
 
 use crate::errors::CompilationError;
 use crate::program::Parameter;
@@ -63,6 +66,47 @@ impl CallExpr {
             type_,
             value_category: ValueCategory::Rvalue,
             span: Some(span),
+        })
+    }
+
+    pub fn new_read(
+        target: Expression,
+        program: &mut Program,
+    ) -> Result<Expression, CompilationError> {
+        let target_span = target.span.expect("Attempt to read to generated target");
+        if target.value_category != ValueCategory::Lvalue {
+            let error = CompilationError::read_target_not_lvalue(
+                target.span.expect("Attempt to read generated rvalue."),
+            );
+            return Err(error);
+        }
+
+        let target_type = &target.type_;
+
+        let function = Rc::clone(match target_type.borrow().type_id().clone() {
+            TypeId::Int => program.internal_function(InternalFunctionTag::ReadInt),
+            TypeId::String => program.internal_function(InternalFunctionTag::ReadWord),
+            _ => {
+                let error = CompilationError::read_unsupported_type(
+                    target_type.borrow().name(),
+                    target
+                        .span
+                        .expect("Attempt to read generated value of unsupported type"),
+                );
+                return Err(error);
+            }
+        });
+
+        let argument = AddressExpr::new_synthetic(target, program.types_mut(), target_span);
+
+        Ok(Expression {
+            kind: ExpressionKind::Call(CallExpr {
+                function,
+                arguments: vec![argument],
+            }),
+            type_: Rc::clone(program.types().void()),
+            value_category: ValueCategory::Rvalue,
+            span: Some(target_span),
         })
     }
 

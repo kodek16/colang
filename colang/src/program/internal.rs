@@ -25,6 +25,9 @@ pub enum InternalFunctionTag {
     GreaterEqInt,
     EqInt,
     NotEqInt,
+    ReadInt,
+
+    ReadWord,
 
     ArrayPush(TypeId),
     ArrayPop(TypeId),
@@ -36,10 +39,13 @@ pub fn populate_internal_symbols(
     scope: &mut Scope,
     _type_scopes: &mut HashMap<TypeId, Scope>,
 ) {
-    let functions = vec![
+    let visible_functions = vec![
         create_assert_function(program.types()),
         create_ascii_code_function(program.types()),
         create_ascii_char_function(program.types()),
+    ];
+
+    let invisible_functions = vec![
         create_add_int_function(program.types()),
         create_sub_int_function(program.types()),
         create_mul_int_function(program.types()),
@@ -49,11 +55,25 @@ pub fn populate_internal_symbols(
         create_greater_eq_int_function(program.types()),
         create_eq_int_function(program.types()),
         create_not_eq_int_function(program.types()),
+        create_read_int_function(program.types_mut()),
+        create_read_word_function(program.types_mut()),
     ];
 
-    for function in functions {
-        let function = Rc::new(RefCell::new(function));
+    // Convert to multi-owned.
+    let visible_functions: Vec<_> = visible_functions
+        .into_iter()
+        .map(|f| Rc::new(RefCell::new(f)))
+        .collect();
+    let invisible_functions: Vec<_> = invisible_functions
+        .into_iter()
+        .map(|f| Rc::new(RefCell::new(f)))
+        .collect();
+
+    for function in visible_functions.iter().chain(invisible_functions.iter()) {
         program.add_function(Rc::clone(&function));
+    }
+
+    for function in visible_functions {
         scope.add_function(Rc::clone(&function)).expect(&format!(
             "Couldn't register internal function `{}`",
             function.borrow().name()
@@ -193,6 +213,30 @@ fn create_not_eq_int_function(types: &TypeRegistry) -> Function {
             internal_param("rhs", types.int()),
         ],
         Rc::clone(types.bool()),
+    )
+}
+
+fn create_read_int_function(types: &mut TypeRegistry) -> Function {
+    let int = Rc::clone(types.int());
+    let pointer_to_int = types.pointer_to(&int.borrow());
+
+    InternalFunction::new(
+        "<read>".to_string(),
+        InternalFunctionTag::ReadInt,
+        vec![internal_param("target", &pointer_to_int)],
+        Rc::clone(types.void()),
+    )
+}
+
+fn create_read_word_function(types: &mut TypeRegistry) -> Function {
+    let string = Rc::clone(types.string());
+    let pointer_to_string = types.pointer_to(&string.borrow());
+
+    InternalFunction::new(
+        "<read-word>".to_string(),
+        InternalFunctionTag::ReadWord,
+        vec![internal_param("target", &pointer_to_string)],
+        Rc::clone(types.void()),
     )
 }
 

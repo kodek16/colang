@@ -135,6 +135,7 @@ pub enum TypeId {
     Int,
     Bool,
     Char,
+    String,
 
     TemplateInstance(TypeTemplateId, Vec<TypeId>),
 
@@ -178,12 +179,18 @@ impl TypeRegistry {
             name: "char".to_string(),
             fields: vec![],
         }));
+        let string = Rc::new(RefCell::new(Type {
+            type_id: TypeId::String,
+            name: "string".to_string(),
+            fields: vec![],
+        }));
 
         let mut types = HashMap::new();
         types.insert(TypeId::Void, void);
         types.insert(TypeId::Int, int);
         types.insert(TypeId::Bool, bool);
         types.insert(TypeId::Char, char);
+        types.insert(TypeId::String, string);
 
         let mut templates = HashMap::new();
         templates.insert(TypeTemplateId::Array, create_array_template());
@@ -212,6 +219,10 @@ impl TypeRegistry {
         &self.types[&TypeId::Char]
     }
 
+    pub fn string(&self) -> &Rc<RefCell<Type>> {
+        &self.types[&TypeId::String]
+    }
+
     pub fn array(&self) -> &Rc<RefCell<TypeTemplate>> {
         &self.templates[&TypeTemplateId::Array]
     }
@@ -232,8 +243,15 @@ impl TypeRegistry {
             .instantiate(vec![target_type], self)
     }
 
-    pub fn primitive_types(&self) -> Vec<&Rc<RefCell<Type>>> {
-        vec![self.void(), self.int(), self.bool(), self.char()]
+    /// Basic types are non-template internal types.
+    pub fn basic_types(&self) -> Vec<&Rc<RefCell<Type>>> {
+        vec![
+            self.void(),
+            self.int(),
+            self.bool(),
+            self.char(),
+            self.string(),
+        ]
     }
 
     pub fn all_types(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {

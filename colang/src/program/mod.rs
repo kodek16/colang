@@ -142,7 +142,6 @@ pub use instructions::alloc::AllocInstruction;
 pub use instructions::assign::AssignInstruction;
 pub use instructions::dealloc::DeallocInstruction;
 pub use instructions::eval::EvalInstruction;
-pub use instructions::read::ReadInstruction;
 pub use instructions::return_::ReturnInstruction;
 pub use instructions::while_::WhileInstruction;
 pub use instructions::write::WriteInstruction;

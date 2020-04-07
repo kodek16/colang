@@ -63,7 +63,7 @@ impl CompilerContext {
         let mut scope = Scope::new();
         let mut type_scopes = HashMap::new();
 
-        for type_ in program.types().primitive_types() {
+        for type_ in program.types().basic_types() {
             scope.add_type(Rc::clone(type_)).unwrap();
         }
 
@@ -472,9 +472,9 @@ fn compile_read_entry(
         return;
     }
 
-    let result = program::ReadInstruction::new(target, context.program.types());
+    let result = program::CallExpr::new_read(target, &mut context.program);
     match result {
-        Ok(statement) => sink.emit(statement),
+        Ok(expression) => sink.emit(program::EvalInstruction::new(expression)),
         Err(error) => context.errors.push(error),
     }
 }
@@ -947,9 +947,12 @@ fn compile_method_call_expr(
     {
         // self-by-pointer
         if receiver.value_category == ValueCategory::Lvalue {
-            // TODO handle generated span in a special way for errors.
-            program::AddressExpr::new(receiver, context.program.types_mut(), receiver_span)
-                .expect("Couldn't generate address operation for `self` in method call")
+            // TODO handle synthetic span in a special way for errors.
+            program::AddressExpr::new_synthetic(
+                receiver,
+                context.program.types_mut(),
+                receiver_span,
+            )
         } else {
             let error =
                 CompilationError::self_must_be_lvalue(&expression.method.text, receiver_span);

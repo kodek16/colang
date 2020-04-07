@@ -1,7 +1,9 @@
 //! Internal symbols implementation.
 
-use crate::{Lvalue, RunResult, Rvalue, Value};
+use crate::{Lvalue, RunResult, Rvalue, State, Value};
+use std::cell::RefCell;
 use std::convert::TryFrom;
+use std::rc::Rc;
 
 pub fn assert(mut arguments: Vec<Value>) -> RunResult<Value> {
     let value = arguments.remove(0);
@@ -80,6 +82,40 @@ pub fn not_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();
     Ok(Value::Rvalue(Rvalue::Bool(lhs != rhs)))
+}
+
+pub fn read_int(mut arguments: Vec<Value>, state: &mut State) -> RunResult<Value> {
+    let target = arguments
+        .pop()
+        .unwrap()
+        .into_rvalue()
+        .into_pointer_unwrap()?;
+
+    let word = state.cin.read_word()?;
+    let new_value: i32 = word
+        .parse()
+        .map_err(|_| format!("Could not parse `{}` to an integer.", word))?;
+    *target.borrow_mut() = Rvalue::Int(new_value);
+    Ok(Value::Rvalue(Rvalue::Void))
+}
+
+pub fn read_word(mut arguments: Vec<Value>, state: &mut State) -> RunResult<Value> {
+    let target = arguments
+        .pop()
+        .unwrap()
+        .into_rvalue()
+        .into_pointer_unwrap()?;
+
+    let word = state.cin.read_word()?;
+
+    let result = word
+        .as_bytes()
+        .iter()
+        .map(|char| Lvalue::store(Rvalue::Char(*char)))
+        .collect();
+
+    *target.borrow_mut() = Rvalue::Array(Rc::new(RefCell::new(result)));
+    Ok(Value::Rvalue(Rvalue::Void))
 }
 
 pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {

@@ -127,6 +127,16 @@ impl Rvalue {
         }
     }
 
+    pub fn into_pointer_unwrap(self) -> RunResult<Lvalue> {
+        match self.into_pointer() {
+            Some(pointer) => Ok(pointer),
+            None => {
+                let error = "attempt to dereference null pointer";
+                return Err(error.into());
+            }
+        }
+    }
+
     pub fn into_pointer_to_self(self) -> RunResult<Lvalue> {
         match self.into_pointer() {
             Some(pointer) => Ok(pointer),
@@ -183,7 +193,7 @@ impl Clone for Rvalue {
     }
 }
 
-struct State {
+pub struct State {
     variables: HashMap<SymbolId, Vec<Lvalue>>,
     cin: Cin,
 
@@ -237,7 +247,11 @@ fn run_user_function(
     run_expression(body, state)
 }
 
-fn run_internal_function(function: &InternalFunction, arguments: Vec<Value>) -> RunResult<Value> {
+fn run_internal_function(
+    function: &InternalFunction,
+    arguments: Vec<Value>,
+    state: &mut State,
+) -> RunResult<Value> {
     use InternalFunctionTag::*;
     match function.tag {
         Assert => internal::assert(arguments),
@@ -252,6 +266,8 @@ fn run_internal_function(function: &InternalFunction, arguments: Vec<Value>) -> 
         GreaterEqInt => internal::greater_eq_int(arguments),
         EqInt => internal::eq_int(arguments),
         NotEqInt => internal::not_eq_int(arguments),
+        ReadInt => internal::read_int(arguments, state),
+        ReadWord => internal::read_word(arguments, state),
         ArrayPush(_) => internal::array_push(arguments),
         ArrayPop(_) => internal::array_pop(arguments),
         ArrayLen(_) => internal::array_len(arguments),
@@ -262,7 +278,6 @@ fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()
     match instruction {
         Instruction::Alloc(ref s) => run_alloc(s, state),
         Instruction::Dealloc(ref s) => run_dealloc(s, state),
-        Instruction::Read(ref s) => run_read(s, state),
         Instruction::Write(ref s) => run_write(s, state),
         Instruction::While(ref s) => run_while(s, state),
         Instruction::Assign(ref s) => run_assign(s, state),
@@ -290,16 +305,6 @@ fn run_alloc(instruction: &AllocInstruction, state: &mut State) -> RunResult<()>
 fn run_dealloc(instruction: &DeallocInstruction, state: &mut State) -> RunResult<()> {
     let variable_id = instruction.variable().id;
     state.pop(variable_id);
-    Ok(())
-}
-
-fn run_read(instruction: &ReadInstruction, state: &mut State) -> RunResult<()> {
-    let target = run_expression(instruction.target(), state)?.into_lvalue();
-    let word = state.cin.read_word()?;
-    let new_value: i32 = word
-        .parse()
-        .map_err(|_| format!("Could not parse `{}` to an integer.", word))?;
-    *target.borrow_mut() = Rvalue::Int(new_value);
     Ok(())
 }
 
@@ -385,14 +390,7 @@ fn run_address_expr(expression: &AddressExpr, state: &mut State) -> RunResult<Va
 fn run_deref_expr(expression: &DerefExpr, state: &mut State) -> RunResult<Value> {
     let lvalue = run_expression(expression.pointer(), state)?
         .into_rvalue()
-        .into_pointer();
-    let lvalue = match lvalue {
-        Some(lvalue) => lvalue,
-        None => {
-            let error = "Attempted to dereference null pointer.";
-            return Err(error.into());
-        }
-    };
+        .into_pointer_unwrap()?;
     Ok(Value::Lvalue(lvalue))
 }
 
@@ -485,7 +483,7 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
 
             function_result
         }
-        Function::Internal(ref function) => run_internal_function(function, arguments),
+        Function::Internal(ref function) => run_internal_function(function, arguments, state),
     }
 }
 
@@ -529,6 +527,10 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
         TypeId::Int => Rvalue::Int(0),
         TypeId::Bool => Rvalue::Bool(false),
         TypeId::Char => Rvalue::Char(0),
+        TypeId::String => {
+            // There is no distinction between strings and (char) arrays in the interpreter.
+            Rvalue::Array(Rc::new(RefCell::new(vec![])))
+        }
         TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
             Rvalue::Array(Rc::new(RefCell::new(vec![])))
         }

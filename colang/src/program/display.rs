@@ -69,7 +69,6 @@ impl Display for Instruction {
         match self {
             Instruction::Alloc(statement) => statement.fmt(f),
             Instruction::Dealloc(statement) => statement.fmt(f),
-            Instruction::Read(statement) => statement.fmt(f),
             Instruction::Write(statement) => statement.fmt(f),
             Instruction::While(statement) => statement.fmt(f),
             Instruction::Assign(statement) => statement.fmt(f),
@@ -97,17 +96,6 @@ impl Display for AllocInstruction {
 impl Display for DeallocInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "dealloc {}", *self.variable())
-    }
-}
-
-impl Display for ReadInstruction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let target = self.target().to_string();
-        if target.contains('\n') {
-            write!(f, "read:\n{}", indent(&target))
-        } else {
-            write!(f, "read {}", target)
-        }
     }
 }
 

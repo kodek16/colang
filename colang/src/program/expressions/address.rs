@@ -36,6 +36,22 @@ impl AddressExpr {
         Ok(expression)
     }
 
+    pub(crate) fn new_synthetic(
+        target: Expression,
+        types: &mut TypeRegistry,
+        span: InputSpan,
+    ) -> Expression {
+        let target = Box::new(target);
+        let type_ = types.pointer_to(&target.type_.borrow());
+
+        Expression {
+            kind: ExpressionKind::Address(AddressExpr { target }),
+            type_,
+            value_category: ValueCategory::Rvalue,
+            span: Some(span),
+        }
+    }
+
     pub fn target(&self) -> &Expression {
         &self.target
     }

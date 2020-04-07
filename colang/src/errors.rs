@@ -137,11 +137,11 @@ impl CompilationError {
         }
     }
 
-    pub fn read_target_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
+    pub fn read_unsupported_type(actual_type: &str, location: InputSpan) -> CompilationError {
         CompilationError {
             code: "E9010",
             message: format!(
-                "can only read variables of type `int`, not `{}`",
+                "can only read `int` and `string` variables, not `{}`",
                 actual_type
             ),
             location: Some(location),

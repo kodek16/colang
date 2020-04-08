@@ -111,6 +111,7 @@ fn run_internal_function(
         ReadInt => internal::read_int(arguments, state),
         IntToString => internal::int_to_string(arguments),
         ReadWord => internal::read_word(arguments, state),
+        StringIndex => internal::array_index(arguments),
         ArrayPush(_) => internal::array_push(arguments),
         ArrayPop(_) => internal::array_pop(arguments),
         ArrayLen(_) => internal::array_len(arguments),

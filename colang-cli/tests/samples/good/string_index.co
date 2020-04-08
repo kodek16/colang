@@ -1,0 +1,4 @@
+fun main() {
+  var s = "abacaba";
+  assert(ascii_code(s[1]) == 98);
+}

@@ -29,6 +29,7 @@ pub enum InternalFunctionTag {
     IntToString,
 
     ReadWord,
+    StringIndex,
 
     ArrayPush(TypeId),
     ArrayPop(TypeId),
@@ -39,7 +40,7 @@ pub enum InternalFunctionTag {
 pub fn populate_internal_symbols(
     program: &mut Program,
     scope: &mut Scope,
-    _type_scopes: &mut HashMap<TypeId, Scope>,
+    type_scopes: &mut HashMap<TypeId, Scope>,
 ) {
     let visible_functions = vec![
         create_assert_function(program.types()),
@@ -62,6 +63,8 @@ pub fn populate_internal_symbols(
         create_read_word_function(program.types_mut()),
     ];
 
+    let string_methods = vec![create_string_index_method(program.types_mut())];
+
     // Convert to multi-owned.
     let visible_functions: Vec<_> = visible_functions
         .into_iter()
@@ -71,8 +74,16 @@ pub fn populate_internal_symbols(
         .into_iter()
         .map(|f| Rc::new(RefCell::new(f)))
         .collect();
+    let string_methods: Vec<_> = string_methods
+        .into_iter()
+        .map(|f| Rc::new(RefCell::new(f)))
+        .collect();
 
-    for function in visible_functions.iter().chain(invisible_functions.iter()) {
+    for function in visible_functions
+        .iter()
+        .chain(invisible_functions.iter())
+        .chain(string_methods.iter())
+    {
         program.add_function(Rc::clone(&function));
     }
 
@@ -81,6 +92,17 @@ pub fn populate_internal_symbols(
             "Couldn't register internal function `{}`",
             function.borrow().name()
         ));
+    }
+
+    for method in string_methods {
+        type_scopes
+            .entry(TypeId::String)
+            .or_insert_with(Scope::new_for_type)
+            .add_function(Rc::clone(&method))
+            .expect(&format!(
+                "Couldn't register internal method `string::{}`",
+                method.borrow().name()
+            ));
     }
 }
 
@@ -249,6 +271,21 @@ fn create_read_word_function(types: &mut TypeRegistry) -> Function {
         InternalFunctionTag::ReadWord,
         vec![internal_param("target", &pointer_to_string)],
         Rc::clone(types.void()),
+    )
+}
+
+fn create_string_index_method(types: &mut TypeRegistry) -> Function {
+    let char = Rc::clone(types.char());
+    let pointer_to_char = types.pointer_to(&char.borrow());
+
+    InternalFunction::new(
+        "index".to_string(),
+        InternalFunctionTag::StringIndex,
+        vec![
+            internal_param("self", types.string()),
+            internal_param("index", types.int()),
+        ],
+        pointer_to_char,
     )
 }
 

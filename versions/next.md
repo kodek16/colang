@@ -16,6 +16,8 @@
   carry additional meaning of UTF-8 text that can be read and printed.
   That said, UTF-8-validness is not enforced, so strings can contain
   invalid sequences.
+- Strings can be indexed in the same way as arrays: `s[i]` returns
+  i-th character in the string, counting from 0.
 - Added `char` literals: `'a'`, `'0'`, and `'\n'` are all valid
   literals of type `char`. Literals (after unescaping) must contain
   exactly one ASCII character.

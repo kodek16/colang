@@ -810,18 +810,42 @@ fn compile_index_expr(
     expression: ast::IndexExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let location = expression.span;
     let collection = compile_expression(*expression.collection, None, context);
+    let collection_type = Rc::clone(&collection.type_);
     let index = compile_expression(*expression.index, None, context);
 
     if collection.is_error() || index.is_error() {
         return program::Expression::error(expression.span);
     }
 
-    let result = program::IndexExpr::new(collection, index, context.program.types(), location);
-    match result {
-        Ok(expression) => expression,
+    let method = lookup_method(&collection.type_, "index", expression.span, context);
+    let method = match method {
+        Ok(method) => method,
         Err(error) => {
+            context.errors.push(error);
+            return program::Expression::error(expression.span);
+        }
+    };
+
+    let pointer = program::CallExpr::new(method, vec![collection, index], expression.span);
+    let pointer = match pointer {
+        Ok(pointer) => pointer,
+        Err(error) => {
+            context.errors.push(error);
+            return program::Expression::error(expression.span);
+        }
+    };
+    let pointer_type = Rc::clone(&pointer.type_);
+
+    let result = program::DerefExpr::new(pointer, context.program.types(), Some(expression.span));
+    match result {
+        Ok(result) => result,
+        Err(_) => {
+            let error = CompilationError::index_method_returns_not_pointer(
+                collection_type.borrow().name(),
+                pointer_type.borrow().name(),
+                expression.span,
+            );
             context.errors.push(error);
             program::Expression::error(expression.span)
         }
@@ -907,41 +931,17 @@ fn compile_method_call_expr(
     // Automatically dereference pointers.
     let receiver = maybe_deref(receiver, context);
 
-    let method_name = &expression.method.text;
-    let receiver_type_id = receiver.type_.borrow().type_id().clone();
-
-    let method = {
-        let receiver_type_scope = context.type_scope(receiver_type_id.clone());
-        receiver_type_scope
-            .lookup_function(method_name, expression.method.span)
-            .map(Rc::clone)
-    };
-
-    let method: Rc<RefCell<Function>> = match method {
+    let method = lookup_method(
+        &receiver.type_,
+        &expression.method.text,
+        expression.method.span,
+        context,
+    );
+    let method = match method {
         Ok(method) => method,
         Err(error) => {
-            let instantiated_method = receiver
-                .type_
-                .borrow()
-                .uninstantiate(context.program.types())
-                .and_then(|(template, type_parameters)| {
-                    template.borrow().method_template(
-                        type_parameters.iter().map(|x| x).collect(),
-                        method_name,
-                        &mut context.program,
-                    )
-                });
-
-            if let Some(method) = instantiated_method {
-                context
-                    .type_scope_mut(receiver_type_id.clone())
-                    .add_function(Rc::clone(&method))
-                    .expect("Name conflict on instantiating method template");
-                method
-            } else {
-                context.errors.push(error);
-                return program::Expression::error(expression.span);
-            }
+            context.errors.push(error);
+            return program::Expression::error(expression.method.span);
         }
     };
 
@@ -997,6 +997,46 @@ fn compile_method_call_expr(
             program::Expression::error(expression.span)
         }
     }
+}
+
+fn lookup_method(
+    receiver_type: &Rc<RefCell<Type>>,
+    method_name: &str,
+    span: InputSpan,
+    context: &mut CompilerContext,
+) -> Result<Rc<RefCell<Function>>, CompilationError> {
+    let receiver_type_id = receiver_type.borrow().type_id().clone();
+
+    let method: Result<Rc<RefCell<Function>>, CompilationError> = {
+        let receiver_type_scope = context.type_scope(receiver_type_id.clone());
+        receiver_type_scope
+            .lookup_function(method_name, span)
+            .map(Rc::clone)
+    };
+
+    method.or_else(|error| {
+        let instantiated_method = receiver_type
+            .borrow()
+            .uninstantiate(context.program.types())
+            .and_then(|(template, type_parameters)| {
+                template.borrow().method_template(
+                    type_parameters.iter().map(|x| x).collect(),
+                    method_name,
+                    &mut context.program,
+                )
+            });
+
+        match instantiated_method {
+            Some(method) => {
+                context
+                    .type_scope_mut(receiver_type_id.clone())
+                    .add_function(Rc::clone(&method))
+                    .expect("Name conflict on instantiating method template");
+                Ok(method)
+            }
+            None => Err(error),
+        }
+    })
 }
 
 fn compile_arguments(

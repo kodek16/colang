@@ -167,7 +167,6 @@ impl Display for Expression {
             Deref(expr) => expr.fmt(f),
             FieldAccess(expr) => expr.fmt(f),
             If(expr) => expr.fmt(f),
-            Index(expr) => expr.fmt(f),
             Literal(expr) => expr.fmt(f),
             New(expr) => expr.fmt(f),
             Variable(expr) => expr.fmt(f),
@@ -272,19 +271,6 @@ impl Display for IfExpr {
         let else_ = self.else_().to_string();
 
         write!(f, "if {}:\n{}\n{}", cond, indent(&then), indent(&else_))
-    }
-}
-
-impl Display for IndexExpr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let collection = self.collection().to_string();
-        let index = self.index().to_string();
-
-        if collection.contains('\n') || index.contains('\n') {
-            write!(f, "index:\n{}\n{}", indent(&collection), indent(&index))
-        } else {
-            write!(f, "index {}, {}", collection, index)
-        }
     }
 }
 

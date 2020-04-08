@@ -331,6 +331,13 @@ pub fn create_array_template() -> Rc<RefCell<TypeTemplate>> {
             crate::program::internal::create_array_len_method,
         ),
     );
+    method_templates.insert(
+        "index".to_string(),
+        create_array_internal_method_template(
+            InternalFunctionTag::ArrayIndex,
+            crate::program::internal::create_array_index_method,
+        ),
+    );
 
     Rc::new(RefCell::new(TypeTemplate {
         type_template_id: TypeTemplateId::Array,

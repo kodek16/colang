@@ -318,25 +318,6 @@ impl CompilationError {
         }
     }
 
-    pub fn index_target_not_an_array(target_type: &str, location: InputSpan) -> CompilationError {
-        CompilationError {
-            code: "E9024",
-            message: format!(
-                "index expression target must be an array, not `{}`",
-                target_type
-            ),
-            location: Some(location),
-        }
-    }
-
-    pub fn array_index_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
-        CompilationError {
-            code: "E9025",
-            message: format!("array index must be `int`, not `{}`", actual_type),
-            location: Some(location),
-        }
-    }
-
     pub fn read_target_not_lvalue(location: InputSpan) -> CompilationError {
         CompilationError {
             code: "E9026",
@@ -449,6 +430,21 @@ impl CompilationError {
         CompilationError {
             code: "E9038",
             message: format!("unknown escape sequence: {}", sequence),
+            location: Some(location),
+        }
+    }
+
+    pub fn index_method_returns_not_pointer(
+        type_name: &str,
+        actual_return_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9039",
+            message: format!("`index` method must return a pointer in order to be used in indexing expressions, but for type `{}` it returns `{}`",
+                type_name,
+                actual_return_type,
+            ),
             location: Some(location),
         }
     }

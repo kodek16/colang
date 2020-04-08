@@ -33,6 +33,7 @@ pub enum InternalFunctionTag {
     ArrayPush(TypeId),
     ArrayPop(TypeId),
     ArrayLen(TypeId),
+    ArrayIndex(TypeId),
 }
 
 pub fn populate_internal_symbols(
@@ -295,6 +296,24 @@ pub fn create_array_len_method(
         InternalFunctionTag::ArrayLen(element_type.borrow().type_id().clone()),
         vec![internal_param("self", &array_type)],
         Rc::clone(types.int()),
+    )
+}
+
+pub fn create_array_index_method(
+    element_type: &Rc<RefCell<Type>>,
+    types: &mut TypeRegistry,
+) -> Function {
+    let array_type = types.array_of(&element_type.borrow());
+    let pointer_to_element_type = types.pointer_to(&element_type.borrow());
+
+    InternalFunction::new(
+        "index".to_string(),
+        InternalFunctionTag::ArrayIndex(element_type.borrow().type_id().clone()),
+        vec![
+            internal_param("self", &array_type),
+            internal_param("index", types.int()),
+        ],
+        pointer_to_element_type,
     )
 }
 

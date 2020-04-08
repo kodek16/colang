@@ -1,0 +1,10 @@
+struct foo {
+  fun index(self, x: int): int {
+    42
+  }
+}
+
+fun main() {
+  var x: foo;
+  x[2];
+}

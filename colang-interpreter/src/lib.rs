@@ -114,6 +114,7 @@ fn run_internal_function(
         ArrayPush(_) => internal::array_push(arguments),
         ArrayPop(_) => internal::array_pop(arguments),
         ArrayLen(_) => internal::array_len(arguments),
+        ArrayIndex(_) => internal::array_index(arguments),
     }
 }
 
@@ -197,7 +198,6 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ExpressionKind::New(e) => run_new_expr(e, state),
         ExpressionKind::ArrayFromElements(e) => run_array_from_elements_expr(e, state),
         ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
-        ExpressionKind::Index(e) => run_index_expr(e, state),
         ExpressionKind::Call(e) => run_call_expr(e, state),
         ExpressionKind::FieldAccess(e) => run_field_access_expr(e, state),
         ExpressionKind::If(e) => run_if_expr(e, state),
@@ -274,27 +274,6 @@ fn run_array_from_copy_expr(expression: &ArrayFromCopyExpr, state: &mut State) -
     let array = array.into_iter().map(Lvalue::store).collect();
 
     Ok(Value::Rvalue(Rvalue::Array(Rc::new(RefCell::new(array)))))
-}
-
-fn run_index_expr(expression: &IndexExpr, state: &mut State) -> RunResult<Value> {
-    let collection = run_expression(expression.collection(), state)?
-        .into_rvalue()
-        .into_array();
-    let collection = collection.borrow();
-    let index = run_expression(expression.index(), state)?
-        .into_rvalue()
-        .as_int();
-
-    if index < 0 || index >= collection.len() as i32 {
-        let error = format!(
-            "array index out of bounds: array size is {}, index is {}",
-            collection.len(),
-            index
-        );
-        return Err(error.into());
-    }
-
-    Ok(Value::Lvalue(collection[index as usize].clone()))
 }
 
 fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {

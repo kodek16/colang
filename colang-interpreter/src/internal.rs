@@ -164,3 +164,22 @@ pub fn array_len(mut arguments: Vec<Value>) -> RunResult<Value> {
     let result = array.borrow().len();
     Ok(Value::Rvalue(Rvalue::Int(result as i32)))
 }
+
+pub fn array_index(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let index = arguments.pop().unwrap().into_rvalue().as_int();
+    let array = arguments.pop().unwrap().into_rvalue().into_array();
+    let array = array.borrow();
+
+    if index < 0 || index >= array.len() as i32 {
+        let error = format!(
+            "array index out of bounds: array size is {}, index is {}",
+            array.len(),
+            index
+        );
+        return Err(error.into());
+    }
+
+    Ok(Value::Rvalue(Rvalue::Pointer(Some(
+        array[index as usize].clone(),
+    ))))
+}

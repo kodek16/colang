@@ -1,0 +1,192 @@
+use crate::{panic_wrong_type, RunResult};
+use colang::program::SymbolId;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
+
+#[derive(Clone)]
+pub enum Value {
+    Lvalue(Lvalue),
+    Rvalue(Rvalue),
+}
+
+impl Value {
+    pub fn into_lvalue(self) -> Lvalue {
+        match self {
+            Value::Lvalue(value) => value,
+            Value::Rvalue(_) => panic!("Rvalue accessed as lvalue."),
+        }
+    }
+
+    pub fn into_rvalue(self) -> Rvalue {
+        match self {
+            Value::Lvalue(value) => (*value.borrow()).clone(),
+            Value::Rvalue(value) => value,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Lvalue(Rc<RefCell<Rvalue>>);
+
+impl Lvalue {
+    pub fn store(rvalue: Rvalue) -> Lvalue {
+        Lvalue(Rc::new(RefCell::new(rvalue)))
+    }
+
+    pub fn clone_contents(&self) -> Lvalue {
+        Lvalue::store(self.0.borrow().clone())
+    }
+
+    pub fn detach(&self) -> Rvalue {
+        self.0.borrow().clone()
+    }
+
+    pub fn borrow(&self) -> impl Deref<Target = Rvalue> + '_ {
+        self.0.borrow()
+    }
+
+    pub fn borrow_mut(&self) -> impl DerefMut<Target = Rvalue> + '_ {
+        self.0.borrow_mut()
+    }
+}
+
+/// Every value that exists in the program belongs to this type.
+pub enum Rvalue {
+    Int(i32),
+    Bool(bool),
+    Char(u8),
+    Array(Rc<RefCell<Vec<Lvalue>>>),
+    Pointer(Option<Lvalue>),
+    Struct(HashMap<SymbolId, Lvalue>),
+    Void,
+}
+
+impl Rvalue {
+    pub fn new_string(contents: &str) -> Rvalue {
+        let chars = contents
+            .as_bytes()
+            .iter()
+            .map(|ch| Lvalue::store(Rvalue::Char(*ch)))
+            .collect();
+        Rvalue::Array(Rc::new(RefCell::new(chars)))
+    }
+
+    pub fn as_int(&self) -> i32 {
+        match self {
+            Rvalue::Int(x) => *x,
+            _ => panic_wrong_type("int", self.type_()),
+        }
+    }
+
+    pub fn as_bool(&self) -> bool {
+        match self {
+            Rvalue::Bool(b) => *b,
+            _ => panic_wrong_type("bool", self.type_()),
+        }
+    }
+
+    pub fn as_char(&self) -> u8 {
+        match self {
+            Rvalue::Char(c) => *c,
+            _ => panic_wrong_type("char", self.type_()),
+        }
+    }
+
+    pub fn into_array(self) -> Rc<RefCell<Vec<Lvalue>>> {
+        match self {
+            Rvalue::Array(v) => v,
+            _ => panic_wrong_type("array", self.type_()),
+        }
+    }
+
+    pub fn as_utf8_string(&self) -> RunResult<String> {
+        match self {
+            Rvalue::Array(v) => {
+                let chars = v
+                    .borrow()
+                    .iter()
+                    .map(|ch| match *ch.borrow() {
+                        Rvalue::Char(ch) => ch,
+                        _ => panic_wrong_type("char", ch.detach().type_()),
+                    })
+                    .collect();
+                String::from_utf8(chars).map_err(|_| "string is not a valid UTF-8 sequence".into())
+            }
+            _ => panic_wrong_type("array", self.type_()),
+        }
+    }
+
+    pub fn into_pointer(self) -> Option<Lvalue> {
+        match self {
+            Rvalue::Pointer(p) => p,
+            _ => panic_wrong_type("pointer", self.type_()),
+        }
+    }
+
+    pub fn into_pointer_unwrap(self) -> RunResult<Lvalue> {
+        match self.into_pointer() {
+            Some(pointer) => Ok(pointer),
+            None => {
+                let error = "attempt to dereference null pointer";
+                return Err(error.into());
+            }
+        }
+    }
+
+    pub fn into_pointer_to_self(self) -> RunResult<Lvalue> {
+        match self.into_pointer() {
+            Some(pointer) => Ok(pointer),
+            None => {
+                let error = "`self` is null in method";
+                return Err(error.into());
+            }
+        }
+    }
+
+    pub fn as_struct(&self) -> &HashMap<SymbolId, Lvalue> {
+        match self {
+            Rvalue::Struct(fields) => fields,
+            _ => panic_wrong_type("struct", self.type_()),
+        }
+    }
+
+    /// A quick-and-dirty information source about value types in runtime.
+    /// This is _not_ meant to be an actual RTTI solution, it is only meant
+    /// to be used in type mismatch panics, which should not occur under
+    /// normal circumstances.
+    pub fn type_(&self) -> &'static str {
+        use Rvalue::*;
+        match self {
+            Int(_) => "int",
+            Bool(_) => "bool",
+            Char(_) => "char",
+            Array(_) => "array",
+            Pointer(_) => "pointer",
+            Struct(_) => "struct",
+            Void => "void",
+        }
+    }
+}
+
+impl Clone for Rvalue {
+    fn clone(&self) -> Self {
+        use Rvalue::*;
+        match self {
+            Int(x) => Rvalue::Int(*x),
+            Bool(b) => Rvalue::Bool(*b),
+            Char(c) => Rvalue::Char(*c),
+            Array(v) => Rvalue::Array(Rc::clone(v)),
+            Pointer(p) => Rvalue::Pointer(p.clone()),
+            Struct(fields) => {
+                let fields_copy = fields
+                    .iter()
+                    .map(|(id, lvalue)| (*id, lvalue.clone_contents()))
+                    .collect();
+                Rvalue::Struct(fields_copy)
+            }
+            Void => Rvalue::Void,
+        }
+    }
+}

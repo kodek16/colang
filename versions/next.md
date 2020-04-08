@@ -22,3 +22,9 @@
 - Extended `read` statements to work with strings: `read s` consumes
   the next word (whitespace-delimited) from stdin and stores it
   literal in the `s` variable.
+- Modified `write` statements to work with either strings or `int`.
+
+## Incompatible changes
+
+- `write` statement used with `int` value no longer automatically
+  appends a newline character.

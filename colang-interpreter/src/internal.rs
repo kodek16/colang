@@ -99,6 +99,12 @@ pub fn read_int(mut arguments: Vec<Value>, state: &mut State) -> RunResult<Value
     Ok(Value::Rvalue(Rvalue::Void))
 }
 
+pub fn int_to_string(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let value = arguments.pop().unwrap().into_rvalue().as_int();
+    let result = format!("{}", value);
+    Ok(Value::Rvalue(Rvalue::new_string(&result)))
+}
+
 pub fn read_word(mut arguments: Vec<Value>, state: &mut State) -> RunResult<Value> {
     let target = arguments
         .pop()
@@ -127,9 +133,7 @@ pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {
         .into_pointer_to_self()?;
 
     array_pointer
-        .0
-        .borrow()
-        .clone()
+        .detach()
         .into_array()
         .borrow_mut()
         .push(Lvalue::store(element));
@@ -142,16 +146,10 @@ pub fn array_pop(mut arguments: Vec<Value>) -> RunResult<Value> {
         .unwrap()
         .into_rvalue()
         .into_pointer_to_self()?;
-    let result = array_pointer
-        .0
-        .borrow()
-        .clone()
-        .into_array()
-        .borrow_mut()
-        .pop();
+    let result = array_pointer.detach().into_array().borrow_mut().pop();
     match result {
         Some(result) => {
-            let rvalue = result.0.borrow().clone();
+            let rvalue = result.detach();
             Ok(Value::Rvalue(rvalue))
         }
         None => {

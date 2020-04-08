@@ -484,15 +484,14 @@ fn compile_write_stmt(
     sink: &mut impl StatementSink,
     context: &mut CompilerContext,
 ) {
-    let expr_span = statement.expression.span();
     let expression = compile_expression(statement.expression, None, context);
     if expression.is_error() {
         return;
     }
 
-    let result = program::WriteInstruction::new(expression, context.program.types(), expr_span);
+    let result = program::WriteInstruction::new(expression, &context.program);
     match result {
-        Ok(statement) => sink.emit(statement),
+        Ok(instruction) => sink.emit(instruction),
         Err(error) => context.errors.push(error),
     }
 }

@@ -26,6 +26,7 @@ pub enum InternalFunctionTag {
     EqInt,
     NotEqInt,
     ReadInt,
+    IntToString,
 
     ReadWord,
 
@@ -56,6 +57,7 @@ pub fn populate_internal_symbols(
         create_eq_int_function(program.types()),
         create_not_eq_int_function(program.types()),
         create_read_int_function(program.types_mut()),
+        create_int_to_string_function(program.types()),
         create_read_word_function(program.types_mut()),
     ];
 
@@ -225,6 +227,15 @@ fn create_read_int_function(types: &mut TypeRegistry) -> Function {
         InternalFunctionTag::ReadInt,
         vec![internal_param("target", &pointer_to_int)],
         Rc::clone(types.void()),
+    )
+}
+
+fn create_int_to_string_function(types: &TypeRegistry) -> Function {
+    InternalFunction::new(
+        "<int as string>".to_string(),
+        InternalFunctionTag::IntToString,
+        vec![internal_param("value", types.int())],
+        Rc::clone(types.string()),
     )
 }
 

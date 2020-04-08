@@ -240,11 +240,14 @@ impl CompilationError {
         }
     }
 
-    pub fn write_value_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
+    pub fn write_value_is_not_stringable(
+        actual_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
         CompilationError {
             code: "E9019",
             message: format!(
-                "can only print variables of type `int`, not `{}`",
+                "can only write values of type `string` or convertible to `string`, not `{}`",
                 actual_type
             ),
             location: Some(location),

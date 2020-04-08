@@ -1,0 +1,4 @@
+fun main() {
+  var s = "abacaba";
+  write s;
+}

@@ -9,6 +9,7 @@ pub enum LiteralExpr {
     Int(i32),
     Bool(bool),
     Char(u8),
+    String(String),
 }
 
 impl LiteralExpr {
@@ -51,9 +52,22 @@ impl LiteralExpr {
             span: Some(span),
         })
     }
+
+    pub fn string(
+        value: &str,
+        types: &TypeRegistry,
+        span: InputSpan,
+    ) -> Result<Expression, CompilationError> {
+        let literal = unescape(value, span)?;
+        Ok(Expression {
+            kind: ExpressionKind::Literal(LiteralExpr::String(literal)),
+            type_: Rc::clone(types.string()),
+            value_category: ValueCategory::Rvalue,
+            span: Some(span),
+        })
+    }
 }
 
-/// Unescapes a string literal that is presumed to be escaped correctly.
 fn unescape(text: &str, span: InputSpan) -> Result<String, CompilationError> {
     let mut result: Vec<u8> = Vec::new();
 
@@ -70,7 +84,13 @@ fn unescape(text: &str, span: InputSpan) -> Result<String, CompilationError> {
                 b'r' => b'\r',
                 b't' => b'\t',
                 b'0' => b'\0',
-                _ => panic!("Unknown escape sequence: \\{}", *next_character as char),
+                _ => {
+                    let error = CompilationError::unknown_escape_sequence(
+                        &format!("\\{}", *next_character as char),
+                        span,
+                    );
+                    return Err(error);
+                }
             };
             result.push(escaped_character)
         } else {

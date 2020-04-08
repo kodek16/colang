@@ -569,6 +569,7 @@ fn compile_expression(
         ast::Expression::IntLiteral(e) => compile_int_literal_expr(e, context),
         ast::Expression::BoolLiteral(e) => compile_bool_literal_expr(e, context),
         ast::Expression::CharLiteral(e) => compile_char_literal_expr(e, context),
+        ast::Expression::StringLiteral(e) => compile_string_literal_expr(e, context),
         ast::Expression::Self_(e) => compile_self_expr(e, context),
         ast::Expression::BinaryOp(e) => compile_binary_op_expr(e, context),
         ast::Expression::Address(e) => compile_address_expr(e, type_hint, context),
@@ -626,6 +627,21 @@ fn compile_char_literal_expr(
 ) -> program::Expression {
     let result =
         program::LiteralExpr::char(&expression.value, context.program.types(), expression.span);
+    match result {
+        Ok(expression) => expression,
+        Err(error) => {
+            context.errors.push(error);
+            program::Expression::error(expression.span)
+        }
+    }
+}
+
+fn compile_string_literal_expr(
+    expression: ast::StringLiteralExpr,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let result =
+        program::LiteralExpr::string(&expression.value, context.program.types(), expression.span);
     match result {
         Ok(expression) => expression,
         Err(error) => {

@@ -189,6 +189,7 @@ pub enum Expression {
     IntLiteral(IntLiteralExpr),
     BoolLiteral(BoolLiteralExpr),
     CharLiteral(CharLiteralExpr),
+    StringLiteral(StringLiteralExpr),
     Self_(SelfExpr),
     BinaryOp(BinaryOperatorExpr),
     Address(AddressExpr),
@@ -212,6 +213,7 @@ impl Expression {
             IntLiteral(e) => e.span,
             BoolLiteral(e) => e.span,
             CharLiteral(e) => e.span,
+            StringLiteral(e) => e.span,
             Self_(e) => e.span,
             BinaryOp(e) => e.span,
             Address(e) => e.span,
@@ -246,6 +248,10 @@ impl Expression {
                 ..e
             }),
             Expression::CharLiteral(e) => Expression::CharLiteral(CharLiteralExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::StringLiteral(e) => Expression::StringLiteral(StringLiteralExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -330,6 +336,13 @@ pub struct BoolLiteralExpr {
 
 #[derive(Debug)]
 pub struct CharLiteralExpr {
+    pub value: String,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct StringLiteralExpr {
     pub value: String,
 
     pub span: InputSpan,

@@ -444,6 +444,14 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn unknown_escape_sequence(sequence: &str, location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9038",
+            message: format!("unknown escape sequence: {}", sequence),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

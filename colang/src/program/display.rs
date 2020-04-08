@@ -293,7 +293,8 @@ impl Display for LiteralExpr {
         match self {
             LiteralExpr::Int(value) => write!(f, "{}", value),
             LiteralExpr::Bool(value) => write!(f, "{}", value),
-            LiteralExpr::Char(value) => write!(f, "{}", *value as char),
+            LiteralExpr::Char(value) => write!(f, "'{}'", *value as char),
+            LiteralExpr::String(value) => write!(f, "\"{}\"", value),
         }
     }
 }

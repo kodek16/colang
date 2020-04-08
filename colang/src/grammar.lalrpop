@@ -329,6 +329,7 @@ Expr0: Expression = {
     IntLiteralExpr,
     BoolLiteralExpr,
     CharLiteralExpr,
+    StringLiteralExpr,
     SelfExpr,
     NewExpr,
     ArrayFromElementsExpr,
@@ -370,6 +371,15 @@ BoolLiteralExpr: Expression = {
 CharLiteralExpr: Expression = {
     <start:@L> <value:CharLiteral> <end:@R> => {
         Expression::CharLiteral(CharLiteralExpr {
+            value,
+            span: InputSpan { file, start, end },
+        })
+    },
+};
+
+StringLiteralExpr: Expression = {
+    <start:@L> <value:StringLiteral> <end:@R> => {
+        Expression::StringLiteral(StringLiteralExpr {
             value,
             span: InputSpan { file, start, end },
         })
@@ -537,7 +547,11 @@ BoolLiteral: bool = {
 }
 
 CharLiteral: String = {
-    <literal:r#"'([^'\\\n\r\t]|\\'|\\"|\\n|\\r|\\t|\\\\|\\0)*'"#> => String::from(&literal[1..literal.len()-1]),
+    <literal:r#"'([^'\\\n\r\t]|\\.)*'"#> => String::from(&literal[1..literal.len()-1]),
+};
+
+StringLiteral: String = {
+    <literal:r#""([^"\\\n\r\t]|\\.)*""#> => String::from(&literal[1..literal.len()-1]),
 };
 
 // Keywords:

@@ -218,6 +218,7 @@ fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
         LiteralExpr::Int(value) => Value::Rvalue(Rvalue::Int(*value)),
         LiteralExpr::Bool(value) => Value::Rvalue(Rvalue::Bool(*value)),
         LiteralExpr::Char(value) => Value::Rvalue(Rvalue::Char(*value)),
+        LiteralExpr::String(value) => Value::Rvalue(Rvalue::new_string(value)),
     };
     Ok(value)
 }

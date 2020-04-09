@@ -158,6 +158,7 @@ pub struct ReadEntry {
 #[derive(Debug)]
 pub struct WriteStmt {
     pub expression: Expression,
+    pub newline: bool,
 
     pub span: InputSpan,
 }

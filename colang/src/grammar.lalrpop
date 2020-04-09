@@ -119,6 +119,15 @@ StmtNotExpr: Statement = {
     <start: @L> KwWrite <expression:Expr> ";" <end: @R> => {
         Statement::Write(WriteStmt {
             expression,
+            newline: false,
+            span: InputSpan { file, start, end },
+        })
+    },
+
+    <start:@L> KwWriteLn <expression:Expr> ";" <end:@R> => {
+        Statement::Write(WriteStmt {
+            expression,
+            newline: true,
             span: InputSpan { file, start, end },
         })
     },
@@ -558,6 +567,7 @@ StringLiteral: String = {
 KwVar: () = { "var" }
 KwRead: () = { "read" }
 KwWrite: () = { "write" }
+KwWriteLn: () = { "writeln" }
 KwIf: () = { "if" }
 KwElse: () = { "else" }
 KwWhile: () = { "while" }

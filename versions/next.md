@@ -30,6 +30,8 @@
   the next word (whitespace-delimited) from stdin and stores it
   literal in the `s` variable.
 - Modified `write` statements to work with either strings or `int`.
+- Added `writeln` statement that is identical to `write`, but it
+  also prints a newline.
 
 ## Incompatible changes
 

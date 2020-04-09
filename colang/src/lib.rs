@@ -491,7 +491,18 @@ fn compile_write_stmt(
 
     let result = program::WriteInstruction::new(expression, &context.program);
     match result {
-        Ok(instruction) => sink.emit(instruction),
+        Ok(instruction) => {
+            sink.emit(instruction);
+
+            if statement.newline {
+                let newline =
+                    program::LiteralExpr::string("\n", context.program.types(), statement.span)
+                        .expect("Couldn't construct '\\n' string literal");
+                let instruction = program::WriteInstruction::new(newline, &context.program)
+                    .expect("Couldn't construct `write` instruction for synthetic newline");
+                sink.emit(instruction)
+            }
+        }
         Err(error) => context.errors.push(error),
     }
 }

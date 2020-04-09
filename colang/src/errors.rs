@@ -448,6 +448,22 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn binary_operator_unsupported_types(
+        operator: &str,
+        lhs_type: &str,
+        rhs_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9040",
+            message: format!(
+                "operator `{}` cannot be used with types `{}` and `{}`",
+                operator, lhs_type, rhs_type,
+            ),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

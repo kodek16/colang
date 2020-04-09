@@ -29,7 +29,10 @@ pub enum InternalFunctionTag {
     IntToString,
 
     ReadWord,
+    StringAdd,
     StringIndex,
+    StringEq,
+    StringNotEq,
 
     ArrayPush(TypeId),
     ArrayPop(TypeId),
@@ -63,7 +66,12 @@ pub fn populate_internal_symbols(
         create_read_word_function(program.types_mut()),
     ];
 
-    let string_methods = vec![create_string_index_method(program.types_mut())];
+    let string_methods = vec![
+        create_string_add_method(program.types()),
+        create_string_index_method(program.types_mut()),
+        create_string_eq_method(program.types()),
+        create_string_not_eq_method(program.types()),
+    ];
 
     // Convert to multi-owned.
     let visible_functions: Vec<_> = visible_functions
@@ -274,6 +282,18 @@ fn create_read_word_function(types: &mut TypeRegistry) -> Function {
     )
 }
 
+fn create_string_add_method(types: &TypeRegistry) -> Function {
+    InternalFunction::new(
+        "(+)".to_string(),
+        InternalFunctionTag::StringAdd,
+        vec![
+            internal_param("self", types.string()),
+            internal_param("other", types.string()),
+        ],
+        Rc::clone(types.string()),
+    )
+}
+
 fn create_string_index_method(types: &mut TypeRegistry) -> Function {
     let char = Rc::clone(types.char());
     let pointer_to_char = types.pointer_to(&char.borrow());
@@ -286,6 +306,30 @@ fn create_string_index_method(types: &mut TypeRegistry) -> Function {
             internal_param("index", types.int()),
         ],
         pointer_to_char,
+    )
+}
+
+fn create_string_eq_method(types: &TypeRegistry) -> Function {
+    InternalFunction::new(
+        "(==)".to_string(),
+        InternalFunctionTag::StringEq,
+        vec![
+            internal_param("self", types.string()),
+            internal_param("other", types.string()),
+        ],
+        Rc::clone(types.bool()),
+    )
+}
+
+fn create_string_not_eq_method(types: &TypeRegistry) -> Function {
+    InternalFunction::new(
+        "(!=)".to_string(),
+        InternalFunctionTag::StringNotEq,
+        vec![
+            internal_param("self", types.string()),
+            internal_param("other", types.string()),
+        ],
+        Rc::clone(types.bool()),
     )
 }
 

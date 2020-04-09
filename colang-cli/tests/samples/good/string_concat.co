@@ -1,0 +1,5 @@
+fun main() {
+  var s = "aba";
+  var q = "caba";
+  assert(s + q == "abacaba");
+}

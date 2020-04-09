@@ -1,0 +1,7 @@
+fun main() {
+  var s = "aba";
+  var q = s;
+  s[0] = 'c';
+  assert(s == "cba");
+  assert(q == "cba");
+}

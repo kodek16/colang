@@ -18,6 +18,8 @@
   invalid sequences.
 - Strings can be indexed in the same way as arrays: `s[i]` returns
   i-th character in the string, counting from 0.
+- Strings can be concatenated with `+`, and compared with `==` and
+  `!=`.
 - Added `char` literals: `'a'`, `'0'`, and `'\n'` are all valid
   literals of type `char`. Literals (after unescaping) must contain
   exactly one ASCII character.

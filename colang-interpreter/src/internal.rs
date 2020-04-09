@@ -124,6 +124,47 @@ pub fn read_word(mut arguments: Vec<Value>, state: &mut State) -> RunResult<Valu
     Ok(Value::Rvalue(Rvalue::Void))
 }
 
+pub fn array_concat(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let other = arguments.pop().unwrap().into_rvalue().into_array();
+    let self_ = arguments.pop().unwrap().into_rvalue().into_array();
+
+    let other = other.borrow();
+    let self_ = self_.borrow();
+
+    let result: Vec<_> = self_
+        .iter()
+        .chain(other.iter())
+        .map(Lvalue::clone_contents)
+        .collect();
+    Ok(Value::Rvalue(Rvalue::Array(Rc::new(RefCell::new(result)))))
+}
+
+pub fn string_eq(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let other = arguments.pop().unwrap().into_rvalue().into_array();
+    let self_ = arguments.pop().unwrap().into_rvalue().into_array();
+
+    let other = other.borrow();
+    let self_ = self_.borrow();
+
+    let result = if self_.len() == other.len() {
+        self_
+            .iter()
+            .zip(other.iter())
+            .all(|(x, y)| x.borrow().as_char() == y.borrow().as_char())
+    } else {
+        false
+    };
+    Ok(Value::Rvalue(Rvalue::Bool(result)))
+}
+
+pub fn string_not_eq(arguments: Vec<Value>) -> RunResult<Value> {
+    if let Value::Rvalue(Rvalue::Bool(result)) = string_eq(arguments)? {
+        Ok(Value::Rvalue(Rvalue::Bool(!result)))
+    } else {
+        panic!("error in `string_eq` internal method");
+    }
+}
+
 pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {
     let element = arguments.pop().unwrap().into_rvalue();
     let array_pointer = arguments

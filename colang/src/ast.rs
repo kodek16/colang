@@ -1,6 +1,8 @@
 //! Abstract syntax tree representation. This is the interface
 //! between the parser (LALRPOP) and the rest of the front-end.
 
+use std::fmt::{self, Display, Formatter};
+
 pub type ParseError<'a> =
     lalrpop_util::ParseError<usize, lalrpop_util::lexer::Token<'a>, &'static str>;
 
@@ -364,6 +366,24 @@ pub enum BinaryOperator {
     GreaterEq,
     Eq,
     NotEq,
+}
+
+impl Display for BinaryOperator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use BinaryOperator::*;
+        let symbol = match self {
+            Add => "+",
+            Sub => "-",
+            Mul => "*",
+            Less => "<",
+            Greater => ">",
+            LessEq => "<=",
+            GreaterEq => ">=",
+            Eq => "==",
+            NotEq => "!=",
+        };
+        write!(f, "{}", symbol)
+    }
 }
 
 #[derive(Debug)]

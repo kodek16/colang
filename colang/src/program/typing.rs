@@ -121,14 +121,10 @@ impl Type {
     }
 
     pub fn is_user_defined(&self) -> bool {
-        self.symbol_id().is_some()
-    }
-
-    /// If the type is user-defined, returns its symbol id.
-    pub fn symbol_id(&self) -> Option<SymbolId> {
         match self.type_id {
-            TypeId::Struct(symbol_id) => Some(symbol_id),
-            _ => None,
+            TypeId::Struct(_) => true,
+            TypeId::TemplateInstance(TypeTemplateId::Struct(_), _) => true,
+            _ => false,
         }
     }
 
@@ -335,8 +331,8 @@ pub struct TypeTemplate {
 /// Type parameters are constructed at the same time as the template using this information
 /// collected beforehand.
 pub struct ProtoTypeParameter {
-    name: String,
-    definition_site: Option<InputSpan>,
+    pub name: String,
+    pub definition_site: Option<InputSpan>,
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -455,8 +451,8 @@ impl TypeTemplate {
         self.definition_site
     }
 
-    pub fn type_parameters(&self) -> Vec<&Rc<RefCell<Type>>> {
-        self.type_parameters.iter().collect()
+    pub fn type_parameters(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
+        self.type_parameters.iter()
     }
 
     pub fn base_type(&self) -> &Rc<RefCell<Type>> {
@@ -517,9 +513,19 @@ impl TypeTemplate {
         }));
         registry
             .types
-            .insert(concrete_type_id, Rc::clone(&concrete_type));
+            .insert(concrete_type_id.clone(), Rc::clone(&concrete_type));
 
-        // TODO copy fields and methods from template
+        for field in self.base_type.borrow().fields.iter() {
+            let instantiated_field =
+                field
+                    .borrow()
+                    .instantiate(concrete_type_id.clone(), &type_argument_map, registry);
+            concrete_type
+                .borrow_mut()
+                .add_field(instantiated_field)
+                .expect("Name collision on type template instantiation");
+        }
+
         for method in self.base_type.borrow().methods.iter() {
             let instantiated_method = method.borrow().instantiate(&type_argument_map, registry);
             concrete_type

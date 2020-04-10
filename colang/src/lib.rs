@@ -19,8 +19,8 @@ use std::rc::Rc;
 use crate::ast::{InputSpan, InputSpanFile};
 use crate::errors::CompilationError;
 use crate::program::{
-    BlockBuilder, Function, InternalFunctionTag, Parameter, Type, TypeId, UserDefinedFunction,
-    ValueCategory, Variable,
+    BlockBuilder, Function, InternalFunctionTag, Parameter, ProtoTypeParameter, Type, TypeId,
+    TypeTemplate, UserDefinedFunction, ValueCategory, Variable,
 };
 use crate::scope::Scope;
 
@@ -117,6 +117,11 @@ impl StatementSink for BlockBuilder {
 }
 
 fn compile_struct_def(struct_def: ast::StructDef, context: &mut CompilerContext) {
+    if !struct_def.type_parameters.is_empty() {
+        compile_struct_template_def(struct_def, context);
+        return;
+    }
+
     let name = &struct_def.name.text;
     let type_ = Type::new_struct(
         name.to_string(),
@@ -133,8 +138,53 @@ fn compile_struct_def(struct_def: ast::StructDef, context: &mut CompilerContext)
     }
 
     for method_def in struct_def.methods {
-        compile_method_def(method_def, Rc::clone(&type_), context);
+        compile_method_def(method_def, &type_, context);
     }
+}
+
+fn compile_struct_template_def(struct_def: ast::StructDef, context: &mut CompilerContext) {
+    let type_parameters: Vec<_> = struct_def
+        .type_parameters
+        .into_iter()
+        .map(|type_param| ProtoTypeParameter {
+            name: type_param.text,
+            definition_site: Some(type_param.span),
+        })
+        .collect();
+    let template = TypeTemplate::new_struct_template(
+        struct_def.name.text.clone(),
+        type_parameters,
+        struct_def.signature_span,
+        &mut context.program,
+    );
+
+    let result = context.scope.add_type_template(Rc::clone(&template));
+    if let Err(error) = result {
+        context.errors.push(error);
+    }
+
+    // Type parameter scope.
+    context.scope.push();
+
+    for type_parameter in template.borrow().type_parameters() {
+        let result = context.scope.add_type(Rc::clone(&type_parameter));
+        if let Err(error) = result {
+            context.errors.push(error);
+        }
+    }
+
+    let base_type = Rc::clone(template.borrow().base_type());
+
+    for field_def in struct_def.fields {
+        compile_field_def(field_def, &base_type, context);
+    }
+
+    for method_def in struct_def.methods {
+        compile_method_def(method_def, &base_type, context);
+    }
+
+    // Type parameter scope.
+    context.scope.pop();
 }
 
 fn compile_field_def(
@@ -144,7 +194,7 @@ fn compile_field_def(
 ) {
     let type_ = compile_type_expr(field_def.type_, context);
 
-    let field = Variable::new(
+    let field = Variable::new_field(
         field_def.name.text,
         Rc::clone(&type_),
         Some(field_def.span),
@@ -167,7 +217,7 @@ fn compile_field_def(
 
 fn compile_method_def(
     method_def: ast::FunctionDef,
-    current_type: Rc<RefCell<Type>>,
+    current_type: &Rc<RefCell<Type>>,
     context: &mut CompilerContext,
 ) {
     let return_type = compile_return_type(method_def.return_type, context);
@@ -196,20 +246,16 @@ fn compile_method_def(
     // Parameters have their own scope.
     context.scope.push();
     let self_parameter = match self_parameter {
-        Some(parameter) => compile_self_parameter(parameter, Rc::clone(&current_type), context),
+        Some(parameter) => compile_self_parameter(parameter, Rc::clone(current_type), context),
         None => {
             let error =
                 CompilationError::method_first_parameter_is_not_self(method_def.signature_span);
             context.errors.push(error);
 
             // For better error recovery.
-            let fake_self = create_variable(
-                "<self>".to_string(),
-                Rc::clone(&current_type),
-                None,
-                context,
-            )
-            .unwrap();
+            let fake_self =
+                create_variable("<self>".to_string(), Rc::clone(current_type), None, context)
+                    .unwrap();
             fake_self
         }
     };

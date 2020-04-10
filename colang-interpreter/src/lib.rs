@@ -52,14 +52,24 @@ impl State {
         }
     }
 
-    fn push(&mut self, variable_id: SymbolId, value: Rvalue) {
+    fn push(&mut self, variable_id: VariableId, value: Rvalue) {
+        let variable_id = match variable_id {
+            VariableId::Variable(id) => id,
+            _ => panic!("Attempt to treat a field as a variable"),
+        };
+
         self.variables
             .entry(variable_id)
             .or_default()
             .push(Lvalue::store(value))
     }
 
-    fn pop(&mut self, variable_id: SymbolId) {
+    fn pop(&mut self, variable_id: VariableId) {
+        let variable_id = match variable_id {
+            VariableId::Variable(id) => id,
+            _ => panic!("Attempt to treat a field as a variable"),
+        };
+
         self.variables
             .get_mut(&variable_id)
             .expect("variable deallocated before allocation")
@@ -67,7 +77,12 @@ impl State {
             .expect("variable deallocated twice");
     }
 
-    fn get(&self, variable_id: SymbolId) -> Value {
+    fn get(&self, variable_id: VariableId) -> Value {
+        let variable_id = match variable_id {
+            VariableId::Variable(id) => id,
+            _ => panic!("Attempt to treat a field as a variable"),
+        };
+
         Value::Lvalue(
             self.variables
                 .get(&variable_id)
@@ -135,7 +150,7 @@ fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()
 }
 
 fn run_alloc(instruction: &AllocInstruction, state: &mut State) -> RunResult<()> {
-    let variable_id = instruction.variable().id;
+    let variable_id = instruction.variable().id.clone();
 
     let initial_value = match instruction.initializer() {
         Some(initializer) => run_expression(initializer, state)?.into_rvalue(),
@@ -151,7 +166,7 @@ fn run_alloc(instruction: &AllocInstruction, state: &mut State) -> RunResult<()>
 }
 
 fn run_dealloc(instruction: &DeallocInstruction, state: &mut State) -> RunResult<()> {
-    let variable_id = instruction.variable().id;
+    let variable_id = instruction.variable().id.clone();
     state.pop(variable_id);
     Ok(())
 }
@@ -212,7 +227,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
 }
 
 fn run_variable_expr(expression: &VariableExpr, state: &State) -> RunResult<Value> {
-    let variable_id = expression.variable().id;
+    let variable_id = expression.variable().id.clone();
     let result = state.get(variable_id).clone();
     Ok(result)
 }
@@ -294,14 +309,14 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
             let parameters = function.parameters();
 
             for (parameter, value) in parameters.zip(arguments.into_iter()) {
-                let variable_id = parameter.id;
+                let variable_id = parameter.id.clone();
                 state.push(variable_id, value.into_rvalue())
             }
 
             let function_result = run_user_function(expression.function(), state);
 
             for parameter in function.parameters() {
-                let variable_id = parameter.id;
+                let variable_id = parameter.id.clone();
                 state.pop(variable_id)
             }
 
@@ -313,7 +328,7 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
 
 fn run_field_access_expr(expression: &FieldAccessExpr, state: &mut State) -> RunResult<Value> {
     let receiver = run_expression(expression.receiver(), state)?;
-    let field_id = expression.field().id;
+    let field_id = expression.field().id.clone();
     let result = match receiver {
         Value::Lvalue(lvalue) => Value::Lvalue(lvalue.borrow().as_struct()[&field_id].clone()),
         Value::Rvalue(rvalue) => Value::Rvalue(rvalue.as_struct()[&field_id].detach()),
@@ -359,21 +374,23 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
             Rvalue::Array(Rc::new(RefCell::new(vec![])))
         }
         TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => Rvalue::Pointer(None),
-        TypeId::TemplateInstance(TypeTemplateId::Struct(_), _) => unimplemented!(),
-        TypeId::Struct(_) => {
-            let fields = type_
-                .fields()
-                .map(|field| {
-                    let field = field.borrow();
-                    let value = default_value_for_type(&field.type_());
-                    (field.id, Lvalue::store(value))
-                })
-                .collect();
-            Rvalue::Struct(fields)
-        }
+        TypeId::TemplateInstance(TypeTemplateId::Struct(_), _) => default_value_for_struct(type_),
+        TypeId::Struct(_) => default_value_for_struct(type_),
         TypeId::TypeParameter(_, _) => panic!("Type parameter encountered in a compiled program."),
         TypeId::Error => panic_error(),
     }
+}
+
+fn default_value_for_struct(type_: &Type) -> Rvalue {
+    let fields = type_
+        .fields()
+        .map(|field| {
+            let field = field.borrow();
+            let value = default_value_for_type(&field.type_());
+            (field.id.clone(), Lvalue::store(value))
+        })
+        .collect();
+    Rvalue::Struct(fields)
 }
 
 fn panic_error() -> ! {

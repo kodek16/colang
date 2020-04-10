@@ -9,7 +9,7 @@ impl Display for Program {
         for type_ in self.types.all_types() {
             let type_ = type_.borrow();
             if type_.is_user_defined() {
-                write!(f, "{}", indent(&type_.to_string()))?;
+                write!(f, "{} ({:?})", indent(&type_.to_string()), type_.type_id())?;
                 for field in type_.fields() {
                     let field = field.borrow();
                     write!(
@@ -45,7 +45,7 @@ impl Display for Program {
 
 impl Display for Variable {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "<{}:{}>", self.name, self.id)
+        write!(f, "<{}:{:?}>", self.name, self.id)
     }
 }
 
@@ -80,7 +80,12 @@ impl Display for Instruction {
 
 impl Display for AllocInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "alloc {}", *self.variable())?;
+        write!(
+            f,
+            "alloc {}: {}",
+            *self.variable(),
+            self.variable.borrow().type_.borrow().name()
+        )?;
         if let Some(ref initializer) = self.initializer() {
             let initializer = initializer.to_string();
             if initializer.contains('\n') {

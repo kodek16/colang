@@ -1,0 +1,9 @@
+struct Wrapper<T> {
+  value: T;
+}
+
+fun main() {
+  var n: Wrapper<int>;
+  n.value = 42;
+  assert(n.value == 42);
+}

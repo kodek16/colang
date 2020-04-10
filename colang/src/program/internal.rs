@@ -334,7 +334,7 @@ fn create_array_methods(types: &mut TypeRegistry) -> Vec<Rc<RefCell<Function>>> 
     let array = Rc::clone(&types.array());
     let array = array.borrow();
 
-    let type_parameter = Rc::clone(&array.type_parameters()[0]);
+    let type_parameter = Rc::clone(array.type_parameters().next().unwrap());
     let array_type = Rc::clone(&array.base_type());
     let pointer_to_array_type = Rc::clone(&types.pointer_to(&array_type));
     let pointer_to_type_parameter = Rc::clone(&types.pointer_to(&type_parameter));

@@ -1,5 +1,5 @@
 use crate::{panic_wrong_type, RunResult};
-use colang::program::SymbolId;
+use colang::program::VariableId;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
@@ -59,7 +59,7 @@ pub enum Rvalue {
     Char(u8),
     Array(Rc<RefCell<Vec<Lvalue>>>),
     Pointer(Option<Lvalue>),
-    Struct(HashMap<SymbolId, Lvalue>),
+    Struct(HashMap<VariableId, Lvalue>),
     Void,
 }
 
@@ -145,7 +145,7 @@ impl Rvalue {
         }
     }
 
-    pub fn as_struct(&self) -> &HashMap<SymbolId, Lvalue> {
+    pub fn as_struct(&self) -> &HashMap<VariableId, Lvalue> {
         match self {
             Rvalue::Struct(fields) => fields,
             _ => panic_wrong_type("struct", self.type_()),
@@ -182,7 +182,7 @@ impl Clone for Rvalue {
             Struct(fields) => {
                 let fields_copy = fields
                     .iter()
-                    .map(|(id, lvalue)| (*id, lvalue.clone_contents()))
+                    .map(|(id, lvalue)| (id.clone(), lvalue.clone_contents()))
                     .collect();
                 Rvalue::Struct(fields_copy)
             }

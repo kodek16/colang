@@ -140,8 +140,8 @@ pub use expressions::{Expression, ExpressionKind};
 
 pub use function::{Function, InternalFunction, InternalParameter, Parameter, UserDefinedFunction};
 pub use internal::InternalFunctionTag;
-pub use typing::{Type, TypeId, TypeRegistry, TypeTemplate, TypeTemplateId};
-pub use variable::Variable;
+pub use typing::{ProtoTypeParameter, Type, TypeId, TypeRegistry, TypeTemplate, TypeTemplateId};
+pub use variable::{Variable, VariableId};
 
 pub use instructions::alloc::AllocInstruction;
 pub use instructions::assign::AssignInstruction;

@@ -464,6 +464,22 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn wrong_number_of_type_template_arguments(
+        template_name: &str,
+        expected_num: usize,
+        actual_num: usize,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError {
+            code: "E9041",
+            message: format!(
+                "type template `{}` requires {} type arguments, but {} is/are provided",
+                template_name, expected_num, actual_num
+            ),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.
@@ -471,6 +487,7 @@ pub enum Word {
     Variable,
     Function,
     Type,
+    TypeTemplate,
     Field,
     Method,
 }
@@ -482,6 +499,7 @@ impl Word {
             Variable => "variable",
             Function => "function",
             Type => "type",
+            TypeTemplate => "type template",
             Field => "field",
             Method => "method",
         }
@@ -490,7 +508,7 @@ impl Word {
     fn indefinite_article(&self) -> &'static str {
         use Word::*;
         match self {
-            Variable | Function | Type | Field | Method => "a",
+            Variable | Function | Type | TypeTemplate | Field | Method => "a",
         }
     }
 

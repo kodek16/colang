@@ -2,7 +2,6 @@ use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
 
-#[derive(Debug)]
 pub struct AddressExpr {
     target: Box<Expression>,
 }
@@ -22,7 +21,7 @@ impl AddressExpr {
             return Err(error);
         }
 
-        let type_ = types.pointer_to(&target.type_.borrow());
+        let type_ = types.pointer_to(&target.type_);
         let kind = ExpressionKind::Address(AddressExpr {
             target: Box::new(target),
         });
@@ -42,7 +41,7 @@ impl AddressExpr {
         span: InputSpan,
     ) -> Expression {
         let target = Box::new(target);
-        let type_ = types.pointer_to(&target.type_.borrow());
+        let type_ = types.pointer_to(&target.type_);
 
         Expression {
             kind: ExpressionKind::Address(AddressExpr { target }),

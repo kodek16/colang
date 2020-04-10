@@ -2,7 +2,6 @@ use crate::errors::CompilationError;
 use crate::program::instructions::Instruction;
 use crate::program::{checks, Expression, TypeRegistry};
 
-#[derive(Debug)]
 pub struct WhileInstruction {
     cond: Box<Expression>,
     body: Box<Instruction>,

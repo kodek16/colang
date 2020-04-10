@@ -59,9 +59,10 @@ SelfParameterDef: Parameter = {
 };
 
 StructDef: StructDef = {
-    <start:@L> KwStruct <name:Ident> <end:@R> "{" <members:StructMember*> "}" => {
+    <start:@L> KwStruct <name:Ident> <type_parameters:("<" <CommaSeparatedNotEmpty<Ident>> ">")?> <end:@R> "{" <members:StructMember*> "}" => {
         StructDef::new(
             name,
+            type_parameters.unwrap_or(vec![]),
             members,
             InputSpan { file, start, end },
         )
@@ -271,6 +272,16 @@ ClosedIfExprWithBlock: Expression = {
 NonIfExpr: Expression = {
     BinaryOpExpr,
     BlockExpr,
+    NewExpr,
+};
+
+NewExpr: Expression = {
+    <start:@L> KwNew <target_type:TypeExpr> <end:@R> => {
+        Expression::New(NewExpr {
+            target_type,
+            span: InputSpan { file, start, end },
+        })
+    },
 };
 
 NonIfExprWithBlock: Expression = {
@@ -340,7 +351,6 @@ Expr0: Expression = {
     CharLiteralExpr,
     StringLiteralExpr,
     SelfExpr,
-    NewExpr,
     ArrayFromElementsExpr,
     ArrayFromCopyExpr,
     IndexExpr,
@@ -398,15 +408,6 @@ StringLiteralExpr: Expression = {
 SelfExpr: Expression = {
     <start:@L> KwSelf <end:@R> => {
         Expression::Self_(SelfExpr {
-            span: InputSpan { file, start, end },
-        })
-    },
-};
-
-NewExpr: Expression = {
-    <start:@L> KwNew <target_type:TypeExpr> <end:@R> => {
-        Expression::New(NewExpr {
-            target_type,
             span: InputSpan { file, start, end },
         })
     },
@@ -510,6 +511,7 @@ TypeExpr: TypeExpr = {
     ScalarTypeExpr,
     ArrayTypeExpr,
     PointerTypeExpr,
+    TemplateInstanceTypeExpr,
 };
 
 ScalarTypeExpr: TypeExpr = {
@@ -534,6 +536,16 @@ PointerTypeExpr: TypeExpr = {
     <start:@L> "&" <target:TypeExpr> <end:@R> => {
         TypeExpr::Pointer(PointerTypeExpr {
             target: Box::new(target),
+            span: InputSpan { file, start, end },
+        })
+    },
+};
+
+TemplateInstanceTypeExpr: TypeExpr = {
+    <start:@L> <template:Ident> "<" <type_arguments:CommaSeparated<TypeExpr>> ">" <end:@R> => {
+        TypeExpr::TemplateInstance(TemplateInstanceTypeExpr {
+            template,
+            type_arguments,
             span: InputSpan { file, start, end },
         })
     },

@@ -3,7 +3,6 @@ use crate::program::instructions::Instruction;
 use crate::program::{CallExpr, Expression, InternalFunctionTag, Program, TypeId};
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct WriteInstruction {
     expression: Expression,
 }

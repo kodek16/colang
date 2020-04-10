@@ -5,7 +5,6 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct Variable {
     pub name: String,
     pub definition_site: Option<InputSpan>,
@@ -15,7 +14,6 @@ pub struct Variable {
 
 impl Variable {
     /// Creates a new variable with a given name and type.
-    /// Calling `id()` is invalid before the variable is added to a `Program`.
     pub fn new(
         name: String,
         type_: Rc<RefCell<Type>>,

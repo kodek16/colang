@@ -6,7 +6,6 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct AllocInstruction {
     pub(crate) variable: Rc<RefCell<Variable>>,
     initializer: Option<Expression>,

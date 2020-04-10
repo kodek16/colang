@@ -1,7 +1,6 @@
 use crate::program::instructions::Instruction;
 use crate::program::Expression;
 
-#[derive(Debug)]
 pub struct EvalInstruction {
     expression: Box<Expression>,
 }

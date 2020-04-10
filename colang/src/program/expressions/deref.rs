@@ -2,7 +2,6 @@ use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
 
-#[derive(Debug)]
 pub struct DerefExpr {
     pointer: Box<Expression>,
 }

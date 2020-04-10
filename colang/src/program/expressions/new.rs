@@ -3,7 +3,6 @@ use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCatego
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct NewExpr {
     target_type: Rc<RefCell<Type>>,
 }
@@ -14,7 +13,7 @@ impl NewExpr {
         types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Expression {
-        let type_ = types.pointer_to(&target_type.borrow());
+        let type_ = types.pointer_to(&target_type);
         let kind = ExpressionKind::New(NewExpr { target_type });
 
         Expression {

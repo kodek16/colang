@@ -7,7 +7,6 @@ use crate::program::{
 };
 use crate::scope::Scope;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -40,11 +39,7 @@ pub enum InternalFunctionTag {
     ArrayIndex(TypeId),
 }
 
-pub fn populate_internal_symbols(
-    program: &mut Program,
-    scope: &mut Scope,
-    type_scopes: &mut HashMap<TypeId, Scope>,
-) {
+pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
     let visible_functions = vec![
         create_assert_function(program.types()),
         create_ascii_code_function(program.types()),
@@ -64,14 +59,16 @@ pub fn populate_internal_symbols(
         create_read_int_function(program.types_mut()),
         create_int_to_string_function(program.types()),
         create_read_word_function(program.types_mut()),
-    ];
-
-    let string_methods = vec![
+        /// TODO convert all internal operators to methods. This would involve changing the
+        /// lookup logic.
         create_string_add_method(program.types()),
-        create_string_index_method(program.types_mut()),
         create_string_eq_method(program.types()),
         create_string_not_eq_method(program.types()),
     ];
+
+    let array_methods = create_array_methods(program.types_mut());
+
+    let string_methods = vec![create_string_index_method(program.types_mut())];
 
     // Convert to multi-owned.
     let visible_functions: Vec<_> = visible_functions
@@ -87,12 +84,23 @@ pub fn populate_internal_symbols(
         .map(|f| Rc::new(RefCell::new(f)))
         .collect();
 
-    for function in visible_functions
-        .iter()
-        .chain(invisible_functions.iter())
-        .chain(string_methods.iter())
-    {
+    for function in visible_functions.iter().chain(invisible_functions.iter()) {
         program.add_function(Rc::clone(&function));
+    }
+
+    let array = Rc::clone(&program.types.array().borrow().base_type());
+    let mut array = array.borrow_mut();
+    for method in array_methods.iter() {
+        array
+            .add_method(Rc::clone(&method))
+            .expect("Internal method name collision.");
+    }
+
+    let mut string = program.types.string().borrow_mut();
+    for method in string_methods.iter() {
+        string
+            .add_method(Rc::clone(&method))
+            .expect("Internal method name collision.");
     }
 
     for function in visible_functions {
@@ -100,17 +108,6 @@ pub fn populate_internal_symbols(
             "Couldn't register internal function `{}`",
             function.borrow().name()
         ));
-    }
-
-    for method in string_methods {
-        type_scopes
-            .entry(TypeId::String)
-            .or_insert_with(Scope::new_for_type)
-            .add_function(Rc::clone(&method))
-            .expect(&format!(
-                "Couldn't register internal method `string::{}`",
-                method.borrow().name()
-            ));
     }
 }
 
@@ -251,7 +248,7 @@ fn create_not_eq_int_function(types: &TypeRegistry) -> Function {
 
 fn create_read_int_function(types: &mut TypeRegistry) -> Function {
     let int = Rc::clone(types.int());
-    let pointer_to_int = types.pointer_to(&int.borrow());
+    let pointer_to_int = types.pointer_to(&int);
 
     InternalFunction::new(
         "<read>".to_string(),
@@ -272,7 +269,7 @@ fn create_int_to_string_function(types: &TypeRegistry) -> Function {
 
 fn create_read_word_function(types: &mut TypeRegistry) -> Function {
     let string = Rc::clone(types.string());
-    let pointer_to_string = types.pointer_to(&string.borrow());
+    let pointer_to_string = types.pointer_to(&string);
 
     InternalFunction::new(
         "<read-word>".to_string(),
@@ -296,7 +293,7 @@ fn create_string_add_method(types: &TypeRegistry) -> Function {
 
 fn create_string_index_method(types: &mut TypeRegistry) -> Function {
     let char = Rc::clone(types.char());
-    let pointer_to_char = types.pointer_to(&char.borrow());
+    let pointer_to_char = types.pointer_to(&char);
 
     InternalFunction::new(
         "index".to_string(),
@@ -333,69 +330,52 @@ fn create_string_not_eq_method(types: &TypeRegistry) -> Function {
     )
 }
 
-pub fn create_array_push_method(
-    element_type: &Rc<RefCell<Type>>,
-    types: &mut TypeRegistry,
-) -> Function {
-    let array_type = types.array_of(&element_type.borrow());
-    let pointer_to_array_type = types.pointer_to(&array_type.borrow());
+fn create_array_methods(types: &mut TypeRegistry) -> Vec<Rc<RefCell<Function>>> {
+    let array = Rc::clone(&types.array());
+    let array = array.borrow();
 
-    InternalFunction::new(
-        "push".to_string(),
-        InternalFunctionTag::ArrayPush(element_type.borrow().type_id().clone()),
-        vec![
-            internal_param("self", &pointer_to_array_type),
-            internal_param("element", element_type),
-        ],
-        Rc::clone(types.void()),
-    )
-}
+    let type_parameter = Rc::clone(&array.type_parameters()[0]);
+    let array_type = Rc::clone(&array.base_type());
+    let pointer_to_array_type = Rc::clone(&types.pointer_to(&array_type));
+    let pointer_to_type_parameter = Rc::clone(&types.pointer_to(&type_parameter));
 
-pub fn create_array_pop_method(
-    element_type: &Rc<RefCell<Type>>,
-    types: &mut TypeRegistry,
-) -> Function {
-    let array_type = types.array_of(&element_type.borrow());
-    let pointer_to_array_type = types.pointer_to(&array_type.borrow());
+    let methods = vec![
+        InternalFunction::new(
+            "push".to_string(),
+            InternalFunctionTag::ArrayPush(type_parameter.borrow().type_id().clone()),
+            vec![
+                internal_param("self", &pointer_to_array_type),
+                internal_param("element", &type_parameter),
+            ],
+            Rc::clone(types.void()),
+        ),
+        InternalFunction::new(
+            "pop".to_string(),
+            InternalFunctionTag::ArrayPop(type_parameter.borrow().type_id().clone()),
+            vec![internal_param("self", &pointer_to_array_type)],
+            Rc::clone(&type_parameter),
+        ),
+        InternalFunction::new(
+            "len".to_string(),
+            InternalFunctionTag::ArrayLen(type_parameter.borrow().type_id().clone()),
+            vec![internal_param("self", &array_type)],
+            Rc::clone(types.int()),
+        ),
+        InternalFunction::new(
+            "index".to_string(),
+            InternalFunctionTag::ArrayIndex(type_parameter.borrow().type_id().clone()),
+            vec![
+                internal_param("self", &array_type),
+                internal_param("index", types.int()),
+            ],
+            pointer_to_type_parameter,
+        ),
+    ];
 
-    InternalFunction::new(
-        "pop".to_string(),
-        InternalFunctionTag::ArrayPop(element_type.borrow().type_id().clone()),
-        vec![internal_param("self", &pointer_to_array_type)],
-        Rc::clone(element_type),
-    )
-}
-
-pub fn create_array_len_method(
-    element_type: &Rc<RefCell<Type>>,
-    types: &mut TypeRegistry,
-) -> Function {
-    let array_type = types.array_of(&element_type.borrow());
-
-    InternalFunction::new(
-        "len".to_string(),
-        InternalFunctionTag::ArrayLen(element_type.borrow().type_id().clone()),
-        vec![internal_param("self", &array_type)],
-        Rc::clone(types.int()),
-    )
-}
-
-pub fn create_array_index_method(
-    element_type: &Rc<RefCell<Type>>,
-    types: &mut TypeRegistry,
-) -> Function {
-    let array_type = types.array_of(&element_type.borrow());
-    let pointer_to_element_type = types.pointer_to(&element_type.borrow());
-
-    InternalFunction::new(
-        "index".to_string(),
-        InternalFunctionTag::ArrayIndex(element_type.borrow().type_id().clone()),
-        vec![
-            internal_param("self", &array_type),
-            internal_param("index", types.int()),
-        ],
-        pointer_to_element_type,
-    )
+    methods
+        .into_iter()
+        .map(|m| Rc::new(RefCell::new(m)))
+        .collect()
 }
 
 fn internal_param(name: &str, type_: &Rc<RefCell<Type>>) -> InternalParameter {

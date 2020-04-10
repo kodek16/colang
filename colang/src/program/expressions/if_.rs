@@ -5,7 +5,6 @@ use crate::errors::CompilationError;
 
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct IfExpr {
     cond: Box<Expression>,
     then: Box<Expression>,

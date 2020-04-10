@@ -7,7 +7,6 @@ use crate::program::{
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct BlockExpr {
     instructions: Vec<Instruction>,
 }

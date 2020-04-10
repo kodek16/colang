@@ -13,7 +13,6 @@ pub mod stdlib;
 lalrpop_mod!(pub grammar);
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::iter;
 use std::rc::Rc;
 
@@ -49,7 +48,6 @@ fn parse(source_code: &str, file: InputSpanFile) -> Result<ast::Program, ast::Pa
 struct CompilerContext {
     program: program::Program,
     scope: Scope,
-    type_scopes: HashMap<TypeId, Scope>,
 
     /// In methods, this is the variable bound to `self`.
     self_: Option<Rc<RefCell<Variable>>>,
@@ -61,32 +59,18 @@ impl CompilerContext {
     pub fn new() -> CompilerContext {
         let mut program = program::Program::new();
         let mut scope = Scope::new();
-        let mut type_scopes = HashMap::new();
 
         for type_ in program.types().basic_types() {
             scope.add_type(Rc::clone(type_)).unwrap();
         }
 
-        program::internal::populate_internal_symbols(&mut program, &mut scope, &mut type_scopes);
+        program::internal::populate_internal_symbols(&mut program, &mut scope);
         CompilerContext {
             program,
             scope,
-            type_scopes,
             self_: None,
             errors: vec![],
         }
-    }
-
-    fn type_scope(&mut self, type_id: TypeId) -> &Scope {
-        self.type_scopes
-            .entry(type_id)
-            .or_insert_with(Scope::new_for_type)
-    }
-
-    fn type_scope_mut(&mut self, type_id: TypeId) -> &mut Scope {
-        self.type_scopes
-            .entry(type_id)
-            .or_insert_with(Scope::new_for_type)
     }
 }
 
@@ -134,7 +118,11 @@ impl StatementSink for BlockBuilder {
 
 fn compile_struct_def(struct_def: ast::StructDef, context: &mut CompilerContext) {
     let name = &struct_def.name.text;
-    let type_ = Type::new_struct(name.to_string(), &mut context.program);
+    let type_ = Type::new_struct(
+        name.to_string(),
+        struct_def.signature_span,
+        &mut context.program,
+    );
 
     if let Err(error) = context.scope.add_type(Rc::clone(&type_)) {
         context.errors.push(error);
@@ -154,7 +142,6 @@ fn compile_field_def(
     current_type: &Rc<RefCell<Type>>,
     context: &mut CompilerContext,
 ) {
-    let current_type_id = current_type.borrow().type_id().clone();
     let type_ = compile_type_expr(field_def.type_, context);
 
     let field = Variable::new(
@@ -172,14 +159,7 @@ fn compile_field_def(
     };
     let field = Rc::new(RefCell::new(field));
 
-    context
-        .program
-        .types()
-        .lookup(&current_type_id)
-        .borrow_mut()
-        .add_field(Rc::clone(&field));
-
-    let result = context.type_scope_mut(current_type_id).add_variable(field);
+    let result = current_type.borrow_mut().add_field(Rc::clone(&field));
     if let Err(error) = result {
         context.errors.push(error);
     }
@@ -197,11 +177,8 @@ fn compile_method_def(
         method_def.signature_span,
         context.program.symbol_ids_mut(),
     )));
-    context.program.add_function(Rc::clone(&method));
 
-    let result = context
-        .type_scope_mut(current_type.borrow().type_id().clone())
-        .add_function(Rc::clone(&method));
+    let result = current_type.borrow_mut().add_method(Rc::clone(&method));
     if let Err(error) = result {
         context.errors.push(error);
     }
@@ -351,10 +328,7 @@ fn compile_self_parameter(
 ) -> Rc<RefCell<Variable>> {
     let type_ = match parameter.kind {
         ast::SelfParameterKind::ByValue => current_type,
-        ast::SelfParameterKind::ByPointer => context
-            .program
-            .types_mut()
-            .pointer_to(&current_type.borrow()),
+        ast::SelfParameterKind::ByPointer => context.program.types_mut().pointer_to(&current_type),
     };
 
     create_variable("<self>".to_string(), type_, Some(parameter.span), context)
@@ -763,7 +737,7 @@ fn compile_deref_expr(
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let hint = type_hint.map(|hint| context.program.types_mut().pointer_to(&hint.borrow()));
+    let hint = type_hint.map(|hint| context.program.types_mut().pointer_to(&hint));
 
     let pointer = compile_expression(*expression.pointer, hint, context);
 
@@ -856,7 +830,7 @@ fn compile_index_expr(
         return program::Expression::error(expression.span);
     }
 
-    let method = lookup_method(&collection.type_, "index", expression.span, context);
+    let method = lookup_method(&collection.type_, "index", expression.span);
     let method = match method {
         Ok(method) => method,
         Err(error) => {
@@ -939,11 +913,11 @@ fn compile_field_access_expr(
     let receiver = maybe_deref(receiver, context);
 
     let receiver_type = &receiver.type_;
-    let receiver_type_id = receiver_type.borrow().type_id().clone();
 
-    let field = context
-        .type_scope(receiver_type_id.clone())
-        .lookup_variable(&expression.field.text, expression.field.span);
+    let field = receiver_type
+        .borrow()
+        .lookup_field(&expression.field.text, expression.field.span)
+        .map(Rc::clone);
 
     let field = match field {
         Ok(field) => field,
@@ -973,7 +947,6 @@ fn compile_method_call_expr(
         &receiver.type_,
         &expression.method.text,
         expression.method.span,
-        context,
     );
     let method = match method {
         Ok(method) => method,
@@ -992,12 +965,7 @@ fn compile_method_call_expr(
     let self_argument = if *self_parameter.type_() == receiver.type_ {
         // self-by-value
         receiver
-    } else if *self_parameter.type_()
-        == context
-            .program
-            .types_mut()
-            .pointer_to(&receiver.type_.borrow())
-    {
+    } else if *self_parameter.type_() == context.program.types_mut().pointer_to(&receiver.type_) {
         // self-by-pointer
         if receiver.value_category == ValueCategory::Lvalue {
             // TODO handle synthetic span in a special way for errors.
@@ -1041,40 +1009,11 @@ fn lookup_method(
     receiver_type: &Rc<RefCell<Type>>,
     method_name: &str,
     span: InputSpan,
-    context: &mut CompilerContext,
 ) -> Result<Rc<RefCell<Function>>, CompilationError> {
-    let receiver_type_id = receiver_type.borrow().type_id().clone();
-
-    let method: Result<Rc<RefCell<Function>>, CompilationError> = {
-        let receiver_type_scope = context.type_scope(receiver_type_id.clone());
-        receiver_type_scope
-            .lookup_function(method_name, span)
-            .map(Rc::clone)
-    };
-
-    method.or_else(|error| {
-        let instantiated_method = receiver_type
-            .borrow()
-            .uninstantiate(context.program.types())
-            .and_then(|(template, type_parameters)| {
-                template.borrow().method_template(
-                    type_parameters.iter().map(|x| x).collect(),
-                    method_name,
-                    &mut context.program,
-                )
-            });
-
-        match instantiated_method {
-            Some(method) => {
-                context
-                    .type_scope_mut(receiver_type_id.clone())
-                    .add_function(Rc::clone(&method))
-                    .expect("Name conflict on instantiating method template");
-                Ok(method)
-            }
-            None => Err(error),
-        }
-    })
+    receiver_type
+        .borrow()
+        .lookup_method(method_name, span)
+        .map(Rc::clone)
 }
 
 fn compile_arguments(
@@ -1139,6 +1078,9 @@ fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) ->
         ast::TypeExpr::Scalar(type_expr) => compile_scalar_type_expr(type_expr, context),
         ast::TypeExpr::Array(type_expr) => compile_array_type_expr(type_expr, context),
         ast::TypeExpr::Pointer(type_expr) => compile_pointer_type_expr(type_expr, context),
+        ast::TypeExpr::TemplateInstance(type_expr) => {
+            compile_template_instance_type_expr(type_expr, context)
+        }
     }
 }
 
@@ -1163,7 +1105,7 @@ fn compile_array_type_expr(
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
     let element = compile_type_expr(*type_expr.element, context);
-    let result = context.program.types_mut().array_of(&element.borrow());
+    let result = context.program.types_mut().array_of(&element);
     result
 }
 
@@ -1172,8 +1114,50 @@ fn compile_pointer_type_expr(
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
     let target = compile_type_expr(*type_expr.target, context);
-    let result = context.program.types_mut().pointer_to(&target.borrow());
+    let result = context.program.types_mut().pointer_to(&target);
     result
+}
+
+fn compile_template_instance_type_expr(
+    type_expr: ast::TemplateInstanceTypeExpr,
+    context: &mut CompilerContext,
+) -> Rc<RefCell<Type>> {
+    let type_arguments: Vec<_> = type_expr
+        .type_arguments
+        .into_iter()
+        .map(|type_arg| compile_type_expr(type_arg, context))
+        .collect();
+
+    if type_arguments
+        .iter()
+        .any(|type_arg| type_arg.borrow().is_error())
+    {
+        return Type::error();
+    }
+
+    let template = context
+        .scope
+        .lookup_type_template(&type_expr.template.text, type_expr.template.span);
+    let template = match template {
+        Ok(template) => template,
+        Err(error) => {
+            context.errors.push(error);
+            return Type::error();
+        }
+    };
+
+    let type_ = template.borrow().instantiate(
+        type_arguments.iter().collect(),
+        context.program.types_mut(),
+        Some(type_expr.span),
+    );
+    match type_ {
+        Ok(type_) => type_,
+        Err(error) => {
+            context.errors.push(error);
+            return Type::error();
+        }
+    }
 }
 
 /// Automatic pointer dereferencing: in some context where it's obvious that pointers

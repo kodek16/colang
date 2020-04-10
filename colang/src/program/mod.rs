@@ -45,6 +45,9 @@ pub struct Program {
 
     variables: Vec<Rc<RefCell<Variable>>>,
     user_functions: Vec<Rc<RefCell<Function>>>,
+
+    // Somewhat confusingly, this collection only contains functions, not methods. Internal
+    // methods should be accessed through the type scope mechanism.
     internal_functions: HashMap<InternalFunctionTag, Rc<RefCell<Function>>>,
     types: TypeRegistry,
 
@@ -98,7 +101,10 @@ impl Program {
     }
 
     pub(crate) fn internal_function(&self, tag: InternalFunctionTag) -> &Rc<RefCell<Function>> {
-        &self.internal_functions[&tag]
+        &self.internal_functions.get(&tag).expect(&format!(
+            "Couldn't find an internal function instance with tag {:?}",
+            tag
+        ))
     }
 
     pub fn types(&self) -> &TypeRegistry {
@@ -134,7 +140,7 @@ pub use expressions::{Expression, ExpressionKind};
 
 pub use function::{Function, InternalFunction, InternalParameter, Parameter, UserDefinedFunction};
 pub use internal::InternalFunctionTag;
-pub use typing::{Type, TypeId, TypeRegistry, TypeTemplateId};
+pub use typing::{Type, TypeId, TypeRegistry, TypeTemplate, TypeTemplateId};
 pub use variable::Variable;
 
 pub use instructions::alloc::AllocInstruction;

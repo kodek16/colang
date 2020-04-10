@@ -6,7 +6,6 @@ pub mod return_;
 pub mod while_;
 pub mod write;
 
-#[derive(Debug)]
 pub enum Instruction {
     Alloc(alloc::AllocInstruction),
     Dealloc(dealloc::DeallocInstruction),

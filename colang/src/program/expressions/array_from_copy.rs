@@ -2,7 +2,6 @@ use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
 
-#[derive(Debug)]
 pub struct ArrayFromCopyExpr {
     element: Box<Expression>,
     size: Box<Expression>,
@@ -24,7 +23,7 @@ impl ArrayFromCopyExpr {
             return Err(error);
         }
 
-        let array_type = types.array_of(&element.type_.borrow());
+        let array_type = types.array_of(&element.type_);
         let kind = ExpressionKind::ArrayFromCopy(ArrayFromCopyExpr {
             element: Box::new(element),
             size: Box::new(size),

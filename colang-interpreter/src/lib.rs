@@ -359,6 +359,7 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
             Rvalue::Array(Rc::new(RefCell::new(vec![])))
         }
         TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => Rvalue::Pointer(None),
+        TypeId::TemplateInstance(TypeTemplateId::Struct(_), _) => unimplemented!(),
         TypeId::Struct(_) => {
             let fields = type_
                 .fields()
@@ -370,6 +371,7 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
                 .collect();
             Rvalue::Struct(fields)
         }
+        TypeId::TypeParameter(_, _) => panic!("Type parameter encountered in a compiled program."),
         TypeId::Error => panic_error(),
     }
 }

@@ -70,6 +70,7 @@ pub enum SelfParameterKind {
 #[derive(Debug)]
 pub struct StructDef {
     pub name: Identifier,
+    pub type_parameters: Vec<Identifier>,
     pub fields: Vec<FieldDef>,
     pub methods: Vec<FunctionDef>,
 
@@ -79,6 +80,7 @@ pub struct StructDef {
 impl StructDef {
     pub fn new(
         name: Identifier,
+        type_parameters: Vec<Identifier>,
         members: Vec<StructMember>,
         signature_span: InputSpan,
     ) -> StructDef {
@@ -94,6 +96,7 @@ impl StructDef {
 
         StructDef {
             name,
+            type_parameters,
             fields,
             methods,
             signature_span,
@@ -487,6 +490,7 @@ pub enum TypeExpr {
     Scalar(ScalarTypeExpr),
     Array(ArrayTypeExpr),
     Pointer(PointerTypeExpr),
+    TemplateInstance(TemplateInstanceTypeExpr),
 }
 
 #[derive(Debug)]
@@ -506,6 +510,14 @@ pub struct ArrayTypeExpr {
 #[derive(Debug)]
 pub struct PointerTypeExpr {
     pub target: Box<TypeExpr>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct TemplateInstanceTypeExpr {
+    pub template: Identifier,
+    pub type_arguments: Vec<TypeExpr>,
 
     pub span: InputSpan,
 }

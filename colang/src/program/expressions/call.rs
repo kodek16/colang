@@ -11,7 +11,6 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct CallExpr {
     function: Rc<RefCell<Function>>,
     arguments: Vec<Expression>,

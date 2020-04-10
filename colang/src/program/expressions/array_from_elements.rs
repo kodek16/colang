@@ -5,7 +5,6 @@ use crate::errors::CompilationError;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct ArrayFromElementsExpr {
     elements: Vec<Expression>,
 }
@@ -51,7 +50,7 @@ impl ArrayFromElementsExpr {
         }
 
         let kind = ExpressionKind::ArrayFromElements(ArrayFromElementsExpr { elements });
-        let array_type = types.array_of(&inferred_type.borrow());
+        let array_type = types.array_of(&inferred_type);
 
         Ok(Expression {
             kind,

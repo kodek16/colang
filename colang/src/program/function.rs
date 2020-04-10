@@ -1,12 +1,14 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::internal::InternalFunctionTag;
-use crate::program::{Expression, SymbolId, SymbolIdRegistry, Type, Variable};
+use crate::program::{
+    Expression, SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
+};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub enum Function {
     UserDefined(UserDefinedFunction),
     Internal(InternalFunction),
@@ -96,6 +98,19 @@ impl Function {
             ),
         }
     }
+
+    /// Create a copy of this function with all occurrences of type parameters replaced by
+    /// concrete type arguments.
+    pub fn instantiate(
+        &self,
+        type_arguments: &HashMap<TypeId, TypeId>,
+        types: &mut TypeRegistry,
+    ) -> Rc<RefCell<Function>> {
+        match self {
+            Function::UserDefined(_) => unimplemented!(),
+            Function::Internal(function) => function.instantiate(type_arguments, types),
+        }
+    }
 }
 
 impl Parameter for Variable {
@@ -108,7 +123,6 @@ impl Parameter for Variable {
     }
 }
 
-#[derive(Debug)]
 pub struct UserDefinedFunction {
     pub name: String,
     pub definition_site: InputSpan,
@@ -177,7 +191,6 @@ impl UserDefinedFunction {
     }
 }
 
-#[derive(Debug)]
 pub struct InternalFunction {
     pub name: String,
     pub tag: InternalFunctionTag,
@@ -185,7 +198,6 @@ pub struct InternalFunction {
     return_type: Rc<RefCell<Type>>,
 }
 
-#[derive(Debug)]
 pub struct InternalParameter {
     pub name: String,
     pub type_: Rc<RefCell<Type>>,
@@ -206,6 +218,48 @@ impl InternalFunction {
         };
 
         Function::Internal(function)
+    }
+
+    /// Create a copy of this function with all occurrences of type parameters replaced by
+    /// concrete type arguments.
+    pub fn instantiate(
+        &self,
+        type_arguments: &HashMap<TypeId, TypeId>,
+        types: &mut TypeRegistry,
+    ) -> Rc<RefCell<Function>> {
+        let tag = match &self.tag {
+            InternalFunctionTag::ArrayPush(type_id) => InternalFunctionTag::ArrayPush(
+                type_arguments.get(type_id).unwrap_or(type_id).clone(),
+            ),
+            InternalFunctionTag::ArrayPop(type_id) => InternalFunctionTag::ArrayPop(
+                type_arguments.get(type_id).unwrap_or(type_id).clone(),
+            ),
+            InternalFunctionTag::ArrayLen(type_id) => InternalFunctionTag::ArrayLen(
+                type_arguments.get(type_id).unwrap_or(type_id).clone(),
+            ),
+            InternalFunctionTag::ArrayIndex(type_id) => InternalFunctionTag::ArrayIndex(
+                type_arguments.get(type_id).unwrap_or(type_id).clone(),
+            ),
+            other => other.clone(),
+        };
+
+        let parameters = self
+            .parameters
+            .iter()
+            .map(|parameter| InternalParameter {
+                name: parameter.name.clone(),
+                type_: parameter.type_.borrow().instantiate(type_arguments, types),
+            })
+            .collect();
+
+        let return_type = self.return_type.borrow().instantiate(type_arguments, types);
+
+        Rc::new(RefCell::new(Function::Internal(InternalFunction {
+            name: self.name.clone(),
+            tag,
+            parameters,
+            return_type,
+        })))
     }
 }
 

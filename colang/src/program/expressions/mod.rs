@@ -15,7 +15,6 @@ pub mod literal;
 pub mod new;
 pub mod variable;
 
-#[derive(Debug)]
 pub struct Expression {
     pub kind: ExpressionKind,
     pub(crate) type_: Rc<RefCell<Type>>,
@@ -23,7 +22,6 @@ pub struct Expression {
     pub(crate) span: Option<InputSpan>,
 }
 
-#[derive(Debug)]
 pub enum ExpressionKind {
     Variable(variable::VariableExpr),
     Literal(literal::LiteralExpr),

@@ -6,13 +6,13 @@ use std::rc::Rc;
 
 use crate::ast::InputSpan;
 use crate::errors::{CompilationError, Word};
-use crate::program::{Function, Type, Variable};
+use crate::program::{Function, Type, TypeTemplate, Variable};
 
-#[derive(Debug)]
 enum NamedEntity {
     Variable(Rc<RefCell<Variable>>),
     Function(Rc<RefCell<Function>>),
     Type(Rc<RefCell<Type>>),
+    TypeTemplate(Rc<RefCell<TypeTemplate>>),
 }
 
 impl NamedEntity {
@@ -33,11 +33,11 @@ impl NamedEntity {
                 }
             }
             NamedEntity::Type(_) => Word::Type,
+            NamedEntity::TypeTemplate(_) => Word::TypeTemplate,
         }
     }
 }
 
-#[derive(Debug)]
 pub struct Scope {
     // `entities` should always be Some, Option is for interior mutability.
     entities: Option<HashMap<String, NamedEntity>>,
@@ -61,6 +61,7 @@ impl Scope {
         }
     }
 
+    /// Creates a new type scope.
     pub fn new_for_type() -> Scope {
         Scope {
             entities: Some(HashMap::new()),
@@ -109,6 +110,14 @@ impl Scope {
     #[must_use]
     pub fn add_type(&mut self, type_: Rc<RefCell<Type>>) -> Result<(), CompilationError> {
         self.add_entity(type_)
+    }
+
+    #[must_use]
+    pub fn add_type_template(
+        &mut self,
+        type_template: Rc<RefCell<TypeTemplate>>,
+    ) -> Result<(), CompilationError> {
+        self.add_entity(type_template)
     }
 
     pub fn lookup_variable(
@@ -162,6 +171,22 @@ impl Scope {
             Word::Type,
             |entity| match entity {
                 NamedEntity::Type(type_) => Some(type_),
+                _ => None,
+            },
+        )
+    }
+
+    pub fn lookup_type_template(
+        &self,
+        name: &str,
+        reference_location: InputSpan,
+    ) -> Result<&Rc<RefCell<TypeTemplate>>, CompilationError> {
+        self.lookup_entity_kind(
+            name,
+            reference_location,
+            Word::TypeTemplate,
+            |entity| match entity {
+                NamedEntity::TypeTemplate(type_template) => Some(type_template),
                 _ => None,
             },
         )
@@ -228,7 +253,10 @@ impl Scope {
                 let error = CompilationError::named_entity_already_exists(
                     &name,
                     existing.word(&self),
-                    definition_site.expect("Name collision for internal entity"),
+                    definition_site.expect(&format!(
+                        "Name collision for internal entity `{}`",
+                        entity.borrow().name()
+                    )),
                 );
                 Err(error)
             }
@@ -282,10 +310,24 @@ impl NamedEntityKind for Type {
     }
 
     fn definition_site(&self) -> Option<InputSpan> {
-        None
+        self.definition_site()
     }
 
     fn to_named(type_: Rc<RefCell<Type>>) -> NamedEntity {
         NamedEntity::Type(type_)
+    }
+}
+
+impl NamedEntityKind for TypeTemplate {
+    fn name(&self) -> String {
+        self.name().to_string()
+    }
+
+    fn definition_site(&self) -> Option<InputSpan> {
+        self.definition_site()
+    }
+
+    fn to_named(type_template: Rc<RefCell<TypeTemplate>>) -> NamedEntity {
+        NamedEntity::TypeTemplate(type_template)
     }
 }

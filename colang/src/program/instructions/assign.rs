@@ -3,7 +3,6 @@ use crate::errors::CompilationError;
 use crate::program::instructions::Instruction;
 use crate::program::{Expression, ValueCategory};
 
-#[derive(Debug)]
 pub struct AssignInstruction {
     target: Box<Expression>,
     value: Box<Expression>,

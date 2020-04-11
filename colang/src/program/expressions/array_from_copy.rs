@@ -1,10 +1,13 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
+use crate::program::expressions::ExpressionKindImpl;
+use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct ArrayFromCopyExpr {
-    element: Box<Expression>,
-    size: Box<Expression>,
+    pub element: Box<Expression>,
+    pub size: Box<Expression>,
 }
 
 impl ArrayFromCopyExpr {
@@ -23,25 +26,21 @@ impl ArrayFromCopyExpr {
             return Err(error);
         }
 
-        let array_type = types.array_of(&element.type_);
         let kind = ExpressionKind::ArrayFromCopy(ArrayFromCopyExpr {
             element: Box::new(element),
             size: Box::new(size),
         });
 
-        Ok(Expression {
-            kind,
-            type_: array_type,
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        })
+        Ok(Expression::new(kind, Some(span), types))
+    }
+}
+
+impl ExpressionKindImpl for ArrayFromCopyExpr {
+    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        types.array_of(&self.element.type_())
     }
 
-    pub fn element(&self) -> &Expression {
-        &self.element
-    }
-
-    pub fn size(&self) -> &Expression {
-        &self.size
+    fn calculate_value_category(&self) -> ValueCategory {
+        ValueCategory::Rvalue
     }
 }

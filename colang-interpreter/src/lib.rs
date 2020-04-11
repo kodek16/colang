@@ -36,11 +36,8 @@ impl Backend for InterpreterBackend {
 }
 
 pub struct State {
-    variables: HashMap<SymbolId, Vec<Lvalue>>,
+    variables: HashMap<VariableId, Vec<Lvalue>>,
     cin: Cin,
-
-    /// Value to be returned from the innermost current context.
-    return_value: Option<Rvalue>,
 }
 
 impl State {
@@ -48,16 +45,10 @@ impl State {
         State {
             variables: HashMap::new(),
             cin: Cin::new(),
-            return_value: None,
         }
     }
 
     fn push(&mut self, variable_id: VariableId, value: Rvalue) {
-        let variable_id = match variable_id {
-            VariableId::Variable(id) => id,
-            _ => panic!("Attempt to treat a field as a variable"),
-        };
-
         self.variables
             .entry(variable_id)
             .or_default()
@@ -65,11 +56,6 @@ impl State {
     }
 
     fn pop(&mut self, variable_id: VariableId) {
-        let variable_id = match variable_id {
-            VariableId::Variable(id) => id,
-            _ => panic!("Attempt to treat a field as a variable"),
-        };
-
         self.variables
             .get_mut(&variable_id)
             .expect("variable deallocated before allocation")
@@ -78,11 +64,6 @@ impl State {
     }
 
     fn get(&self, variable_id: VariableId) -> Value {
-        let variable_id = match variable_id {
-            VariableId::Variable(id) => id,
-            _ => panic!("Attempt to treat a field as a variable"),
-        };
-
         Value::Lvalue(
             self.variables
                 .get(&variable_id)
@@ -100,17 +81,17 @@ fn run_user_function(
     function: impl Deref<Target = Function>,
     state: &mut State,
 ) -> RunResult<Value> {
-    let body = function.as_user_defined().body();
+    let body = function.body();
     run_expression(body, state)
 }
 
 fn run_internal_function(
-    function: &InternalFunction,
+    function_tag: &InternalFunctionTag,
     arguments: Vec<Value>,
     state: &mut State,
 ) -> RunResult<Value> {
     use InternalFunctionTag::*;
-    match function.tag {
+    match function_tag {
         Assert => internal::assert(arguments),
         AsciiCode => internal::ascii_code(arguments),
         AsciiChar => internal::ascii_char(arguments),
@@ -139,51 +120,26 @@ fn run_internal_function(
 
 fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()> {
     match instruction {
-        Instruction::Alloc(ref s) => run_alloc(s, state),
-        Instruction::Dealloc(ref s) => run_dealloc(s, state),
         Instruction::Write(ref s) => run_write(s, state),
         Instruction::While(ref s) => run_while(s, state),
         Instruction::Assign(ref s) => run_assign(s, state),
-        Instruction::Return(ref s) => run_return(s, state),
         Instruction::Eval(ref s) => run_eval(s, state),
     }
 }
 
-fn run_alloc(instruction: &AllocInstruction, state: &mut State) -> RunResult<()> {
-    let variable_id = instruction.variable().id.clone();
-
-    let initial_value = match instruction.initializer() {
-        Some(initializer) => run_expression(initializer, state)?.into_rvalue(),
-        None => {
-            let variable = instruction.variable();
-            let variable_type = variable.type_();
-            default_value_for_type(&variable_type)
-        }
-    };
-
-    state.push(variable_id, initial_value);
-    Ok(())
-}
-
-fn run_dealloc(instruction: &DeallocInstruction, state: &mut State) -> RunResult<()> {
-    let variable_id = instruction.variable().id.clone();
-    state.pop(variable_id);
-    Ok(())
-}
-
 fn run_write(instruction: &WriteInstruction, state: &mut State) -> RunResult<()> {
-    let value = run_expression(instruction.expression(), state)?.into_rvalue();
+    let value = run_expression(&instruction.expression, state)?.into_rvalue();
     print!("{}", value.as_utf8_string()?);
     Ok(())
 }
 
 fn run_while(instruction: &WhileInstruction, state: &mut State) -> RunResult<()> {
-    let mut cond = run_expression(instruction.cond(), state)?
+    let mut cond = run_expression(&instruction.cond, state)?
         .into_rvalue()
         .as_bool();
     while cond {
-        run_instruction(instruction.body(), state)?;
-        cond = run_expression(instruction.cond(), state)?
+        run_instruction(&instruction.body, state)?;
+        cond = run_expression(&instruction.cond, state)?
             .into_rvalue()
             .as_bool();
     }
@@ -191,25 +147,19 @@ fn run_while(instruction: &WhileInstruction, state: &mut State) -> RunResult<()>
 }
 
 fn run_assign(instruction: &AssignInstruction, state: &mut State) -> RunResult<()> {
-    let target = run_expression(instruction.target(), state)?.into_lvalue();
-    let new_value = run_expression(instruction.value(), state)?.into_rvalue();
+    let target = run_expression(&instruction.target, state)?.into_lvalue();
+    let new_value = run_expression(&instruction.value, state)?.into_rvalue();
     *target.borrow_mut() = new_value;
     Ok(())
 }
 
-fn run_return(instruction: &ReturnInstruction, state: &mut State) -> RunResult<()> {
-    let value = run_expression(instruction.expression(), state)?.into_rvalue();
-    state.return_value = Some(value);
-    Ok(())
-}
-
 fn run_eval(instruction: &EvalInstruction, state: &mut State) -> RunResult<()> {
-    let _ = run_expression(instruction.expression(), state)?;
+    let _ = run_expression(&instruction.expression, state)?;
     Ok(())
 }
 
 fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value> {
-    match &expression.kind {
+    match expression.kind() {
         ExpressionKind::Variable(e) => run_variable_expr(e, state),
         ExpressionKind::Literal(e) => run_literal_expr(e, state),
         ExpressionKind::Address(e) => run_address_expr(e, state),
@@ -227,7 +177,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
 }
 
 fn run_variable_expr(expression: &VariableExpr, state: &State) -> RunResult<Value> {
-    let variable_id = expression.variable().id.clone();
+    let variable_id = expression.variable.borrow().id.clone();
     let result = state.get(variable_id).clone();
     Ok(result)
 }
@@ -243,19 +193,19 @@ fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
 }
 
 fn run_address_expr(expression: &AddressExpr, state: &mut State) -> RunResult<Value> {
-    let lvalue = run_expression(expression.target(), state)?.into_lvalue();
+    let lvalue = run_expression(&expression.target, state)?.into_lvalue();
     Ok(Value::Rvalue(Rvalue::Pointer(Some(lvalue))))
 }
 
 fn run_deref_expr(expression: &DerefExpr, state: &mut State) -> RunResult<Value> {
-    let lvalue = run_expression(expression.pointer(), state)?
+    let lvalue = run_expression(&expression.pointer, state)?
         .into_rvalue()
         .into_pointer_unwrap()?;
     Ok(Value::Lvalue(lvalue))
 }
 
 fn run_new_expr(expression: &NewExpr, _: &mut State) -> RunResult<Value> {
-    let target = default_value_for_type(&expression.target_type().borrow());
+    let target = default_value_for_type(&expression.target_type.borrow());
     Ok(Value::Rvalue(Rvalue::Pointer(Some(Lvalue::store(target)))))
 }
 
@@ -264,7 +214,8 @@ fn run_array_from_elements_expr(
     state: &mut State,
 ) -> RunResult<Value> {
     let elements: RunResult<Vec<Value>> = expression
-        .elements()
+        .elements
+        .iter()
         .map(|element| run_expression(element, state))
         .collect();
     let elements: Vec<Lvalue> = elements?
@@ -278,8 +229,8 @@ fn run_array_from_elements_expr(
 }
 
 fn run_array_from_copy_expr(expression: &ArrayFromCopyExpr, state: &mut State) -> RunResult<Value> {
-    let element = run_expression(expression.element(), state)?.into_rvalue();
-    let size = run_expression(expression.size(), state)?
+    let element = run_expression(&expression.element, state)?.into_rvalue();
+    let size = run_expression(&expression.size, state)?
         .into_rvalue()
         .as_int();
 
@@ -296,39 +247,40 @@ fn run_array_from_copy_expr(expression: &ArrayFromCopyExpr, state: &mut State) -
 }
 
 fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
-    let function = expression.function();
+    let function = expression.function.borrow();
 
     let arguments: RunResult<Vec<Value>> = expression
-        .arguments()
+        .arguments
+        .iter()
         .map(|argument| run_expression(argument, state))
         .collect();
     let arguments = arguments?;
 
-    match *function {
-        Function::UserDefined(ref function) => {
-            let parameters = function.parameters();
+    match function.id {
+        FunctionId::Internal(ref tag) => run_internal_function(tag, arguments, state),
+        _ => {
+            let parameters = function.parameters.iter();
 
             for (parameter, value) in parameters.zip(arguments.into_iter()) {
-                let variable_id = parameter.id.clone();
+                let variable_id = parameter.borrow().id.clone();
                 state.push(variable_id, value.into_rvalue())
             }
 
-            let function_result = run_user_function(expression.function(), state);
+            let function_result = run_user_function(expression.function.borrow(), state);
 
-            for parameter in function.parameters() {
-                let variable_id = parameter.id.clone();
+            for parameter in function.parameters.iter() {
+                let variable_id = parameter.borrow().id.clone();
                 state.pop(variable_id)
             }
 
             function_result
         }
-        Function::Internal(ref function) => run_internal_function(function, arguments, state),
     }
 }
 
 fn run_field_access_expr(expression: &FieldAccessExpr, state: &mut State) -> RunResult<Value> {
-    let receiver = run_expression(expression.receiver(), state)?;
-    let field_id = expression.field().id.clone();
+    let receiver = run_expression(&expression.receiver, state)?;
+    let field_id = expression.field.borrow().id.clone();
     let result = match receiver {
         Value::Lvalue(lvalue) => Value::Lvalue(lvalue.borrow().as_struct()[&field_id].clone()),
         Value::Rvalue(rvalue) => Value::Rvalue(rvalue.as_struct()[&field_id].detach()),
@@ -337,27 +289,35 @@ fn run_field_access_expr(expression: &FieldAccessExpr, state: &mut State) -> Run
 }
 
 fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {
-    let cond = run_expression(expression.cond(), state)?
+    let cond = run_expression(&expression.cond, state)?
         .into_rvalue()
         .as_bool();
     if cond {
-        run_expression(expression.then(), state)
+        run_expression(&expression.then, state)
     } else {
-        run_expression(expression.else_(), state)
+        run_expression(&expression.else_, state)
     }
 }
 
 fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
-    if !state.return_value.is_none() {
-        panic!("Interpreter is in an invalid state: return value is not None before block.")
+    for variable in block.local_variables.iter() {
+        let variable_id = variable.borrow().id.clone();
+        let initial_value = default_value_for_type(&variable.borrow().type_());
+        state.push(variable_id, initial_value);
     }
 
-    for instruction in block.instructions() {
+    for instruction in block.instructions.iter() {
         run_instruction(instruction, state)?;
     }
 
-    let result = state.return_value.take().unwrap_or(Rvalue::Void);
-    Ok(Value::Rvalue(result))
+    let value = run_expression(&block.value, state)?;
+
+    for variable in block.local_variables.iter() {
+        let variable_id = variable.borrow().id.clone();
+        state.pop(variable_id);
+    }
+
+    Ok(value)
 }
 
 fn default_value_for_type(type_: &Type) -> Rvalue {

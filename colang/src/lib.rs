@@ -19,8 +19,8 @@ use std::rc::Rc;
 use crate::ast::{InputSpan, InputSpanFile};
 use crate::errors::CompilationError;
 use crate::program::{
-    BlockBuilder, Function, InternalFunctionTag, Parameter, ProtoTypeParameter, Type, TypeId,
-    TypeTemplate, UserDefinedFunction, ValueCategory, Variable,
+    BlockBuilder, Function, InternalFunctionTag, ProtoTypeParameter, Type, TypeId, TypeTemplate,
+    ValueCategory, Variable,
 };
 use crate::scope::Scope;
 
@@ -102,17 +102,6 @@ fn compile(sources: Vec<ast::Program>) -> Result<program::Program, Vec<Compilati
         Ok(context.program)
     } else {
         Err(context.errors)
-    }
-}
-
-/// Represents an object that expects statements to be written into it.
-trait StatementSink {
-    fn emit(&mut self, statement: program::Instruction);
-}
-
-impl StatementSink for BlockBuilder {
-    fn emit(&mut self, statement: program::Instruction) {
-        self.append_instruction(statement)
     }
 }
 
@@ -221,7 +210,7 @@ fn compile_method_def(
     context: &mut CompilerContext,
 ) {
     let return_type = compile_return_type(method_def.return_type, context);
-    let method = Rc::new(RefCell::new(UserDefinedFunction::new(
+    let method = Rc::new(RefCell::new(Function::new_user_defined(
         method_def.name.text.clone(),
         Rc::clone(&return_type),
         method_def.signature_span,
@@ -276,21 +265,15 @@ fn compile_method_def(
 
     let mut all_parameters = vec![self_parameter];
     all_parameters.append(&mut normal_parameters);
-    method
-        .borrow_mut()
-        .as_user_defined_mut()
-        .fill_parameters(all_parameters);
+    method.borrow_mut().fill_parameters(all_parameters);
 
     let body = compile_block_expr(method_def.body, Some(Rc::clone(&return_type)), context);
 
     context.self_ = None;
     context.scope.pop();
 
-    let body_type = Rc::clone(&body.type_);
-    let result = method
-        .borrow_mut()
-        .as_user_defined_mut()
-        .fill_body(body, body_type);
+    let body_type = Rc::clone(body.type_());
+    let result = method.borrow_mut().fill_body(body, body_type);
     if let Err(error) = result {
         context.errors.push(error)
     };
@@ -302,7 +285,7 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
     let name = &function_def.name.text;
     let return_type = compile_return_type(function_def.return_type, context);
 
-    let function = UserDefinedFunction::new(
+    let function = Function::new_user_defined(
         name.clone(),
         Rc::clone(&return_type),
         function_def.signature_span,
@@ -328,21 +311,14 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
             ast::Parameter::Normal(parameter) => compile_normal_parameter(parameter, context),
         })
         .collect();
-    function
-        .borrow_mut()
-        .as_user_defined_mut()
-        .fill_parameters(parameters);
+    function.borrow_mut().fill_parameters(parameters);
 
     let body = compile_block_expr(function_def.body, Some(Rc::clone(&return_type)), context);
 
     context.scope.pop();
 
-    let body_type = Rc::clone(&body.type_);
-    if let Err(error) = function
-        .borrow_mut()
-        .as_user_defined_mut()
-        .fill_body(body, body_type)
-    {
+    let body_type = Rc::clone(body.type_());
+    if let Err(error) = function.borrow_mut().fill_body(body, body_type) {
         context.errors.push(error)
     };
 }
@@ -386,32 +362,32 @@ fn compile_self_parameter(
 /// occur, they are added to `context`.
 fn compile_statement(
     statement: ast::Statement,
-    sink: &mut impl StatementSink,
+    current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
     match statement {
-        ast::Statement::VarDecl(s) => compile_var_decl_stmt(s, sink, context),
-        ast::Statement::Read(s) => compile_read_stmt(s, sink, context),
-        ast::Statement::Write(s) => compile_write_stmt(s, sink, context),
-        ast::Statement::While(s) => compile_while_stmt(s, sink, context),
-        ast::Statement::Assign(s) => compile_assign_stmt(s, sink, context),
-        ast::Statement::Expr(s) => compile_expr_stmt(s, sink, context),
+        ast::Statement::VarDecl(s) => compile_var_decl_stmt(s, current_block, context),
+        ast::Statement::Read(s) => compile_read_stmt(s, current_block, context),
+        ast::Statement::Write(s) => compile_write_stmt(s, current_block, context),
+        ast::Statement::While(s) => compile_while_stmt(s, current_block, context),
+        ast::Statement::Assign(s) => compile_assign_stmt(s, current_block, context),
+        ast::Statement::Expr(s) => compile_expr_stmt(s, current_block, context),
     }
 }
 
 fn compile_var_decl_stmt(
     statement: ast::VarDeclStmt,
-    sink: &mut impl StatementSink,
+    current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
     for declaration in statement.entries {
-        compile_var_decl_entry(declaration, sink, context);
+        compile_var_decl_entry(declaration, current_block, context);
     }
 }
 
 fn compile_var_decl_entry(
     declaration: ast::VarDeclEntry,
-    sink: &mut impl StatementSink,
+    current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
     let name = declaration.variable_name;
@@ -429,7 +405,7 @@ fn compile_var_decl_entry(
     let type_ = match type_ {
         Some(t) => t,
         None => match initializer {
-            Some(ref expr) => Rc::clone(&expr.type_),
+            Some(ref expr) => Rc::clone(expr.type_()),
             None => {
                 let error = CompilationError::variable_type_omitted(&name.text, declaration.span);
                 context.errors.push(error);
@@ -440,10 +416,19 @@ fn compile_var_decl_entry(
 
     let variable = create_variable(name.text, type_, Some(declaration.span), context);
     if let Some(variable) = variable {
-        let result = program::AllocInstruction::new(&variable, initializer, declaration.span);
-        match result {
-            Ok(statement) => sink.emit(statement),
-            Err(error) => context.errors.push(error),
+        current_block.add_local_variable(Rc::clone(&variable));
+
+        if let Some(initializer) = initializer {
+            let initialization = program::AssignInstruction::new(
+                program::VariableExpr::new(&variable, context.program.types_mut(), name.span),
+                initializer,
+                declaration.span,
+            );
+
+            match initialization {
+                Ok(initialization) => current_block.append_instruction(initialization),
+                Err(error) => context.errors.push(error),
+            }
         }
     }
 }
@@ -465,7 +450,6 @@ fn create_variable(
         }
     };
 
-    context.program.add_variable(Rc::clone(&variable));
     if let Err(error) = context.scope.add_variable(Rc::clone(&variable)) {
         context.errors.push(error);
     };
@@ -474,17 +458,17 @@ fn create_variable(
 
 fn compile_read_stmt(
     statement: ast::ReadStmt,
-    sink: &mut impl StatementSink,
+    current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
     for entry in statement.entries {
-        compile_read_entry(entry, sink, context);
+        compile_read_entry(entry, current_block, context);
     }
 }
 
 fn compile_read_entry(
     entry: ast::ReadEntry,
-    sink: &mut impl StatementSink,
+    current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
     let target = compile_expression(entry.target, None, context);
@@ -494,14 +478,16 @@ fn compile_read_entry(
 
     let result = program::CallExpr::new_read(target, &mut context.program);
     match result {
-        Ok(expression) => sink.emit(program::EvalInstruction::new(expression)),
+        Ok(expression) => {
+            current_block.append_instruction(program::EvalInstruction::new(expression))
+        }
         Err(error) => context.errors.push(error),
     }
 }
 
 fn compile_write_stmt(
     statement: ast::WriteStmt,
-    sink: &mut impl StatementSink,
+    current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
     let expression = compile_expression(statement.expression, None, context);
@@ -509,18 +495,18 @@ fn compile_write_stmt(
         return;
     }
 
-    let result = program::WriteInstruction::new(expression, &context.program);
+    let result = program::WriteInstruction::new(expression, &mut context.program);
     match result {
         Ok(instruction) => {
-            sink.emit(instruction);
+            current_block.append_instruction(instruction);
 
             if statement.newline {
                 let newline =
-                    program::LiteralExpr::string("\n", context.program.types(), statement.span)
+                    program::LiteralExpr::string("\n", context.program.types_mut(), statement.span)
                         .expect("Couldn't construct '\\n' string literal");
-                let instruction = program::WriteInstruction::new(newline, &context.program)
+                let instruction = program::WriteInstruction::new(newline, &mut context.program)
                     .expect("Couldn't construct `write` instruction for synthetic newline");
-                sink.emit(instruction)
+                current_block.append_instruction(instruction)
             }
         }
         Err(error) => context.errors.push(error),
@@ -529,7 +515,7 @@ fn compile_write_stmt(
 
 fn compile_while_stmt(
     statement: ast::WhileStmt,
-    sink: &mut impl StatementSink,
+    current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
     let body_span = statement.body.span;
@@ -540,7 +526,7 @@ fn compile_while_stmt(
     );
     let body = compile_block_expr(*statement.body, None, context);
 
-    let body_type = &body.type_;
+    let body_type = body.type_();
     if *body_type != *context.program.types().void() {
         let error = CompilationError::while_body_not_void(&body_type.borrow().name(), body_span);
         context.errors.push(error)
@@ -553,32 +539,32 @@ fn compile_while_stmt(
 
     let result = program::WhileInstruction::new(cond, body, context.program.types());
     match result {
-        Ok(statement) => sink.emit(statement),
+        Ok(statement) => current_block.append_instruction(statement),
         Err(error) => context.errors.push(error),
     }
 }
 
 fn compile_assign_stmt(
     statement: ast::AssignStmt,
-    sink: &mut impl StatementSink,
+    current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
     let lhs = compile_expression(*statement.lhs, None, context);
-    let rhs = compile_expression(*statement.rhs, Some(Rc::clone(&lhs.type_)), context);
+    let rhs = compile_expression(*statement.rhs, Some(Rc::clone(lhs.type_())), context);
     if lhs.is_error() || rhs.is_error() {
         return;
     }
 
     let result = program::AssignInstruction::new(lhs, rhs, statement.span);
     match result {
-        Ok(statement) => sink.emit(statement),
+        Ok(statement) => current_block.append_instruction(statement),
         Err(error) => context.errors.push(error),
     }
 }
 
 fn compile_expr_stmt(
     statement: ast::ExprStmt,
-    sink: &mut impl StatementSink,
+    current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
     let expression = compile_expression(statement.expression, None, context);
@@ -587,7 +573,7 @@ fn compile_expr_stmt(
     }
 
     let result = program::EvalInstruction::new(expression);
-    sink.emit(result);
+    current_block.append_instruction(result);
 }
 
 fn compile_expression(
@@ -630,7 +616,9 @@ fn compile_variable_expr(
         Ok(variable) if variable.borrow().type_().is_error() => {
             program::Expression::error(expression.span)
         }
-        Ok(variable) => program::VariableExpr::new(variable, expression.span),
+        Ok(variable) => {
+            program::VariableExpr::new(variable, context.program.types_mut(), expression.span)
+        }
         Err(error) => {
             context.errors.push(error);
             program::Expression::error(expression.span)
@@ -640,24 +628,35 @@ fn compile_variable_expr(
 
 fn compile_int_literal_expr(
     expression: ast::IntLiteralExpr,
-    context: &CompilerContext,
+    context: &mut CompilerContext,
 ) -> program::Expression {
-    program::LiteralExpr::int(expression.value, context.program.types(), expression.span)
+    program::LiteralExpr::int(
+        expression.value,
+        context.program.types_mut(),
+        expression.span,
+    )
 }
 
 fn compile_bool_literal_expr(
     expression: ast::BoolLiteralExpr,
-    context: &CompilerContext,
+    context: &mut CompilerContext,
 ) -> program::Expression {
-    program::LiteralExpr::bool(expression.value, context.program.types(), expression.span)
+    program::LiteralExpr::bool(
+        expression.value,
+        context.program.types_mut(),
+        expression.span,
+    )
 }
 
 fn compile_char_literal_expr(
     expression: ast::CharLiteralExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let result =
-        program::LiteralExpr::char(&expression.value, context.program.types(), expression.span);
+    let result = program::LiteralExpr::char(
+        &expression.value,
+        context.program.types_mut(),
+        expression.span,
+    );
     match result {
         Ok(expression) => expression,
         Err(error) => {
@@ -671,8 +670,11 @@ fn compile_string_literal_expr(
     expression: ast::StringLiteralExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let result =
-        program::LiteralExpr::string(&expression.value, context.program.types(), expression.span);
+    let result = program::LiteralExpr::string(
+        &expression.value,
+        context.program.types_mut(),
+        expression.span,
+    );
     match result {
         Ok(expression) => expression,
         Err(error) => {
@@ -687,7 +689,9 @@ fn compile_self_expr(
     context: &mut CompilerContext,
 ) -> program::Expression {
     match context.self_ {
-        Some(ref variable) => program::VariableExpr::new(variable, expression.span),
+        Some(ref variable) => {
+            program::VariableExpr::new(variable, context.program.types_mut(), expression.span)
+        }
         None => {
             let error = CompilationError::self_in_function_body(expression.span);
             context.errors.push(error);
@@ -708,7 +712,7 @@ fn compile_binary_op_expr(
     }
 
     let tag = match expression.operator {
-        ast::BinaryOperator::Add => match lhs.type_.borrow().type_id() {
+        ast::BinaryOperator::Add => match lhs.type_().borrow().type_id() {
             TypeId::Int => Some(InternalFunctionTag::AddInt),
             TypeId::String => Some(InternalFunctionTag::StringAdd),
             _ => None,
@@ -719,12 +723,12 @@ fn compile_binary_op_expr(
         ast::BinaryOperator::Greater => Some(InternalFunctionTag::GreaterInt),
         ast::BinaryOperator::LessEq => Some(InternalFunctionTag::LessEqInt),
         ast::BinaryOperator::GreaterEq => Some(InternalFunctionTag::GreaterEqInt),
-        ast::BinaryOperator::Eq => match lhs.type_.borrow().type_id() {
+        ast::BinaryOperator::Eq => match lhs.type_().borrow().type_id() {
             TypeId::Int => Some(InternalFunctionTag::EqInt),
             TypeId::String => Some(InternalFunctionTag::StringEq),
             _ => None,
         },
-        ast::BinaryOperator::NotEq => match lhs.type_.borrow().type_id() {
+        ast::BinaryOperator::NotEq => match lhs.type_().borrow().type_id() {
             TypeId::Int => Some(InternalFunctionTag::NotEqInt),
             TypeId::String => Some(InternalFunctionTag::StringNotEq),
             _ => None,
@@ -736,8 +740,8 @@ fn compile_binary_op_expr(
         None => {
             let error = CompilationError::binary_operator_unsupported_types(
                 &expression.operator.to_string(),
-                lhs.type_.borrow().name(),
-                rhs.type_.borrow().name(),
+                lhs.type_().borrow().name(),
+                rhs.type_().borrow().name(),
                 expression.span,
             );
             context.errors.push(error);
@@ -747,7 +751,12 @@ fn compile_binary_op_expr(
 
     let function = Rc::clone(context.program.internal_function(tag));
 
-    let result = program::CallExpr::new(function, vec![lhs, rhs], expression.span);
+    let result = program::CallExpr::new(
+        function,
+        vec![lhs, rhs],
+        context.program.types_mut(),
+        expression.span,
+    );
 
     match result {
         Ok(expr) => expr,
@@ -787,7 +796,8 @@ fn compile_deref_expr(
 
     let pointer = compile_expression(*expression.pointer, hint, context);
 
-    let result = program::DerefExpr::new(pointer, context.program.types(), Some(expression.span));
+    let result =
+        program::DerefExpr::new(pointer, context.program.types_mut(), Some(expression.span));
     match result {
         Ok(expression) => expression,
         Err(error) => {
@@ -869,14 +879,14 @@ fn compile_index_expr(
     context: &mut CompilerContext,
 ) -> program::Expression {
     let collection = compile_expression(*expression.collection, None, context);
-    let collection_type = Rc::clone(&collection.type_);
+    let collection_type = Rc::clone(collection.type_());
     let index = compile_expression(*expression.index, None, context);
 
     if collection.is_error() || index.is_error() {
         return program::Expression::error(expression.span);
     }
 
-    let method = lookup_method(&collection.type_, "index", expression.span);
+    let method = lookup_method(collection.type_(), "index", expression.span);
     let method = match method {
         Ok(method) => method,
         Err(error) => {
@@ -885,7 +895,12 @@ fn compile_index_expr(
         }
     };
 
-    let pointer = program::CallExpr::new(method, vec![collection, index], expression.span);
+    let pointer = program::CallExpr::new(
+        method,
+        vec![collection, index],
+        context.program.types_mut(),
+        expression.span,
+    );
     let pointer = match pointer {
         Ok(pointer) => pointer,
         Err(error) => {
@@ -893,9 +908,10 @@ fn compile_index_expr(
             return program::Expression::error(expression.span);
         }
     };
-    let pointer_type = Rc::clone(&pointer.type_);
+    let pointer_type = Rc::clone(pointer.type_());
 
-    let result = program::DerefExpr::new(pointer, context.program.types(), Some(expression.span));
+    let result =
+        program::DerefExpr::new(pointer, context.program.types_mut(), Some(expression.span));
     match result {
         Ok(result) => result,
         Err(_) => {
@@ -932,11 +948,16 @@ fn compile_call_expr(
 
     let arguments = compile_arguments(
         expression.arguments.into_iter(),
-        function.borrow().parameters(),
+        function.borrow().parameters.iter(),
         context,
     );
 
-    let result = program::CallExpr::new(function, arguments, expression.span);
+    let result = program::CallExpr::new(
+        function,
+        arguments,
+        context.program.types_mut(),
+        expression.span,
+    );
     match result {
         Ok(expression) => expression,
         Err(error) => {
@@ -958,7 +979,7 @@ fn compile_field_access_expr(
     // Automatically dereference pointers.
     let receiver = maybe_deref(receiver, context);
 
-    let receiver_type = &receiver.type_;
+    let receiver_type = receiver.type_();
 
     let field = receiver_type
         .borrow()
@@ -973,7 +994,12 @@ fn compile_field_access_expr(
         }
     };
 
-    program::FieldAccessExpr::new(receiver, Rc::clone(&field), expression.span)
+    program::FieldAccessExpr::new(
+        receiver,
+        Rc::clone(&field),
+        context.program.types_mut(),
+        expression.span,
+    )
 }
 
 fn compile_method_call_expr(
@@ -990,7 +1016,7 @@ fn compile_method_call_expr(
     let receiver = maybe_deref(receiver, context);
 
     let method = lookup_method(
-        &receiver.type_,
+        receiver.type_(),
         &expression.method.text,
         expression.method.span,
     );
@@ -1002,18 +1028,21 @@ fn compile_method_call_expr(
         }
     };
 
-    let self_parameter = method
-        .borrow()
-        .parameters()
-        .next()
-        .expect("Method does not have a self parameter");
+    let self_parameter = Rc::clone(
+        method
+            .borrow()
+            .parameters
+            .get(0)
+            .expect("Method does not have a self parameter"),
+    );
+    let self_type = Rc::clone(&self_parameter.borrow().type_);
 
-    let self_argument = if *self_parameter.type_() == receiver.type_ {
+    let self_argument = if self_type == *receiver.type_() {
         // self-by-value
         receiver
-    } else if *self_parameter.type_() == context.program.types_mut().pointer_to(&receiver.type_) {
+    } else if self_type == context.program.types_mut().pointer_to(receiver.type_()) {
         // self-by-pointer
-        if receiver.value_category == ValueCategory::Lvalue {
+        if receiver.value_category() == ValueCategory::Lvalue {
             // TODO handle synthetic span in a special way for errors.
             program::AddressExpr::new_synthetic(
                 receiver,
@@ -1033,7 +1062,7 @@ fn compile_method_call_expr(
     let arguments = {
         let mut other_arguments = compile_arguments(
             expression.arguments.into_iter(),
-            method.borrow().parameters().skip(1),
+            method.borrow().parameters.iter().skip(1),
             context,
         );
         let mut arguments = vec![self_argument];
@@ -1041,7 +1070,12 @@ fn compile_method_call_expr(
         arguments
     };
 
-    let result = program::CallExpr::new(method, arguments, expression.span);
+    let result = program::CallExpr::new(
+        method,
+        arguments,
+        context.program.types_mut(),
+        expression.span,
+    );
     match result {
         Ok(expression) => expression,
         Err(error) => {
@@ -1062,13 +1096,13 @@ fn lookup_method(
         .map(Rc::clone)
 }
 
-fn compile_arguments(
+fn compile_arguments<'a>(
     arguments: impl Iterator<Item = ast::Expression>,
-    parameters: impl Iterator<Item = impl Parameter>,
+    parameters: impl Iterator<Item = &'a Rc<RefCell<Variable>>>,
     context: &mut CompilerContext,
 ) -> Vec<program::Expression> {
     let hints = parameters
-        .map(|parameter| Some(Rc::clone(parameter.type_())))
+        .map(|parameter| Some(Rc::clone(&parameter.borrow().type_)))
         .chain(iter::repeat(None));
     arguments
         .zip(hints)
@@ -1086,9 +1120,9 @@ fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::
     let then = compile_expression(*if_.then, None, context);
     let else_ = if_
         .else_
-        .map(|else_| compile_expression(*else_, Some(Rc::clone(&then.type_)), context));
+        .map(|else_| compile_expression(*else_, Some(Rc::clone(then.type_())), context));
 
-    let result = program::IfExpr::new(cond, then, else_, context.program.types(), span);
+    let result = program::IfExpr::new(cond, then, else_, context.program.types_mut(), span);
 
     match result {
         Ok(expression) => expression,
@@ -1113,7 +1147,7 @@ fn compile_block_expr(
     let final_expr = block
         .final_expr
         .map(|expr| compile_expression(*expr, type_hint, context));
-    let result = builder.into_expr(final_expr, context.program.types(), block.span);
+    let result = builder.into_expr(final_expr, context.program.types_mut(), block.span);
 
     context.scope.pop();
     result
@@ -1208,10 +1242,13 @@ fn compile_template_instance_type_expr(
 
 /// Automatic pointer dereferencing: in some context where it's obvious that pointers
 /// have to be dereferenced, user can omit the dereference operator.
-fn maybe_deref(expression: program::Expression, context: &CompilerContext) -> program::Expression {
+fn maybe_deref(
+    expression: program::Expression,
+    context: &mut CompilerContext,
+) -> program::Expression {
     let span = expression.span;
-    if expression.type_.borrow().is_pointer() {
-        program::DerefExpr::new(expression, context.program.types(), span).unwrap()
+    if expression.type_().borrow().is_pointer() {
+        program::DerefExpr::new(expression, context.program.types_mut(), span).unwrap()
     } else {
         expression
     }

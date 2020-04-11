@@ -2,9 +2,8 @@
 //! symbols, but they have no source-backed definition, and they are
 //! instead treated by backends in special ways.
 
-use crate::program::{
-    Function, InternalFunction, InternalParameter, Program, Type, TypeId, TypeRegistry,
-};
+use crate::program::function::ProtoInternalParameter;
+use crate::program::{Function, Program, Type, TypeId, TypeRegistry};
 use crate::scope::Scope;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -106,13 +105,13 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
     for function in visible_functions {
         scope.add_function(Rc::clone(&function)).expect(&format!(
             "Couldn't register internal function `{}`",
-            function.borrow().name()
+            function.borrow().name
         ));
     }
 }
 
 fn create_assert_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "assert".to_string(),
         InternalFunctionTag::Assert,
         vec![internal_param("fact", types.bool())],
@@ -121,7 +120,7 @@ fn create_assert_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_ascii_code_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "ascii_code".to_string(),
         InternalFunctionTag::AsciiCode,
         vec![internal_param("ch", types.char())],
@@ -130,7 +129,7 @@ fn create_ascii_code_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_ascii_char_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "ascii_char".to_string(),
         InternalFunctionTag::AsciiChar,
         vec![internal_param("code", types.int())],
@@ -139,7 +138,7 @@ fn create_ascii_char_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_add_int_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(+)".to_string(),
         InternalFunctionTag::AddInt,
         vec![
@@ -151,7 +150,7 @@ fn create_add_int_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_sub_int_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(-)".to_string(),
         InternalFunctionTag::SubInt,
         vec![
@@ -163,7 +162,7 @@ fn create_sub_int_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_mul_int_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(*)".to_string(),
         InternalFunctionTag::MulInt,
         vec![
@@ -175,7 +174,7 @@ fn create_mul_int_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_less_int_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(<)".to_string(),
         InternalFunctionTag::LessInt,
         vec![
@@ -187,7 +186,7 @@ fn create_less_int_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_greater_int_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(>)".to_string(),
         InternalFunctionTag::GreaterInt,
         vec![
@@ -199,7 +198,7 @@ fn create_greater_int_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_less_eq_int_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(<=)".to_string(),
         InternalFunctionTag::LessEqInt,
         vec![
@@ -211,7 +210,7 @@ fn create_less_eq_int_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_greater_eq_int_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(>=)".to_string(),
         InternalFunctionTag::GreaterEqInt,
         vec![
@@ -223,7 +222,7 @@ fn create_greater_eq_int_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_eq_int_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(==)".to_string(),
         InternalFunctionTag::EqInt,
         vec![
@@ -235,7 +234,7 @@ fn create_eq_int_function(types: &TypeRegistry) -> Function {
 }
 
 fn create_not_eq_int_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(!=)".to_string(),
         InternalFunctionTag::NotEqInt,
         vec![
@@ -250,7 +249,7 @@ fn create_read_int_function(types: &mut TypeRegistry) -> Function {
     let int = Rc::clone(types.int());
     let pointer_to_int = types.pointer_to(&int);
 
-    InternalFunction::new(
+    Function::new_internal(
         "<read>".to_string(),
         InternalFunctionTag::ReadInt,
         vec![internal_param("target", &pointer_to_int)],
@@ -259,7 +258,7 @@ fn create_read_int_function(types: &mut TypeRegistry) -> Function {
 }
 
 fn create_int_to_string_function(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "<int as string>".to_string(),
         InternalFunctionTag::IntToString,
         vec![internal_param("value", types.int())],
@@ -271,7 +270,7 @@ fn create_read_word_function(types: &mut TypeRegistry) -> Function {
     let string = Rc::clone(types.string());
     let pointer_to_string = types.pointer_to(&string);
 
-    InternalFunction::new(
+    Function::new_internal(
         "<read-word>".to_string(),
         InternalFunctionTag::ReadWord,
         vec![internal_param("target", &pointer_to_string)],
@@ -280,7 +279,7 @@ fn create_read_word_function(types: &mut TypeRegistry) -> Function {
 }
 
 fn create_string_add_method(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(+)".to_string(),
         InternalFunctionTag::StringAdd,
         vec![
@@ -295,7 +294,7 @@ fn create_string_index_method(types: &mut TypeRegistry) -> Function {
     let char = Rc::clone(types.char());
     let pointer_to_char = types.pointer_to(&char);
 
-    InternalFunction::new(
+    Function::new_internal(
         "index".to_string(),
         InternalFunctionTag::StringIndex,
         vec![
@@ -307,7 +306,7 @@ fn create_string_index_method(types: &mut TypeRegistry) -> Function {
 }
 
 fn create_string_eq_method(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(==)".to_string(),
         InternalFunctionTag::StringEq,
         vec![
@@ -319,7 +318,7 @@ fn create_string_eq_method(types: &TypeRegistry) -> Function {
 }
 
 fn create_string_not_eq_method(types: &TypeRegistry) -> Function {
-    InternalFunction::new(
+    Function::new_internal(
         "(!=)".to_string(),
         InternalFunctionTag::StringNotEq,
         vec![
@@ -340,7 +339,7 @@ fn create_array_methods(types: &mut TypeRegistry) -> Vec<Rc<RefCell<Function>>> 
     let pointer_to_type_parameter = Rc::clone(&types.pointer_to(&type_parameter));
 
     let methods = vec![
-        InternalFunction::new(
+        Function::new_internal(
             "push".to_string(),
             InternalFunctionTag::ArrayPush(type_parameter.borrow().type_id().clone()),
             vec![
@@ -349,19 +348,19 @@ fn create_array_methods(types: &mut TypeRegistry) -> Vec<Rc<RefCell<Function>>> 
             ],
             Rc::clone(types.void()),
         ),
-        InternalFunction::new(
+        Function::new_internal(
             "pop".to_string(),
             InternalFunctionTag::ArrayPop(type_parameter.borrow().type_id().clone()),
             vec![internal_param("self", &pointer_to_array_type)],
             Rc::clone(&type_parameter),
         ),
-        InternalFunction::new(
+        Function::new_internal(
             "len".to_string(),
             InternalFunctionTag::ArrayLen(type_parameter.borrow().type_id().clone()),
             vec![internal_param("self", &array_type)],
             Rc::clone(types.int()),
         ),
-        InternalFunction::new(
+        Function::new_internal(
             "index".to_string(),
             InternalFunctionTag::ArrayIndex(type_parameter.borrow().type_id().clone()),
             vec![
@@ -378,8 +377,8 @@ fn create_array_methods(types: &mut TypeRegistry) -> Vec<Rc<RefCell<Function>>> 
         .collect()
 }
 
-fn internal_param(name: &str, type_: &Rc<RefCell<Type>>) -> InternalParameter {
-    InternalParameter {
+fn internal_param(name: &str, type_: &Rc<RefCell<Type>>) -> ProtoInternalParameter {
+    ProtoInternalParameter {
         name: name.to_string(),
         type_: Rc::clone(type_),
     }

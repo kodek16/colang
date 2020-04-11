@@ -2,7 +2,7 @@ use crate::program::instructions::Instruction;
 use crate::program::Expression;
 
 pub struct EvalInstruction {
-    expression: Box<Expression>,
+    pub expression: Box<Expression>,
 }
 
 impl EvalInstruction {
@@ -10,9 +10,5 @@ impl EvalInstruction {
         Instruction::Eval(EvalInstruction {
             expression: Box::new(expression),
         })
-    }
-
-    pub fn expression(&self) -> &Expression {
-        &self.expression
     }
 }

@@ -286,22 +286,6 @@ impl CompilationError {
         }
     }
 
-    pub fn variable_initializer_type_mismatch(
-        variable_name: &str,
-        variable_type: &str,
-        initializer_type: &str,
-        location: InputSpan,
-    ) -> CompilationError {
-        CompilationError {
-            code: "E9022",
-            message: format!(
-                "cannot initialize variable `{}` of type `{}` with a value of type `{}`",
-                variable_name, variable_type, initializer_type,
-            ),
-            location: Some(location),
-        }
-    }
-
     pub fn array_elements_type_mismatch(
         inferred_type: &str,
         element_type: &str,

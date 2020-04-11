@@ -1,46 +1,51 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
+use crate::program::expressions::ExpressionKindImpl;
+use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct DerefExpr {
-    pointer: Box<Expression>,
+    pub pointer: Box<Expression>,
 }
 
 impl DerefExpr {
-    pub(crate) fn new(
+    pub fn new(
         pointer: Expression,
-        types: &TypeRegistry,
+        types: &mut TypeRegistry,
         span: Option<InputSpan>,
     ) -> Result<Expression, CompilationError> {
-        let target_type = pointer.type_.borrow().pointer_target_type(types);
-
-        let target_type = match target_type {
-            Some(target_type) => target_type,
-            None => {
-                let error = CompilationError::can_only_dereference_pointer(
-                    pointer.type_.borrow().name(),
-                    pointer
-                        .span
-                        .expect("Attempt to dereference generated non-pointer expression"),
-                );
-                return Err(error);
-            }
-        };
+        if !pointer.type_.borrow().is_pointer() {
+            let error = CompilationError::can_only_dereference_pointer(
+                pointer.type_.borrow().name(),
+                pointer
+                    .span
+                    .expect("Attempt to dereference generated non-pointer expression"),
+            );
+            return Err(error);
+        }
 
         let kind = ExpressionKind::Deref(DerefExpr {
             pointer: Box::new(pointer),
         });
 
-        let expression = Expression {
-            kind,
-            type_: target_type,
-            value_category: ValueCategory::Lvalue,
-            span,
-        };
-        Ok(expression)
+        Ok(Expression::new(kind, span, types))
+    }
+}
+
+impl ExpressionKindImpl for DerefExpr {
+    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        if let Some(target_type) = self.pointer.type_().borrow().pointer_target_type(types) {
+            target_type
+        } else {
+            panic!(
+                "DerefExpr is in an invalid state: pointer expression type is `{}`",
+                self.pointer.type_().borrow().name()
+            )
+        }
     }
 
-    pub fn pointer(&self) -> &Expression {
-        &self.pointer
+    fn calculate_value_category(&self) -> ValueCategory {
+        ValueCategory::Lvalue
     }
 }

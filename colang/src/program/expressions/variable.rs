@@ -1,29 +1,33 @@
 use crate::ast::InputSpan;
-use crate::program::{Expression, ExpressionKind, ValueCategory, Variable};
+use crate::program::expressions::ExpressionKindImpl;
+use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory, Variable};
 
 use std::cell::RefCell;
-use std::ops::Deref;
 use std::rc::Rc;
 
 pub struct VariableExpr {
-    variable: Rc<RefCell<Variable>>,
+    pub variable: Rc<RefCell<Variable>>,
 }
 
 impl VariableExpr {
-    pub fn new(variable: &Rc<RefCell<Variable>>, span: InputSpan) -> Expression {
+    pub fn new(
+        variable: &Rc<RefCell<Variable>>,
+        types: &mut TypeRegistry,
+        span: InputSpan,
+    ) -> Expression {
         let kind = ExpressionKind::Variable(VariableExpr {
             variable: Rc::clone(variable),
         });
-        let type_ = Rc::clone(&variable.borrow().type_);
-        Expression {
-            kind,
-            type_,
-            value_category: ValueCategory::Lvalue,
-            span: Some(span),
-        }
+        Expression::new(kind, Some(span), types)
+    }
+}
+
+impl ExpressionKindImpl for VariableExpr {
+    fn calculate_type(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        Rc::clone(&self.variable.borrow().type_)
     }
 
-    pub fn variable(&self) -> impl Deref<Target = Variable> + '_ {
-        self.variable.borrow()
+    fn calculate_value_category(&self) -> ValueCategory {
+        ValueCategory::Lvalue
     }
 }

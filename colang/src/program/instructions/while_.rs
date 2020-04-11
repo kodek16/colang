@@ -3,8 +3,8 @@ use crate::program::instructions::Instruction;
 use crate::program::{checks, Expression, TypeRegistry};
 
 pub struct WhileInstruction {
-    cond: Box<Expression>,
-    body: Box<Instruction>,
+    pub cond: Box<Expression>,
+    pub body: Box<Instruction>,
 }
 
 impl WhileInstruction {
@@ -19,13 +19,5 @@ impl WhileInstruction {
             cond: Box::new(cond),
             body: Box::new(body),
         }))
-    }
-
-    pub fn cond(&self) -> &Expression {
-        &self.cond
-    }
-
-    pub fn body(&self) -> &Instruction {
-        &self.body
     }
 }

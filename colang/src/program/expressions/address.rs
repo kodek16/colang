@@ -1,13 +1,16 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
+use crate::program::expressions::ExpressionKindImpl;
+use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct AddressExpr {
-    target: Box<Expression>,
+    pub target: Box<Expression>,
 }
 
 impl AddressExpr {
-    pub(crate) fn new(
+    pub fn new(
         target: Expression,
         types: &mut TypeRegistry,
         span: InputSpan,
@@ -21,37 +24,32 @@ impl AddressExpr {
             return Err(error);
         }
 
-        let type_ = types.pointer_to(&target.type_);
         let kind = ExpressionKind::Address(AddressExpr {
             target: Box::new(target),
         });
 
-        let expression = Expression {
-            kind,
-            type_,
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        };
-        Ok(expression)
+        Ok(Expression::new(kind, Some(span), types))
     }
 
-    pub(crate) fn new_synthetic(
+    pub fn new_synthetic(
         target: Expression,
         types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Expression {
-        let target = Box::new(target);
-        let type_ = types.pointer_to(&target.type_);
+        let kind = ExpressionKind::Address(AddressExpr {
+            target: Box::new(target),
+        });
 
-        Expression {
-            kind: ExpressionKind::Address(AddressExpr { target }),
-            type_,
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        }
+        Expression::new(kind, Some(span), types)
+    }
+}
+
+impl ExpressionKindImpl for AddressExpr {
+    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        types.pointer_to(&self.target.type_())
     }
 
-    pub fn target(&self) -> &Expression {
-        &self.target
+    fn calculate_value_category(&self) -> ValueCategory {
+        ValueCategory::Rvalue
     }
 }

@@ -16,10 +16,93 @@ pub mod new;
 pub mod variable;
 
 pub struct Expression {
-    pub kind: ExpressionKind,
-    pub(crate) type_: Rc<RefCell<Type>>,
-    pub(crate) value_category: ValueCategory,
-    pub(crate) span: Option<InputSpan>,
+    pub span: Option<InputSpan>,
+
+    kind: ExpressionKind,
+    type_: Rc<RefCell<Type>>,
+    value_category: ValueCategory,
+
+    dirty: bool,
+}
+
+impl Expression {
+    pub fn new(
+        kind: ExpressionKind,
+        span: Option<InputSpan>,
+        types: &mut TypeRegistry,
+    ) -> Expression {
+        let type_ = kind.calculate_type(types);
+        let value_category = kind.calculate_value_category();
+
+        Expression {
+            span,
+            kind,
+            type_,
+            value_category,
+            dirty: false,
+        }
+    }
+
+    pub fn empty(types: &TypeRegistry) -> Expression {
+        Expression {
+            span: None,
+            kind: ExpressionKind::Empty,
+            type_: Rc::clone(&types.void()),
+            value_category: ValueCategory::Rvalue,
+            dirty: false,
+        }
+    }
+
+    pub fn error(span: InputSpan) -> Expression {
+        Expression {
+            span: Some(span),
+            kind: ExpressionKind::Error,
+            type_: Type::error(),
+            value_category: ValueCategory::Rvalue,
+            dirty: false,
+        }
+    }
+
+    pub fn kind(&self) -> &ExpressionKind {
+        &self.kind
+    }
+
+    /// Provides mutator access to underlying expression.
+    /// After using this method, `recalculate` must be called to
+    /// update the types.
+    pub fn kind_mut(&mut self) -> &mut ExpressionKind {
+        self.dirty = true;
+        &mut self.kind
+    }
+
+    pub fn recalculate(&mut self, types: &mut TypeRegistry) {
+        self.type_ = self.kind.calculate_type(types);
+        self.value_category = self.kind.calculate_value_category();
+        self.dirty = false;
+    }
+
+    pub fn is_error(&self) -> bool {
+        match self.kind {
+            ExpressionKind::Error => true,
+            _ => false,
+        }
+    }
+
+    pub fn type_(&self) -> &Rc<RefCell<Type>> {
+        self.panic_if_dirty();
+        &self.type_
+    }
+
+    pub fn value_category(&self) -> ValueCategory {
+        self.panic_if_dirty();
+        self.value_category
+    }
+
+    fn panic_if_dirty(&self) {
+        if self.dirty {
+            panic!("Expression type was not recalculated after update.")
+        }
+    }
 }
 
 pub enum ExpressionKind {
@@ -41,29 +124,49 @@ pub enum ExpressionKind {
     Error,
 }
 
-impl Expression {
-    pub(crate) fn empty(types: &TypeRegistry) -> Expression {
-        Expression {
-            kind: ExpressionKind::Empty,
-            type_: Rc::clone(types.void()),
-            value_category: ValueCategory::Rvalue,
-            span: None,
+impl ExpressionKind {
+    pub fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        use ExpressionKind::*;
+        match self {
+            Variable(expr) => expr.calculate_type(types),
+            Literal(expr) => expr.calculate_type(types),
+            Address(expr) => expr.calculate_type(types),
+            Deref(expr) => expr.calculate_type(types),
+            New(expr) => expr.calculate_type(types),
+            ArrayFromElements(expr) => expr.calculate_type(types),
+            ArrayFromCopy(expr) => expr.calculate_type(types),
+            FieldAccess(expr) => expr.calculate_type(types),
+            Call(expr) => expr.calculate_type(types),
+            If(expr) => expr.calculate_type(types),
+            Block(expr) => expr.calculate_type(types),
+
+            Empty => Rc::clone(&types.void()),
+            Error => Type::error(),
         }
     }
 
-    pub(crate) fn error(span: InputSpan) -> Expression {
-        Expression {
-            kind: ExpressionKind::Error,
-            type_: Type::error(),
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        }
-    }
+    pub fn calculate_value_category(&self) -> ValueCategory {
+        use ExpressionKind::*;
+        match self {
+            Variable(expr) => expr.calculate_value_category(),
+            Literal(expr) => expr.calculate_value_category(),
+            Address(expr) => expr.calculate_value_category(),
+            Deref(expr) => expr.calculate_value_category(),
+            New(expr) => expr.calculate_value_category(),
+            ArrayFromElements(expr) => expr.calculate_value_category(),
+            ArrayFromCopy(expr) => expr.calculate_value_category(),
+            FieldAccess(expr) => expr.calculate_value_category(),
+            Call(expr) => expr.calculate_value_category(),
+            If(expr) => expr.calculate_value_category(),
+            Block(expr) => expr.calculate_value_category(),
 
-    pub(crate) fn is_error(&self) -> bool {
-        match self.kind {
-            ExpressionKind::Error => true,
-            _ => false,
+            Empty => ValueCategory::Rvalue,
+            Error => ValueCategory::Rvalue,
         }
     }
+}
+
+trait ExpressionKindImpl {
+    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>>;
+    fn calculate_value_category(&self) -> ValueCategory;
 }

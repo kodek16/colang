@@ -6,152 +6,80 @@ use crate::program::{
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::rc::Rc;
 
-pub enum Function {
-    UserDefined(UserDefinedFunction),
-    Internal(InternalFunction),
+pub struct Function {
+    pub name: String,
+    pub id: FunctionId,
+    pub definition_site: Option<InputSpan>,
+    pub parameters: Vec<Rc<RefCell<Variable>>>,
+    pub return_type: Rc<RefCell<Type>>,
+
+    pub body: Option<Expression>,
 }
 
-pub trait Parameter {
-    fn name(&self) -> &str;
-    fn type_(&self) -> &Rc<RefCell<Type>>;
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
+pub enum FunctionId {
+    UserDefined(SymbolId),
+    Internal(InternalFunctionTag),
 }
 
 impl Function {
-    pub fn name(&self) -> &str {
-        match self {
-            Function::UserDefined(function) => &function.name,
-            Function::Internal(function) => &function.name,
-        }
-    }
-
-    pub fn definition_site(&self) -> Option<InputSpan> {
-        match self {
-            Function::UserDefined(function) => Some(function.definition_site),
-            Function::Internal(_) => None,
-        }
-    }
-
-    // To implement this method normally, https://github.com/rust-lang/rust/issues/27732
-    // needs to be stable: it is required if we want to coerce Ref<Variable> to Ref<dyn Parameter>.
-    // In its absence, the best thing we can do is clone the parameter data manually to break
-    // away from RefCell.
-    pub fn parameters(&self) -> Box<dyn ExactSizeIterator<Item = impl Parameter> + '_> {
-        struct SizedParameter {
-            name: String,
-            type_: Rc<RefCell<Type>>,
-        }
-        impl Parameter for SizedParameter {
-            fn name(&self) -> &str {
-                &self.name
-            }
-
-            fn type_(&self) -> &Rc<RefCell<Type>> {
-                &self.type_
-            }
-        }
-
-        match self {
-            Function::UserDefined(function) => {
-                Box::new(function.parameters.iter().map(|parameter| {
-                    let parameter = parameter.borrow();
-                    SizedParameter {
-                        name: parameter.name().to_string(),
-                        type_: Rc::clone(&parameter.type_),
-                    }
-                }))
-            }
-            Function::Internal(function) => {
-                Box::new(function.parameters.iter().map(|parameter| SizedParameter {
-                    name: parameter.name.clone(),
-                    type_: Rc::clone(&parameter.type_),
-                }))
-            }
-        }
-    }
-
-    pub fn return_type(&self) -> &Rc<RefCell<Type>> {
-        match self {
-            Function::UserDefined(ref function) => &function.return_type,
-            Function::Internal(ref function) => &function.return_type,
-        }
-    }
-
-    pub fn as_user_defined(&self) -> &UserDefinedFunction {
-        match self {
-            Function::UserDefined(ref function) => function,
-            Function::Internal(ref function) => panic!(
-                "Attempt to treat internal function `{}` as user-defined",
-                function.name
-            ),
-        }
-    }
-
-    pub fn as_user_defined_mut(&mut self) -> &mut UserDefinedFunction {
-        match self {
-            Function::UserDefined(ref mut function) => function,
-            Function::Internal(ref function) => panic!(
-                "Attempt to treat internal function `{}` as user-defined",
-                function.name
-            ),
-        }
-    }
-
-    /// Create a copy of this function with all occurrences of type parameters replaced by
-    /// concrete type arguments.
-    pub fn instantiate(
-        &self,
-        type_arguments: &HashMap<TypeId, TypeId>,
-        types: &mut TypeRegistry,
-    ) -> Rc<RefCell<Function>> {
-        match self {
-            Function::UserDefined(_) => unimplemented!(),
-            Function::Internal(function) => function.instantiate(type_arguments, types),
-        }
-    }
-}
-
-impl Parameter for Variable {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn type_(&self) -> &Rc<RefCell<Type>> {
-        &self.type_
-    }
-}
-
-pub struct UserDefinedFunction {
-    pub name: String,
-    pub definition_site: InputSpan,
-    pub id: SymbolId,
-    parameters: Vec<Rc<RefCell<Variable>>>,
-    return_type: Rc<RefCell<Type>>,
-    body: Option<Expression>,
-}
-
-impl UserDefinedFunction {
     /// Initialize a new, empty function. Parameters and body are filled later.
-    pub fn new(
+    pub fn new_user_defined(
         name: String,
         return_type: Rc<RefCell<Type>>,
         definition_site: InputSpan,
         symbol_ids: &mut SymbolIdRegistry,
     ) -> Function {
-        let function = UserDefinedFunction {
+        Function {
             name,
-            definition_site,
+            id: FunctionId::UserDefined(symbol_ids.next_id()),
+            definition_site: Some(definition_site),
             parameters: vec![],
             return_type,
             body: None,
-            id: symbol_ids.next_id(),
-        };
-
-        Function::UserDefined(function)
+        }
     }
 
+    pub fn new_internal(
+        name: String,
+        tag: InternalFunctionTag,
+        parameters: Vec<ProtoInternalParameter>,
+        return_type: Rc<RefCell<Type>>,
+    ) -> Function {
+        let function_id = FunctionId::Internal(tag.clone());
+        let parameters = parameters
+            .into_iter()
+            .enumerate()
+            .map(|(index, parameter)| {
+                Rc::new(RefCell::new(Variable::new_internal_parameter(
+                    parameter,
+                    tag.clone(),
+                    index,
+                )))
+            })
+            .collect();
+
+        Function {
+            name,
+            id: function_id,
+            definition_site: None,
+            parameters,
+            return_type,
+            body: None,
+        }
+    }
+
+    pub fn is_user_defined(&self) -> bool {
+        match self.id {
+            FunctionId::UserDefined(_) => true,
+            FunctionId::Internal(_) => false,
+        }
+    }
+
+    // TODO get rid of this.
+    // This has to be called for user-defined functions.
     pub fn fill_parameters(&mut self, parameters: Vec<Rc<RefCell<Variable>>>) {
         self.parameters = parameters
     }
@@ -169,7 +97,8 @@ impl UserDefinedFunction {
             let error = CompilationError::function_body_type_mismatch(
                 &self.return_type.borrow().name(),
                 &body_type.borrow().name(),
-                self.definition_site,
+                self.definition_site
+                    .expect("Attempt to fill body for internal function"),
             );
             return Err(error);
         }
@@ -178,97 +107,66 @@ impl UserDefinedFunction {
         Ok(())
     }
 
-    pub fn parameters(&self) -> impl Iterator<Item = impl Deref<Target = Variable> + '_> {
-        self.parameters.iter().map(|parameter| parameter.borrow())
-    }
-
-    pub fn return_type(&self) -> impl Deref<Target = Type> + '_ {
-        self.return_type.borrow()
-    }
-
     pub fn body(&self) -> &Expression {
         &self.body.as_ref().expect("function body was not filled")
-    }
-}
-
-pub struct InternalFunction {
-    pub name: String,
-    pub tag: InternalFunctionTag,
-    parameters: Vec<InternalParameter>,
-    return_type: Rc<RefCell<Type>>,
-}
-
-pub struct InternalParameter {
-    pub name: String,
-    pub type_: Rc<RefCell<Type>>,
-}
-
-impl InternalFunction {
-    pub fn new(
-        name: String,
-        tag: InternalFunctionTag,
-        parameters: Vec<InternalParameter>,
-        return_type: Rc<RefCell<Type>>,
-    ) -> Function {
-        let function = InternalFunction {
-            name,
-            tag,
-            parameters,
-            return_type,
-        };
-
-        Function::Internal(function)
     }
 
     /// Create a copy of this function with all occurrences of type parameters replaced by
     /// concrete type arguments.
     pub fn instantiate(
         &self,
+        instantiated_type_id: TypeId,
         type_arguments: &HashMap<TypeId, TypeId>,
         types: &mut TypeRegistry,
     ) -> Rc<RefCell<Function>> {
-        let tag = match &self.tag {
-            InternalFunctionTag::ArrayPush(type_id) => InternalFunctionTag::ArrayPush(
-                type_arguments.get(type_id).unwrap_or(type_id).clone(),
-            ),
-            InternalFunctionTag::ArrayPop(type_id) => InternalFunctionTag::ArrayPop(
-                type_arguments.get(type_id).unwrap_or(type_id).clone(),
-            ),
-            InternalFunctionTag::ArrayLen(type_id) => InternalFunctionTag::ArrayLen(
-                type_arguments.get(type_id).unwrap_or(type_id).clone(),
-            ),
-            InternalFunctionTag::ArrayIndex(type_id) => InternalFunctionTag::ArrayIndex(
-                type_arguments.get(type_id).unwrap_or(type_id).clone(),
-            ),
-            other => other.clone(),
-        };
+        match self.id {
+            FunctionId::Internal(ref tag) => {
+                let tag = match tag {
+                    InternalFunctionTag::ArrayPush(type_id) => InternalFunctionTag::ArrayPush(
+                        type_arguments.get(type_id).unwrap_or(type_id).clone(),
+                    ),
+                    InternalFunctionTag::ArrayPop(type_id) => InternalFunctionTag::ArrayPop(
+                        type_arguments.get(type_id).unwrap_or(type_id).clone(),
+                    ),
+                    InternalFunctionTag::ArrayLen(type_id) => InternalFunctionTag::ArrayLen(
+                        type_arguments.get(type_id).unwrap_or(type_id).clone(),
+                    ),
+                    InternalFunctionTag::ArrayIndex(type_id) => InternalFunctionTag::ArrayIndex(
+                        type_arguments.get(type_id).unwrap_or(type_id).clone(),
+                    ),
+                    other => other.clone(),
+                };
+                let id = FunctionId::Internal(tag.clone());
 
-        let parameters = self
-            .parameters
-            .iter()
-            .map(|parameter| InternalParameter {
-                name: parameter.name.clone(),
-                type_: parameter.type_.borrow().instantiate(type_arguments, types),
-            })
-            .collect();
+                let parameters = self
+                    .parameters
+                    .iter()
+                    .map(|parameter| {
+                        parameter.borrow().instantiate_internal_parameter(
+                            tag.clone(),
+                            type_arguments,
+                            types,
+                        )
+                    })
+                    .collect();
 
-        let return_type = self.return_type.borrow().instantiate(type_arguments, types);
+                let return_type = self.return_type.borrow().instantiate(type_arguments, types);
 
-        Rc::new(RefCell::new(Function::Internal(InternalFunction {
-            name: self.name.clone(),
-            tag,
-            parameters,
-            return_type,
-        })))
+                Rc::new(RefCell::new(Function {
+                    name: self.name.clone(),
+                    id,
+                    definition_site: self.definition_site,
+                    parameters,
+                    return_type,
+                    body: None,
+                }))
+            }
+            FunctionId::UserDefined(_) => unimplemented!(),
+        }
     }
 }
 
-impl Parameter for InternalParameter {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn type_(&self) -> &Rc<RefCell<Type>> {
-        &self.type_
-    }
+pub struct ProtoInternalParameter {
+    pub name: String,
+    pub type_: Rc<RefCell<Type>>,
 }

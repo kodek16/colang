@@ -2,11 +2,15 @@ use crate::ast::InputSpan;
 use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
 
 use crate::errors::CompilationError;
+use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct ArrayFromElementsExpr {
-    elements: Vec<Expression>,
+    pub elements: Vec<Expression>,
+
+    // Used for inferring the type of empty arrays.
+    pub element_type: Rc<RefCell<Type>>,
 }
 
 impl ArrayFromElementsExpr {
@@ -49,18 +53,21 @@ impl ArrayFromElementsExpr {
             return Err(errors);
         }
 
-        let kind = ExpressionKind::ArrayFromElements(ArrayFromElementsExpr { elements });
-        let array_type = types.array_of(&inferred_type);
+        let kind = ExpressionKind::ArrayFromElements(ArrayFromElementsExpr {
+            elements,
+            element_type: inferred_type,
+        });
 
-        Ok(Expression {
-            kind,
-            type_: array_type,
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        })
+        Ok(Expression::new(kind, Some(span), types))
+    }
+}
+
+impl ExpressionKindImpl for ArrayFromElementsExpr {
+    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        types.array_of(&self.element_type)
     }
 
-    pub fn elements(&self) -> impl Iterator<Item = &Expression> {
-        self.elements.iter()
+    fn calculate_value_category(&self) -> ValueCategory {
+        ValueCategory::Rvalue
     }
 }

@@ -8,6 +8,7 @@ mod expressions;
 mod function;
 mod instructions;
 pub(crate) mod internal;
+mod transforms;
 mod typing;
 mod variable;
 
@@ -43,11 +44,10 @@ impl SymbolIdRegistry {
 pub struct Program {
     symbol_ids: SymbolIdRegistry,
 
-    variables: Vec<Rc<RefCell<Variable>>>,
     user_functions: Vec<Rc<RefCell<Function>>>,
 
-    // Somewhat confusingly, this collection only contains functions, not methods. Internal
-    // methods should be accessed through the type scope mechanism.
+    // This collection only contains functions, not methods. Internal methods
+    // should be accessed through the type scope mechanism.
     internal_functions: HashMap<InternalFunctionTag, Rc<RefCell<Function>>>,
     types: TypeRegistry,
 
@@ -59,7 +59,6 @@ impl Program {
     pub(crate) fn new() -> Program {
         Program {
             symbol_ids: SymbolIdRegistry::new(),
-            variables: vec![],
             user_functions: vec![],
             internal_functions: HashMap::new(),
             types: TypeRegistry::new(),
@@ -67,20 +66,13 @@ impl Program {
         }
     }
 
-    /// Adds a new variable to the program.
-    pub(crate) fn add_variable(&mut self, variable: Rc<RefCell<Variable>>) {
-        self.variables.push(variable);
-    }
-
     /// Adds a new function to the program.
     pub(crate) fn add_function(&mut self, function: Rc<RefCell<Function>>) {
-        match *function.borrow() {
-            Function::UserDefined(_) => {
-                self.user_functions.push(Rc::clone(&function));
-            }
-            Function::Internal(ref internal_function) => {
+        match function.borrow().id.clone() {
+            FunctionId::UserDefined(_) => self.user_functions.push(Rc::clone(&function)),
+            FunctionId::Internal(tag) => {
                 self.internal_functions
-                    .insert(internal_function.tag.clone(), Rc::clone(&function));
+                    .insert(tag.clone(), Rc::clone(&function));
             }
         }
     }
@@ -138,16 +130,13 @@ pub use expressions::new::NewExpr;
 pub use expressions::variable::VariableExpr;
 pub use expressions::{Expression, ExpressionKind};
 
-pub use function::{Function, InternalFunction, InternalParameter, Parameter, UserDefinedFunction};
+pub use function::{Function, FunctionId};
 pub use internal::InternalFunctionTag;
 pub use typing::{ProtoTypeParameter, Type, TypeId, TypeRegistry, TypeTemplate, TypeTemplateId};
 pub use variable::{Variable, VariableId};
 
-pub use instructions::alloc::AllocInstruction;
 pub use instructions::assign::AssignInstruction;
-pub use instructions::dealloc::DeallocInstruction;
 pub use instructions::eval::EvalInstruction;
-pub use instructions::return_::ReturnInstruction;
 pub use instructions::while_::WhileInstruction;
 pub use instructions::write::WriteInstruction;
 pub use instructions::Instruction;

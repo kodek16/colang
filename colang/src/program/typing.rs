@@ -516,10 +516,11 @@ impl TypeTemplate {
             .insert(concrete_type_id.clone(), Rc::clone(&concrete_type));
 
         for field in self.base_type.borrow().fields.iter() {
-            let instantiated_field =
-                field
-                    .borrow()
-                    .instantiate(concrete_type_id.clone(), &type_argument_map, registry);
+            let instantiated_field = field.borrow().instantiate_field(
+                concrete_type_id.clone(),
+                &type_argument_map,
+                registry,
+            );
             concrete_type
                 .borrow_mut()
                 .add_field(instantiated_field)
@@ -527,7 +528,10 @@ impl TypeTemplate {
         }
 
         for method in self.base_type.borrow().methods.iter() {
-            let instantiated_method = method.borrow().instantiate(&type_argument_map, registry);
+            let instantiated_method =
+                method
+                    .borrow()
+                    .instantiate(concrete_type_id.clone(), &type_argument_map, registry);
             concrete_type
                 .borrow_mut()
                 .add_method(instantiated_method)

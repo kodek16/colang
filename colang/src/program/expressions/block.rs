@@ -1,45 +1,44 @@
 use crate::ast::InputSpan;
 use crate::program::{
-    AllocInstruction, DeallocInstruction, Expression, ExpressionKind, Instruction,
-    ReturnInstruction, Type, TypeRegistry, ValueCategory,
+    Expression, ExpressionKind, Instruction, Type, TypeRegistry, ValueCategory, Variable,
 };
 
+use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct BlockExpr {
-    instructions: Vec<Instruction>,
+    pub local_variables: Vec<Rc<RefCell<Variable>>>,
+    pub instructions: Vec<Instruction>,
+    pub value: Box<Expression>,
 }
 
-impl BlockExpr {
-    fn new(
-        instructions: Vec<Instruction>,
-        value_type: Rc<RefCell<Type>>,
-        span: InputSpan,
-    ) -> Expression {
-        Expression {
-            kind: ExpressionKind::Block(BlockExpr { instructions }),
-            type_: value_type,
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        }
+impl ExpressionKindImpl for BlockExpr {
+    fn calculate_type(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        Rc::clone(&self.value.type_())
     }
 
-    pub fn instructions(&self) -> impl Iterator<Item = &Instruction> {
-        self.instructions.iter()
+    fn calculate_value_category(&self) -> ValueCategory {
+        ValueCategory::Rvalue
     }
 }
 
 /// Incremental interface for building block expressions.
 pub struct BlockBuilder {
+    local_variables: Vec<Rc<RefCell<Variable>>>,
     instructions: Vec<Instruction>,
 }
 
 impl BlockBuilder {
     pub fn new() -> BlockBuilder {
         BlockBuilder {
+            local_variables: vec![],
             instructions: vec![],
         }
+    }
+
+    pub fn add_local_variable(&mut self, variable: Rc<RefCell<Variable>>) {
+        self.local_variables.push(variable);
     }
 
     pub fn append_instruction(&mut self, instruction: Instruction) {
@@ -49,32 +48,16 @@ impl BlockBuilder {
     pub fn into_expr(
         self,
         final_expr: Option<Expression>,
-        types: &TypeRegistry,
+        types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Expression {
-        let mut instructions = self.instructions;
+        let value = Box::new(final_expr.unwrap_or_else(|| Expression::empty(types)));
 
-        let type_ = if let Some(final_expr) = final_expr {
-            let type_ = Rc::clone(&final_expr.type_);
-            instructions.push(ReturnInstruction::new(final_expr));
-            type_
-        } else {
-            Rc::clone(types.void())
-        };
-
-        // We need to emit a `Dealloc` for every `Alloc` in this block, in reverse order.
-        let mut deallocations: Vec<Instruction> = instructions
-            .iter()
-            .flat_map(|statement| match statement {
-                Instruction::Alloc(AllocInstruction { variable, .. }) => {
-                    Some(DeallocInstruction::new(Rc::clone(variable)))
-                }
-                _ => None,
-            })
-            .collect();
-        deallocations.reverse();
-        instructions.append(&mut deallocations);
-
-        BlockExpr::new(instructions, type_, span)
+        let kind = ExpressionKind::Block(BlockExpr {
+            local_variables: self.local_variables,
+            instructions: self.instructions,
+            value,
+        });
+        Expression::new(kind, Some(span), types)
     }
 }

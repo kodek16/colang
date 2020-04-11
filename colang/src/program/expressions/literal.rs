@@ -1,7 +1,9 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Expression, ExpressionKind, TypeRegistry, ValueCategory};
+use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
 
+use crate::program::expressions::ExpressionKindImpl;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -13,29 +15,19 @@ pub enum LiteralExpr {
 }
 
 impl LiteralExpr {
-    pub fn int(value: i32, types: &TypeRegistry, span: InputSpan) -> Expression {
+    pub fn int(value: i32, types: &mut TypeRegistry, span: InputSpan) -> Expression {
         let kind = ExpressionKind::Literal(LiteralExpr::Int(value));
-        Expression {
-            kind,
-            type_: Rc::clone(types.int()),
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        }
+        Expression::new(kind, Some(span), types)
     }
 
-    pub fn bool(value: bool, types: &TypeRegistry, span: InputSpan) -> Expression {
+    pub fn bool(value: bool, types: &mut TypeRegistry, span: InputSpan) -> Expression {
         let kind = ExpressionKind::Literal(LiteralExpr::Bool(value));
-        Expression {
-            kind,
-            type_: Rc::clone(types.bool()),
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        }
+        Expression::new(kind, Some(span), types)
     }
 
     pub fn char(
         value: &str,
-        types: &TypeRegistry,
+        types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Result<Expression, CompilationError> {
         let literal = unescape(value, span)?;
@@ -45,26 +37,34 @@ impl LiteralExpr {
         };
 
         let result = literal.as_bytes()[0];
-        Ok(Expression {
-            kind: ExpressionKind::Literal(LiteralExpr::Char(result)),
-            type_: Rc::clone(types.char()),
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        })
+        let kind = ExpressionKind::Literal(LiteralExpr::Char(result));
+        Ok(Expression::new(kind, Some(span), types))
     }
 
     pub fn string(
         value: &str,
-        types: &TypeRegistry,
+        types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Result<Expression, CompilationError> {
         let literal = unescape(value, span)?;
-        Ok(Expression {
-            kind: ExpressionKind::Literal(LiteralExpr::String(literal)),
-            type_: Rc::clone(types.string()),
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
+        let kind = ExpressionKind::Literal(LiteralExpr::String(literal));
+        Ok(Expression::new(kind, Some(span), types))
+    }
+}
+
+impl ExpressionKindImpl for LiteralExpr {
+    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        use LiteralExpr::*;
+        Rc::clone(match self {
+            Int(_) => types.int(),
+            Bool(_) => types.bool(),
+            Char(_) => types.char(),
+            String(_) => types.string(),
         })
+    }
+
+    fn calculate_value_category(&self) -> ValueCategory {
+        ValueCategory::Rvalue
     }
 }
 

@@ -1,31 +1,31 @@
 use crate::ast::InputSpan;
 use crate::program::{
-    AddressExpr, Expression, ExpressionKind, Function, InternalFunctionTag, Program, TypeId,
-    ValueCategory,
+    AddressExpr, Expression, ExpressionKind, Function, InternalFunctionTag, Program, Type, TypeId,
+    TypeRegistry, ValueCategory,
 };
 
 use crate::errors::CompilationError;
-use crate::program::Parameter;
 
+use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;
-use std::ops::Deref;
 use std::rc::Rc;
 
 pub struct CallExpr {
-    function: Rc<RefCell<Function>>,
-    arguments: Vec<Expression>,
+    pub function: Rc<RefCell<Function>>,
+    pub arguments: Vec<Expression>,
 }
 
 impl CallExpr {
     pub fn new(
         function: Rc<RefCell<Function>>,
         arguments: Vec<Expression>,
+        types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Result<Expression, CompilationError> {
         {
             let function = function.borrow();
-            let function_name = function.name();
-            let parameters = function.parameters();
+            let function_name = &function.name;
+            let parameters = function.parameters.iter();
 
             if parameters.len() != arguments.len() {
                 let error = CompilationError::call_wrong_number_of_arguments(
@@ -39,8 +39,8 @@ impl CallExpr {
 
             for (argument, parameter) in arguments.iter().zip(parameters) {
                 let argument_type = &argument.type_;
-                let parameter_name = parameter.name();
-                let parameter_type = parameter.type_();
+                let parameter_name = &parameter.borrow().name;
+                let parameter_type = &parameter.borrow().type_;
 
                 if *argument_type != *parameter_type {
                     let error = CompilationError::call_argument_type_mismatch(
@@ -54,18 +54,12 @@ impl CallExpr {
             }
         }
 
-        let type_ = Rc::clone(&function.borrow().return_type());
         let kind = ExpressionKind::Call(CallExpr {
             function,
             arguments,
         });
 
-        Ok(Expression {
-            kind,
-            type_,
-            value_category: ValueCategory::Rvalue,
-            span: Some(span),
-        })
+        Ok(Expression::new(kind, Some(span), types))
     }
 
     pub fn new_read(
@@ -98,22 +92,24 @@ impl CallExpr {
 
         let argument = AddressExpr::new_synthetic(target, program.types_mut(), target_span);
 
-        Ok(Expression {
-            kind: ExpressionKind::Call(CallExpr {
-                function,
-                arguments: vec![argument],
-            }),
-            type_: Rc::clone(program.types().void()),
-            value_category: ValueCategory::Rvalue,
-            span: Some(target_span),
-        })
+        let kind = ExpressionKind::Call(CallExpr {
+            function,
+            arguments: vec![argument],
+        });
+        Ok(Expression::new(
+            kind,
+            Some(target_span),
+            program.types_mut(),
+        ))
+    }
+}
+
+impl ExpressionKindImpl for CallExpr {
+    fn calculate_type(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        Rc::clone(&self.function.borrow().return_type)
     }
 
-    pub fn function(&self) -> impl Deref<Target = Function> + '_ {
-        self.function.borrow()
-    }
-
-    pub fn arguments(&self) -> impl Iterator<Item = &Expression> {
-        self.arguments.iter()
+    fn calculate_value_category(&self) -> ValueCategory {
+        ValueCategory::Rvalue
     }
 }

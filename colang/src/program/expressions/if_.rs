@@ -1,14 +1,16 @@
 use crate::ast::InputSpan;
-use crate::program::{checks, Expression, ExpressionKind, TypeRegistry, ValueCategory};
+use crate::program::{checks, Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
 
 use crate::errors::CompilationError;
 
+use crate::program::expressions::ExpressionKindImpl;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct IfExpr {
-    cond: Box<Expression>,
-    then: Box<Expression>,
-    else_: Box<Expression>,
+    pub cond: Box<Expression>,
+    pub then: Box<Expression>,
+    pub else_: Box<Expression>,
 }
 
 impl IfExpr {
@@ -16,7 +18,7 @@ impl IfExpr {
         cond: Expression,
         then: Expression,
         else_: Option<Expression>,
-        types: &TypeRegistry,
+        types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Result<Expression, CompilationError> {
         checks::check_condition_is_bool(&cond, types)?;
@@ -44,36 +46,25 @@ impl IfExpr {
             return Err(error);
         }
 
-        let type_ = Rc::clone(then_type);
-
-        let value_category = match (then.value_category, else_.value_category) {
-            (ValueCategory::Lvalue, ValueCategory::Lvalue) => ValueCategory::Lvalue,
-            _ => ValueCategory::Rvalue,
-        };
-
         let kind = ExpressionKind::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Box::new(else_),
         });
 
-        Ok(Expression {
-            kind,
-            type_,
-            value_category,
-            span: Some(span),
-        })
+        Ok(Expression::new(kind, Some(span), types))
+    }
+}
+
+impl ExpressionKindImpl for IfExpr {
+    fn calculate_type(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        Rc::clone(self.then.type_())
     }
 
-    pub fn cond(&self) -> &Expression {
-        &self.cond
-    }
-
-    pub fn then(&self) -> &Expression {
-        &self.then
-    }
-
-    pub fn else_(&self) -> &Expression {
-        &self.else_
+    fn calculate_value_category(&self) -> ValueCategory {
+        match (self.then.value_category(), self.else_.value_category()) {
+            (ValueCategory::Lvalue, ValueCategory::Lvalue) => ValueCategory::Lvalue,
+            _ => ValueCategory::Rvalue,
+        }
     }
 }

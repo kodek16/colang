@@ -209,9 +209,11 @@ fn compile_method_def(
     current_type: &Rc<RefCell<Type>>,
     context: &mut CompilerContext,
 ) {
+    let name = method_def.name.text.clone();
     let return_type = compile_return_type(method_def.return_type, context);
-    let method = Rc::new(RefCell::new(Function::new_user_defined(
-        method_def.name.text.clone(),
+
+    let method = Rc::new(RefCell::new(Function::new(
+        name,
         Rc::clone(&return_type),
         method_def.signature_span,
         context.program.symbol_ids_mut(),
@@ -282,10 +284,10 @@ fn compile_method_def(
 /// Compiles the given function, adding it to the program symbol table. If any
 /// errors occur, they are added to `context`.
 fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerContext) {
-    let name = &function_def.name.text;
+    let name = function_def.name.text.clone();
     let return_type = compile_return_type(function_def.return_type, context);
 
-    let function = Function::new_user_defined(
+    let function = Function::new(
         name.clone(),
         Rc::clone(&return_type),
         function_def.signature_span,
@@ -441,7 +443,7 @@ fn create_variable(
     definition_site: Option<InputSpan>,
     context: &mut CompilerContext,
 ) -> Option<Rc<RefCell<Variable>>> {
-    let result = Variable::new(name, type_, definition_site, &mut context.program);
+    let result = Variable::new_variable(name, type_, definition_site, &mut context.program);
     let variable = match result {
         Ok(variable) => Rc::new(RefCell::new(variable)),
         Err(error) => {
@@ -613,7 +615,7 @@ fn compile_variable_expr(
 
     let variable = context.scope.lookup_variable(&name.text, expression.span);
     match variable {
-        Ok(variable) if variable.borrow().type_().is_error() => {
+        Ok(variable) if variable.borrow().type_.borrow().is_error() => {
             program::Expression::error(expression.span)
         }
         Ok(variable) => {

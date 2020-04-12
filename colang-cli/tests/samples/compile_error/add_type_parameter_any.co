@@ -1,0 +1,18 @@
+struct Wrapper<T> {
+  arr: [T];
+
+  fun sum(self): int {
+    var result = 0;
+    var index = 0;
+    while (index < self.arr.len()) {
+      result = result + self.arr[index];
+      index = index + 1;
+    }
+    result
+  }
+}
+
+fun main() {
+  var w: Wrapper<int>;
+  write w.sum();
+}

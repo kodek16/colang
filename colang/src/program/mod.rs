@@ -70,6 +70,9 @@ impl Program {
     pub(crate) fn add_function(&mut self, function: Rc<RefCell<Function>>) {
         match function.borrow().id.clone() {
             FunctionId::UserDefined(_) => self.user_functions.push(Rc::clone(&function)),
+            FunctionId::InstantiatedMethod(_, _) => {
+                panic!("Attempted to add instatiated method to global functions table")
+            }
             FunctionId::Internal(tag) => {
                 self.internal_functions
                     .insert(tag.clone(), Rc::clone(&function));

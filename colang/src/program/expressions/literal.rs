@@ -6,7 +6,7 @@ use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum LiteralExpr {
     Int(i32),
     Bool(bool),

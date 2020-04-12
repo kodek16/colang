@@ -1,7 +1,9 @@
 use crate::program::*;
 
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
+
+const MAX_LINE_LENGTH: usize = 100;
 
 impl Display for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -19,38 +21,80 @@ impl Display for Program {
                         field.type_.borrow().to_string()
                     )?;
                 }
+
+                for method in type_.methods() {
+                    let method = write_function(&method.borrow())?;
+                    write!(f, "\n{}", indent(&indent(&method)))?;
+                }
+
                 write!(f, "\n")?;
             }
         }
         write!(f, "\n")?;
 
         for function in self.user_functions.iter() {
-            let function = function.borrow();
-            let param_types: Vec<_> = function
-                .parameters
-                .iter()
-                .map(|param| param.borrow().type_.borrow().name().to_string())
-                .collect();
-            let param_types = param_types.join(", ");
-            let return_type = function.return_type.borrow().name().to_string();
-            write!(f, "{}: {} -> {}:", function.name, param_types, return_type)?;
-            write!(f, "\n{}", indent(&function.body().to_string()))?;
-            write!(f, "\n\n")?;
+            let function = write_function(&function.borrow())?;
+            write!(f, "{}\n", function)?;
         }
 
         Ok(())
     }
 }
 
+fn write_function(function: &Function) -> Result<String, fmt::Error> {
+    let mut result = String::new();
+
+    let signature = write_function_signature(function);
+
+    write!(
+        &mut result,
+        "{}:{:?}: {}:",
+        function.name, function.id, signature
+    )?;
+    write!(&mut result, "\n{}", indent(&function.body().to_string()))?;
+    write!(&mut result, "\n")?;
+    Ok(result)
+}
+
+fn write_function_signature(function: &Function) -> String {
+    let param_types: Vec<_> = function
+        .parameters
+        .iter()
+        .map(|param| param.borrow().type_.borrow().name().to_string())
+        .collect();
+    let param_types = param_types.join(", ");
+    let return_type = function.return_type.borrow().name().to_string();
+    format!("({}) -> {}", param_types, return_type)
+}
+
 impl Display for Variable {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "<{}:{:?}>", self.name, self.id)
+        match self.id {
+            VariableId::LocalVariable(id) => write!(f, "<{}:{}>", self.name, id),
+            VariableId::InstantiatedLocalVariable(id, _) => {
+                write!(f, "<{}:{}:inst>", self.name, id)
+            }
+            VariableId::Field(id) => write!(f, "<{}:{}:field>", self.name, id),
+            VariableId::InstantiatedField(id, _) => write!(f, "<{}:{}:field_inst>", self.name, id),
+            VariableId::InternalParameter(_, _) => write!(f, "<{}:internal_param>", self.name),
+        }
     }
 }
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "<{}:{:?}>", self.name, self.id)
+        match self.id {
+            FunctionId::UserDefined(id) => write!(f, "<{}:{}>", self.name, id),
+            FunctionId::Internal(_) => write!(
+                f,
+                "<{}:internal:{}>",
+                self.name,
+                write_function_signature(self)
+            ),
+            FunctionId::InstantiatedMethod(id, ref type_id) => {
+                write!(f, "<{}:{}:inst:{:?}>", self.name, id, type_id.clone())
+            }
+        }
     }
 }
 
@@ -74,7 +118,7 @@ impl Display for Instruction {
 impl Display for WriteInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let expression = self.expression.to_string();
-        if expression.contains('\n') {
+        if should_wrap(&expression) {
             write!(f, "write:\n{}", indent(&expression))
         } else {
             write!(f, "write {}", expression)
@@ -97,7 +141,7 @@ impl Display for AssignInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let target = self.target.to_string();
         let value = self.value.to_string();
-        if target.contains('\n') || value.contains('\n') {
+        if should_wrap(&target) || should_wrap(&value) {
             write!(f, "assign:\n{}\n{}", indent(&target), indent(&value))
         } else {
             write!(f, "assign {}, {}", target, value)
@@ -108,7 +152,7 @@ impl Display for AssignInstruction {
 impl Display for EvalInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let expression = self.expression.to_string();
-        if expression.contains('\n') {
+        if should_wrap(&expression) {
             write!(f, "eval:\n{}", indent(&expression))
         } else {
             write!(f, "eval {}", expression)
@@ -141,7 +185,7 @@ impl Display for AddressExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let target = self.target.to_string();
 
-        if target.contains('\n') {
+        if should_wrap(&target) {
             write!(f, "address_of:\n{}", indent(&target))
         } else {
             write!(f, "address_of({})", target)
@@ -154,7 +198,7 @@ impl Display for ArrayFromCopyExpr {
         let element = self.element.to_string();
         let size = self.size.to_string();
 
-        if element.contains('\n') || size.contains('\n') {
+        if should_wrap(&element) || should_wrap(&size) {
             write!(f, "arr_from_copy:\n{}\n{}", indent(&element), indent(&size))
         } else {
             write!(f, "arr_from_copy({}, {})", element, size)
@@ -189,7 +233,7 @@ impl Display for BlockExpr {
         }
 
         let value = self.value.to_string();
-        if value.contains('\n') {
+        if should_wrap(&value) {
             write!(f, "\n  value:\n  {}", indent(&value))
         } else {
             write!(f, "\n  value {}", value)
@@ -202,7 +246,7 @@ impl Display for CallExpr {
         let function = self.function.borrow().to_string();
         let args: Vec<_> = self.arguments.iter().map(|arg| arg.to_string()).collect();
 
-        if args.iter().any(|arg| arg.contains('\n')) {
+        if args.iter().any(|arg| should_wrap(&arg)) {
             write!(f, "call:\n{}", indent(&function))?;
             for arg in args {
                 write!(f, "\n{}", indent(&arg))?;
@@ -219,7 +263,7 @@ impl Display for DerefExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let pointer = self.pointer.to_string();
 
-        if pointer.contains('\n') {
+        if should_wrap(&pointer) {
             write!(f, "deref:\n{}", indent(&pointer))
         } else {
             write!(f, "deref({})", pointer)
@@ -232,7 +276,7 @@ impl Display for FieldAccessExpr {
         let receiver = self.receiver.to_string();
         let field = self.field.borrow().to_string();
 
-        if receiver.contains('\n') {
+        if should_wrap(&receiver) {
             write!(f, "field {}:\n{}", field, indent(&receiver))
         } else {
             write!(f, "field({}, {})", field, receiver)
@@ -272,6 +316,10 @@ impl Display for VariableExpr {
         let variable = self.variable.borrow().to_string();
         write!(f, "{}", variable)
     }
+}
+
+fn should_wrap(line: &str) -> bool {
+    line.contains('\n') || line.len() > MAX_LINE_LENGTH
 }
 
 fn indent(code: &str) -> String {

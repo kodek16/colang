@@ -1,8 +1,10 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::internal::InternalFunctionTag;
+use crate::program::transforms::visitor::CodeVisitor;
 use crate::program::{
-    Expression, SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
+    transforms, CallExpr, Expression, FieldAccessExpr, SymbolId, SymbolIdRegistry, Type, TypeId,
+    TypeRegistry, Variable,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -11,22 +13,32 @@ use std::rc::Rc;
 pub struct Function {
     pub name: String,
     pub id: FunctionId,
-    pub definition_site: Option<InputSpan>,
     pub parameters: Vec<Rc<RefCell<Variable>>>,
     pub return_type: Rc<RefCell<Type>>,
 
+    pub definition_site: Option<InputSpan>,
+
     pub body: Option<Expression>,
+
+    /// For instantiated methods, this is the ID of their prototype method in the base type.
+    pub base_method_id: Option<FunctionId>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub enum FunctionId {
     UserDefined(SymbolId),
+    InstantiatedMethod(SymbolId, TypeId),
     Internal(InternalFunctionTag),
+}
+
+pub struct ProtoInternalParameter {
+    pub name: String,
+    pub type_: Rc<RefCell<Type>>,
 }
 
 impl Function {
     /// Initialize a new, empty function. Parameters and body are filled later.
-    pub fn new_user_defined(
+    pub fn new(
         name: String,
         return_type: Rc<RefCell<Type>>,
         definition_site: InputSpan,
@@ -39,6 +51,7 @@ impl Function {
             parameters: vec![],
             return_type,
             body: None,
+            base_method_id: None,
         }
     }
 
@@ -68,13 +81,7 @@ impl Function {
             parameters,
             return_type,
             body: None,
-        }
-    }
-
-    pub fn is_user_defined(&self) -> bool {
-        match self.id {
-            FunctionId::UserDefined(_) => true,
-            FunctionId::Internal(_) => false,
+            base_method_id: None,
         }
     }
 
@@ -134,7 +141,7 @@ impl Function {
                     InternalFunctionTag::ArrayIndex(type_id) => InternalFunctionTag::ArrayIndex(
                         type_arguments.get(type_id).unwrap_or(type_id).clone(),
                     ),
-                    other => other.clone(),
+                    _ => panic!("Attempt to instantiate a non-template internal method."),
                 };
                 let id = FunctionId::Internal(tag.clone());
 
@@ -142,31 +149,126 @@ impl Function {
                     .parameters
                     .iter()
                     .map(|parameter| {
-                        parameter.borrow().instantiate_internal_parameter(
-                            tag.clone(),
-                            type_arguments,
-                            types,
-                        )
+                        Rc::new(RefCell::new(
+                            parameter.borrow().instantiate_internal_parameter(
+                                tag.clone(),
+                                type_arguments,
+                                types,
+                            ),
+                        ))
                     })
                     .collect();
 
                 let return_type = self.return_type.borrow().instantiate(type_arguments, types);
 
                 Rc::new(RefCell::new(Function {
-                    name: self.name.clone(),
                     id,
-                    definition_site: self.definition_site,
                     parameters,
                     return_type,
+                    name: self.name.clone(),
+                    definition_site: self.definition_site,
                     body: None,
+                    base_method_id: Some(self.id.clone()),
                 }))
             }
-            FunctionId::UserDefined(_) => unimplemented!(),
+            FunctionId::UserDefined(template_id) => {
+                let function_id =
+                    FunctionId::InstantiatedMethod(template_id, instantiated_type_id.clone());
+
+                let mut instantiated_function = transforms::clone::clone_function(
+                    self,
+                    |_| FunctionId::InstantiatedMethod(template_id, instantiated_type_id),
+                    &|variable, types| {
+                        variable.instantiate_local_variable(
+                            function_id.clone(),
+                            type_arguments,
+                            types,
+                        )
+                    },
+                    types,
+                );
+                instantiated_function.return_type = Rc::clone(&instantiated_function.return_type)
+                    .borrow()
+                    .instantiate(type_arguments, types);
+                instantiated_function.base_method_id = Some(self.id.clone());
+
+                let mut rewriter = InstantiatedMethodBodyRewriter { types };
+                rewriter.visit_expression(instantiated_function.body.as_mut().unwrap());
+
+                Rc::new(RefCell::new(instantiated_function))
+            }
+            FunctionId::InstantiatedMethod(_, _) => {
+                panic!("Attempt to instantiate an already instantiated method");
+            }
         }
+    }
+
+    /// For methods of template base types, looks up the method instantiation in an instantiation
+    /// of the type.
+    pub fn lookup_instantiated_method(&self, instantiated_type: &Type) -> Rc<RefCell<Function>> {
+        let target_method_id = self.base_method_id.clone().unwrap_or(self.id.clone());
+
+        for method in instantiated_type.methods() {
+            if let Some(base_method_id) = method.borrow().base_method_id.clone() {
+                if base_method_id == target_method_id {
+                    return Rc::clone(method);
+                }
+            }
+        }
+
+        panic!(
+            "Could not find an instance of method `{}` in type `{}`",
+            self.name,
+            instantiated_type.name()
+        )
     }
 }
 
-pub struct ProtoInternalParameter {
-    pub name: String,
-    pub type_: Rc<RefCell<Type>>,
+struct InstantiatedMethodBodyRewriter<'a> {
+    types: &'a mut TypeRegistry,
+}
+
+impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
+    fn types(&mut self) -> &mut TypeRegistry {
+        self.types
+    }
+
+    fn visit_call_expr(&mut self, expression: &mut CallExpr) {
+        self.walk_call_expr(expression);
+        if expression.arguments.is_empty() {
+            return;
+        }
+
+        let receiver_type = expression.arguments[0].type_();
+        let self_type = Rc::clone(&expression.function.borrow().parameters[0].borrow().type_);
+
+        if *receiver_type != self_type {
+            let receiver_type = match receiver_type.borrow().pointer_target_type(self.types) {
+                Some(target_type) => target_type,
+                None => Rc::clone(receiver_type),
+            };
+
+            let instantiated_method = expression
+                .function
+                .borrow()
+                .lookup_instantiated_method(&receiver_type.borrow());
+            expression.function = instantiated_method;
+        }
+    }
+
+    fn visit_field_access_expr(&mut self, expression: &mut FieldAccessExpr) {
+        self.walk_field_access_expr(expression);
+
+        let receiver_type = expression.receiver.type_().borrow();
+        if !receiver_type
+            .fields()
+            .any(|type_field| *type_field == expression.field)
+        {
+            let instantiated_field = expression
+                .field
+                .borrow()
+                .lookup_instantiated_field(&receiver_type);
+            expression.field = instantiated_field;
+        }
+    }
 }

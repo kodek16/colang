@@ -1,0 +1,23 @@
+struct Wrapper<Q> {
+  arr: [Q];
+
+  fun init(&self) {
+    self.arr = [];
+  }
+
+  fun push(&self, value: Q) {
+    self.arr.push(value);
+  }
+
+  fun pop(&self): Q {
+    self.arr.pop()
+  }
+}
+
+fun main() {
+  var n: Wrapper<int>;
+  n.init();
+
+  n.push(45);
+  assert(n.pop() == 45);
+}

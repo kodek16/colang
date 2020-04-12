@@ -302,7 +302,7 @@ fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {
 fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
     for variable in block.local_variables.iter() {
         let variable_id = variable.borrow().id.clone();
-        let initial_value = default_value_for_type(&variable.borrow().type_());
+        let initial_value = default_value_for_type(&variable.borrow().type_.borrow());
         state.push(variable_id, initial_value);
     }
 
@@ -346,7 +346,7 @@ fn default_value_for_struct(type_: &Type) -> Rvalue {
         .fields()
         .map(|field| {
             let field = field.borrow();
-            let value = default_value_for_type(&field.type_());
+            let value = default_value_for_type(&field.type_.borrow());
             (field.id.clone(), Lvalue::store(value))
         })
         .collect();

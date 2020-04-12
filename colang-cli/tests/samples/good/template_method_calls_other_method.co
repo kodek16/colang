@@ -1,0 +1,24 @@
+struct Wrapper<T> {
+  arr: [T];
+
+  fun push(&self, value: T) {
+    self.arr.push(value);
+  }
+
+  fun negative_len(self): int {
+    self.arr.len() * -1
+  }
+
+  fun len(self): int {
+    self.negative_len() * -1
+  }
+}
+
+fun main() {
+  var w: Wrapper<int>;
+  w.push(5);
+  w.push(10);
+
+  assert(w.negative_len() == -2);
+  assert(w.len() == 2);
+}

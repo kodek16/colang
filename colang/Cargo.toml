@@ -1,6 +1,6 @@
 [package]
 name = "colang"
-version = "0.0.10"
+version = "0.0.11"
 authors = ["Pavel Senchanka <pavel.senchanka@gmail.com>"]
 edition = "2018"
 
@@ -14,3 +14,4 @@ lalrpop = { git = "https://github.com/lalrpop/lalrpop", features = ["lexer"] }
 codespan-reporting = "0.9.1"
 lalrpop-util = { git = "https://github.com/lalrpop/lalrpop", features = ["lexer"] }
 regex = "1"
+sexp = { path = "../sexp" }

@@ -322,7 +322,7 @@ fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
 }
 
 fn default_value_for_type(type_: &Type) -> Rvalue {
-    match type_.type_id() {
+    match type_.type_id {
         TypeId::Void => panic!("Tried to default-initialize a value of type `void`"),
         TypeId::Int => Rvalue::Int(0),
         TypeId::Bool => Rvalue::Bool(false),

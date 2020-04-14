@@ -13,7 +13,7 @@ use std::rc::Rc;
 // float, double
 
 pub struct Type {
-    type_id: TypeId,
+    pub type_id: TypeId,
     name: String,
     definition_site: Option<InputSpan>,
 
@@ -81,10 +81,6 @@ impl Type {
         &self.name
     }
 
-    pub fn type_id(&self) -> &TypeId {
-        &self.type_id
-    }
-
     pub fn definition_site(&self) -> Option<InputSpan> {
         self.definition_site
     }
@@ -134,10 +130,10 @@ impl Type {
         type_arguments: &HashMap<TypeId, TypeId>,
         registry: &mut TypeRegistry,
     ) -> Rc<RefCell<Type>> {
-        if let Some(type_argument) = type_arguments.get(self.type_id()) {
+        if let Some(type_argument) = type_arguments.get(&self.type_id) {
             Rc::clone(registry.lookup(type_argument))
         } else {
-            match self.type_id() {
+            match &self.type_id {
                 TypeId::TemplateInstance(template_id, args) => {
                     let template = Rc::clone(&registry.templates[template_id]);
                     let instantiated_arguments: Vec<_> = args

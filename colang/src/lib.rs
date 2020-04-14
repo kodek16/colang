@@ -726,7 +726,7 @@ fn compile_binary_op_expr(
     }
 
     let tag = match expression.operator {
-        ast::BinaryOperator::Add => match lhs.type_().borrow().type_id() {
+        ast::BinaryOperator::Add => match lhs.type_().borrow().type_id {
             TypeId::Int => Some(InternalFunctionTag::AddInt),
             TypeId::String => Some(InternalFunctionTag::StringAdd),
             _ => None,
@@ -737,12 +737,12 @@ fn compile_binary_op_expr(
         ast::BinaryOperator::Greater => Some(InternalFunctionTag::GreaterInt),
         ast::BinaryOperator::LessEq => Some(InternalFunctionTag::LessEqInt),
         ast::BinaryOperator::GreaterEq => Some(InternalFunctionTag::GreaterEqInt),
-        ast::BinaryOperator::Eq => match lhs.type_().borrow().type_id() {
+        ast::BinaryOperator::Eq => match lhs.type_().borrow().type_id {
             TypeId::Int => Some(InternalFunctionTag::EqInt),
             TypeId::String => Some(InternalFunctionTag::StringEq),
             _ => None,
         },
-        ast::BinaryOperator::NotEq => match lhs.type_().borrow().type_id() {
+        ast::BinaryOperator::NotEq => match lhs.type_().borrow().type_id {
             TypeId::Int => Some(InternalFunctionTag::NotEqInt),
             TypeId::String => Some(InternalFunctionTag::StringNotEq),
             _ => None,

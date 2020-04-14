@@ -341,7 +341,7 @@ fn create_array_methods(types: &mut TypeRegistry) -> Vec<Rc<RefCell<Function>>> 
     let methods = vec![
         Function::new_internal(
             "push".to_string(),
-            InternalFunctionTag::ArrayPush(type_parameter.borrow().type_id().clone()),
+            InternalFunctionTag::ArrayPush(type_parameter.borrow().type_id.clone()),
             vec![
                 internal_param("self", &pointer_to_array_type),
                 internal_param("element", &type_parameter),
@@ -350,19 +350,19 @@ fn create_array_methods(types: &mut TypeRegistry) -> Vec<Rc<RefCell<Function>>> 
         ),
         Function::new_internal(
             "pop".to_string(),
-            InternalFunctionTag::ArrayPop(type_parameter.borrow().type_id().clone()),
+            InternalFunctionTag::ArrayPop(type_parameter.borrow().type_id.clone()),
             vec![internal_param("self", &pointer_to_array_type)],
             Rc::clone(&type_parameter),
         ),
         Function::new_internal(
             "len".to_string(),
-            InternalFunctionTag::ArrayLen(type_parameter.borrow().type_id().clone()),
+            InternalFunctionTag::ArrayLen(type_parameter.borrow().type_id.clone()),
             vec![internal_param("self", &array_type)],
             Rc::clone(types.int()),
         ),
         Function::new_internal(
             "index".to_string(),
-            InternalFunctionTag::ArrayIndex(type_parameter.borrow().type_id().clone()),
+            InternalFunctionTag::ArrayIndex(type_parameter.borrow().type_id.clone()),
             vec![
                 internal_param("self", &array_type),
                 internal_param("index", types.int()),

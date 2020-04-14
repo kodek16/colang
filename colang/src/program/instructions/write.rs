@@ -17,7 +17,7 @@ impl WriteInstruction {
             .span
             .expect("Attempt to write a synthetic `int` expression");
 
-        let stringified_expr = match expression_type.borrow().type_id() {
+        let stringified_expr = match expression_type.borrow().type_id {
             TypeId::String => expression,
             TypeId::Int => {
                 let conversion = program.internal_function(InternalFunctionTag::IntToString);

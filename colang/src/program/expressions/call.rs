@@ -76,7 +76,7 @@ impl CallExpr {
 
         let target_type = &target.type_;
 
-        let function = Rc::clone(match target_type.borrow().type_id().clone() {
+        let function = Rc::clone(match target_type.borrow().type_id.clone() {
             TypeId::Int => program.internal_function(InternalFunctionTag::ReadInt),
             TypeId::String => program.internal_function(InternalFunctionTag::ReadWord),
             _ => {

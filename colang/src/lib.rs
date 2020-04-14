@@ -18,6 +18,7 @@ use std::rc::Rc;
 
 use crate::ast::{InputSpan, InputSpanFile};
 use crate::errors::CompilationError;
+use crate::program::transforms::valid::ValidityChecker;
 use crate::program::{
     BlockBuilder, Function, InternalFunctionTag, ProtoTypeParameter, Type, TypeId, TypeTemplate,
     ValueCategory, Variable,
@@ -35,7 +36,18 @@ pub fn run(source_code: &str) -> Result<program::Program, Vec<CompilationError>>
         )]
     })?;
 
-    let program = compile(vec![std_ast, program_ast])?;
+    let mut program = compile(vec![std_ast, program_ast])?;
+
+    let checker = ValidityChecker::new(&mut program);
+    let errors = checker.check();
+    if !errors.is_empty() {
+        eprintln!("Compiler error: produced program is in an invalid state.");
+        for error in errors {
+            eprintln!("{}", error);
+        }
+        panic!("Internal error occurred");
+    }
+
     Ok(program)
 }
 
@@ -818,7 +830,14 @@ fn compile_new_expr(
         return program::Expression::error(expression.span);
     }
 
-    program::NewExpr::new(target_type, context.program.types_mut(), expression.span)
+    let result = program::NewExpr::new(target_type, context.program.types_mut(), expression.span);
+    match result {
+        Ok(expression) => expression,
+        Err(error) => {
+            context.errors.push(error);
+            program::Expression::error(expression.span)
+        }
+    }
 }
 
 fn compile_array_from_elements_expr(
@@ -1242,8 +1261,8 @@ fn compile_template_instance_type_expr(
     }
 }
 
-/// Automatic pointer dereferencing: in some context where it's obvious that pointers
-/// have to be dereferenced, user can omit the dereference operator.
+/// Automatic pointer dereferencing: in some contexts where it's obvious that pointers
+/// have to be dereferenced the user can omit the dereference operator.
 fn maybe_deref(
     expression: program::Expression,
     context: &mut CompilerContext,

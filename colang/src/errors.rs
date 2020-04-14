@@ -464,6 +464,14 @@ impl CompilationError {
             location: Some(location),
         }
     }
+
+    pub fn new_expression_void_type(location: InputSpan) -> CompilationError {
+        CompilationError {
+            code: "E9042",
+            message: format!("cannot create an instance of type `void`"),
+            location: Some(location),
+        }
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

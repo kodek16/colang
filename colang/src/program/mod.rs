@@ -8,7 +8,7 @@ mod expressions;
 mod function;
 mod instructions;
 pub(crate) mod internal;
-mod transforms;
+pub mod transforms;
 mod typing;
 mod variable;
 
@@ -104,6 +104,26 @@ impl Program {
 
     pub fn types(&self) -> &TypeRegistry {
         &self.types
+    }
+
+    /// Collects all user-defined functions present in the program.
+    pub fn all_user_functions(&self) -> Vec<Rc<RefCell<Function>>> {
+        let mut result = Vec::new();
+
+        for type_ in self.types.all_types() {
+            let type_ = type_.borrow();
+            if type_.is_user_defined() {
+                for method in type_.methods() {
+                    result.push(Rc::clone(method));
+                }
+            }
+        }
+
+        for function in &self.user_functions {
+            result.push(Rc::clone(&function));
+        }
+
+        result
     }
 
     pub fn main_function(&self) -> impl Deref<Target = Function> + '_ {

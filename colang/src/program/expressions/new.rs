@@ -1,4 +1,5 @@
 use crate::ast::InputSpan;
+use crate::errors::CompilationError;
 use crate::program::expressions::ExpressionKindImpl;
 use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
 use std::cell::RefCell;
@@ -13,9 +14,14 @@ impl NewExpr {
         target_type: Rc<RefCell<Type>>,
         types: &mut TypeRegistry,
         span: InputSpan,
-    ) -> Expression {
+    ) -> Result<Expression, CompilationError> {
+        if target_type == *types.void() {
+            let error = CompilationError::new_expression_void_type(span);
+            return Err(error);
+        }
+
         let kind = ExpressionKind::New(NewExpr { target_type });
-        Expression::new(kind, Some(span), types)
+        Ok(Expression::new(kind, Some(span), types))
     }
 }
 

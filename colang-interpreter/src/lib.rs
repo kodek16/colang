@@ -82,7 +82,8 @@ fn run_user_function(
     state: &mut State,
 ) -> RunResult<Value> {
     let body = function.body();
-    run_expression(body, state)
+    let body = body.borrow();
+    run_expression(&body, state)
 }
 
 fn run_internal_function(

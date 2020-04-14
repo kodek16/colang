@@ -73,7 +73,7 @@ impl Function {
                 sexp_str!("body"),
                 self.body
                     .as_ref()
-                    .map(Expression::to_sexp)
+                    .map(|body| { body.borrow().to_sexp() })
                     .unwrap_or(sexp_str!("missing"))
             )
         )

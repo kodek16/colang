@@ -3,8 +3,8 @@ use crate::errors::CompilationError;
 use crate::program::internal::InternalFunctionTag;
 use crate::program::transforms::visitor::CodeVisitor;
 use crate::program::{
-    transforms, CallExpr, Expression, FieldAccessExpr, SymbolId, SymbolIdRegistry, Type, TypeId,
-    TypeRegistry, Variable,
+    transforms, ArrayFromElementsExpr, CallExpr, Expression, FieldAccessExpr, SymbolId,
+    SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -18,7 +18,9 @@ pub struct Function {
 
     pub definition_site: Option<InputSpan>,
 
-    pub body: Option<Expression>,
+    // Body is wrapped in a separate cell so that we can still borrow function immutably
+    // while the body is borrowed mutably. This is very useful for recursive functions.
+    pub body: Option<Rc<RefCell<Expression>>>,
 
     /// For instantiated methods, this is the ID of their prototype method in the base type.
     pub base_method_id: Option<FunctionId>,
@@ -110,12 +112,12 @@ impl Function {
             return Err(error);
         }
 
-        self.body = Some(body);
+        self.body = Some(Rc::new(RefCell::new(body)));
         Ok(())
     }
 
-    pub fn body(&self) -> &Expression {
-        &self.body.as_ref().expect("function body was not filled")
+    pub fn body(&self) -> &Rc<RefCell<Expression>> {
+        self.body.as_ref().expect("function body was not filled")
     }
 
     /// Create a copy of this function with all occurrences of type parameters replaced by
@@ -192,8 +194,15 @@ impl Function {
                     .instantiate(type_arguments, types);
                 instantiated_function.base_method_id = Some(self.id.clone());
 
-                let mut rewriter = InstantiatedMethodBodyRewriter { types };
-                rewriter.visit_expression(instantiated_function.body.as_mut().unwrap());
+                {
+                    let function_body = instantiated_function.body.as_ref().unwrap();
+                    let mut function_body = function_body.borrow_mut();
+                    let mut rewriter = InstantiatedMethodBodyRewriter {
+                        types,
+                        type_arguments,
+                    };
+                    rewriter.visit_expression(&mut function_body);
+                }
 
                 Rc::new(RefCell::new(instantiated_function))
             }
@@ -225,12 +234,20 @@ impl Function {
 }
 
 struct InstantiatedMethodBodyRewriter<'a> {
+    type_arguments: &'a HashMap<TypeId, TypeId>,
     types: &'a mut TypeRegistry,
 }
 
 impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
     fn types(&mut self) -> &mut TypeRegistry {
         self.types
+    }
+
+    fn visit_array_from_elements_expr(&mut self, expression: &mut ArrayFromElementsExpr) {
+        self.walk_array_from_elements_expr(expression);
+        expression.element_type = Rc::clone(&expression.element_type)
+            .borrow()
+            .instantiate(self.type_arguments, self.types)
     }
 
     fn visit_call_expr(&mut self, expression: &mut CallExpr) {

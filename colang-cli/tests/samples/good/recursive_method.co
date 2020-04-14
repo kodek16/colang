@@ -1,0 +1,15 @@
+struct Facter {
+  fun fact(&self, x: int): int {
+    if (x <= 1) {
+      x
+    } else {
+      x * self.fact(x - 1)
+    }
+  }
+}
+
+fun main() {
+  var f: Facter;
+  assert(f.fact(4) == 24);
+  assert(f.fact(5) == 120);
+}

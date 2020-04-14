@@ -21,13 +21,13 @@ impl<'a> ValidityChecker<'a> {
 
     pub fn check(mut self) -> Vec<String> {
         for function in self.program.all_user_functions() {
-            self.visit_expression(
-                function
-                    .borrow_mut()
-                    .body
-                    .as_mut()
-                    .expect("User function without a body"),
-            );
+            let function = function.borrow();
+            let body = function
+                .body
+                .as_ref()
+                .expect("User-defined function without a body");
+            let mut body = body.borrow_mut();
+            self.visit_expression(&mut body);
         }
         self.errors
     }

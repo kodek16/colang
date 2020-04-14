@@ -1,0 +1,11 @@
+struct Wrapper<T> {
+  arr: [T];
+
+  fun init(&self) {
+    self.arr = [];
+  }
+}
+
+fun main() {
+  var w: Wrapper<char>;
+}

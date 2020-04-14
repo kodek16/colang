@@ -43,13 +43,16 @@ pub fn clone_function(
         types,
     };
 
-    let body = clone_expression(
-        function.body.as_ref().expect(&format!(
+    let body = function
+        .body
+        .as_ref()
+        .expect(&format!(
             "Attempt to instantiate function `{}` without a body",
             function.name
-        )),
-        &mut context,
-    );
+        ))
+        .borrow();
+
+    let body = clone_expression(&body, &mut context);
 
     Function {
         name,
@@ -57,7 +60,7 @@ pub fn clone_function(
         definition_site,
         parameters,
         return_type,
-        body: Some(body),
+        body: Some(Rc::new(RefCell::new(body))),
         base_method_id: function.base_method_id.clone(),
     }
 }

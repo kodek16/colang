@@ -88,12 +88,15 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
     }
 
     let array = Rc::clone(&program.types.array().borrow().base_type());
-    let mut array = array.borrow_mut();
-    for method in array_methods.iter() {
-        array
-            .add_method(Rc::clone(&method))
-            .expect("Internal method name collision.");
+    {
+        let mut array = array.borrow_mut();
+        for method in array_methods.iter() {
+            array
+                .add_method(Rc::clone(&method))
+                .expect("Internal method name collision.");
+        }
     }
+    program.types_mut().mark_fully_complete(&array);
 
     let mut string = program.types.string().borrow_mut();
     for method in string_methods.iter() {

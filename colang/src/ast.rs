@@ -38,7 +38,7 @@ pub enum Parameter {
 }
 
 impl Parameter {
-    pub fn into_self(self) -> SelfParameter {
+    pub fn as_self(&self) -> &SelfParameter {
         match self {
             Parameter::Self_(parameter) => parameter,
             _ => panic!("Tried to convert a normal parameter into a `self` parameter"),
@@ -493,6 +493,18 @@ pub enum TypeExpr {
     TemplateInstance(TemplateInstanceTypeExpr),
 }
 
+impl TypeExpr {
+    pub fn span(&self) -> InputSpan {
+        use TypeExpr::*;
+        match self {
+            Scalar(type_expr) => type_expr.span,
+            Array(type_expr) => type_expr.span,
+            Pointer(type_expr) => type_expr.span,
+            TemplateInstance(type_expr) => type_expr.span,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ScalarTypeExpr {
     pub name: Identifier,
@@ -529,14 +541,14 @@ pub struct Identifier {
     pub span: InputSpan,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub struct InputSpan {
     pub file: InputSpanFile,
     pub start: usize,
     pub end: usize,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum InputSpanFile {
     UserProgram,
     Std,

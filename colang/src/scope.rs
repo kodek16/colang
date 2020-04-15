@@ -320,7 +320,7 @@ impl NamedEntityKind for Type {
 
 impl NamedEntityKind for TypeTemplate {
     fn name(&self) -> String {
-        self.name().to_string()
+        self.name.to_string()
     }
 
     fn definition_site(&self) -> Option<InputSpan> {

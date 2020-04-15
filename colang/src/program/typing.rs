@@ -8,6 +8,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+const MAX_TYPE_INSTANTIATION_DEPTH: usize = 64;
+
 // Numeric types plan:
 // int, int8, int16, int64, int128
 // float, double
@@ -20,6 +22,19 @@ pub struct Type {
     fields: Vec<Rc<RefCell<Variable>>>,
     methods: Vec<Rc<RefCell<Function>>>,
     scope: Scope,
+    completeness: TypeCompleteness,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+enum TypeCompleteness {
+    /// Fields and methods not yet analyzed.
+    Incomplete,
+
+    /// Fields and methods analyzed, but their types may not be fully complete.
+    CompleteWithoutDeps,
+
+    /// Fields and methods analyzed, their types are also fully complete.
+    FullyComplete,
 }
 
 impl Type {
@@ -30,13 +45,20 @@ impl Type {
         program: &mut Program,
     ) -> Rc<RefCell<Type>> {
         let type_id = TypeId::Struct(program.symbol_ids_mut().next_id());
-        Type::new(name, type_id, Some(definition_site), program.types_mut())
+        Type::new(
+            name,
+            type_id,
+            Some(definition_site),
+            TypeCompleteness::Incomplete,
+            program.types_mut(),
+        )
     }
 
     fn new(
         name: String,
         type_id: TypeId,
         definition_site: Option<InputSpan>,
+        completeness: TypeCompleteness,
         registry: &mut TypeRegistry,
     ) -> Rc<RefCell<Type>> {
         let type_ = Type {
@@ -46,6 +68,7 @@ impl Type {
             fields: vec![],
             methods: vec![],
             scope: Scope::new_for_type(),
+            completeness,
         };
         let type_ = Rc::new(RefCell::new(type_));
         registry.types.insert(type_id, Rc::clone(&type_));
@@ -62,6 +85,7 @@ impl Type {
             fields: vec![],
             methods: vec![],
             scope: Scope::new_for_type(),
+            completeness: TypeCompleteness::FullyComplete,
         }))
     }
 
@@ -124,6 +148,33 @@ impl Type {
         }
     }
 
+    pub fn is_pointer(&self) -> bool {
+        match self.type_id {
+            TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => true,
+            _ => false,
+        }
+    }
+
+    /// If `self` is a pointer type, returns the type of target.
+    pub fn pointer_target_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
+        match self.type_id {
+            TypeId::TemplateInstance(TypeTemplateId::Pointer, ref type_parameters) => {
+                Some(Rc::clone(&registry.types[&type_parameters[0]]))
+            }
+            _ => None,
+        }
+    }
+
+    /// If `self` is an array type, returns the type of elements.
+    pub fn array_element_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
+        match self.type_id {
+            TypeId::TemplateInstance(TypeTemplateId::Array, ref type_parameters) => {
+                Some(Rc::clone(&registry.types[&type_parameters[0]]))
+            }
+            _ => None,
+        }
+    }
+
     /// Replaces all dependencies this type has on type parameters with concrete type arguments.
     pub fn instantiate(
         &self,
@@ -160,31 +211,169 @@ impl Type {
         }
     }
 
-    pub fn is_pointer(&self) -> bool {
-        match self.type_id {
-            TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => true,
-            _ => false,
+    /// Ensures that both the type itself and its dependencies (types of its fields and methods)
+    /// are complete.
+    /// If an endless loop is encountered (type set in a program is infinite), the instantiation
+    /// stack leading to a loop is returned as error.
+    pub fn ensure_is_complete_with_dependencies(
+        type_: Rc<RefCell<Type>>,
+        registry: &mut TypeRegistry,
+    ) -> Result<(), Vec<Rc<RefCell<Type>>>> {
+        let mut type_stack: Vec<Rc<RefCell<Type>>> = Vec::new();
+        type_stack.push(Rc::clone(&type_));
+
+        fn process(
+            current_type: Rc<RefCell<Type>>,
+            type_stack: &mut Vec<Rc<RefCell<Type>>>,
+            registry: &mut TypeRegistry,
+        ) -> Result<(), ()> {
+            if type_stack.len() > MAX_TYPE_INSTANTIATION_DEPTH {
+                return Err(());
+            }
+
+            if current_type.borrow().completeness == TypeCompleteness::Incomplete {
+                Type::complete_from_base_type(Rc::clone(&current_type), registry);
+            }
+
+            if current_type.borrow().completeness == TypeCompleteness::CompleteWithoutDeps {
+                let dependencies = current_type
+                    .borrow()
+                    .type_dependencies_from_global_interface(registry);
+                for dependency in dependencies {
+                    if !type_stack.iter().any(|existing| *existing == dependency) {
+                        type_stack.push(Rc::clone(&dependency));
+                        process(Rc::clone(&dependency), type_stack, registry)?;
+                    }
+                }
+            }
+
+            registry.mark_fully_complete(&current_type);
+            type_stack.pop();
+            Ok(())
+        }
+
+        let result = process(type_, &mut type_stack, registry);
+        result.map_err(|_| type_stack)
+    }
+
+    /// For an incomplete type instantiated from a template, complete the instantiation by
+    /// copying fields and methods from the base type.
+    fn complete_from_base_type(type_: Rc<RefCell<Type>>, registry: &mut TypeRegistry) {
+        if type_.borrow().completeness != TypeCompleteness::Incomplete {
+            panic!(
+                "Attempted to complete type `{}`, which is already complete",
+                type_.borrow().name
+            );
+        }
+
+        let type_id = type_.borrow().type_id.clone();
+        let type_name = type_.borrow().name.clone();
+
+        match &type_id {
+            TypeId::TemplateInstance(template_id, _) => {
+                let template = Rc::clone(&registry.templates[template_id]);
+                let template = template.borrow();
+
+                let base_type = &template.base_type;
+                let base_type = base_type.borrow();
+
+                if base_type.completeness == TypeCompleteness::Incomplete {
+                    panic!(
+                        "Attempted to complete type `{}` from its base type `{}`, but the base type is not complete yet",
+                        type_name, base_type.name
+                    )
+                }
+
+                let own_type_arguments = type_.borrow().actual_type_arguments(registry);
+                for field in base_type.fields.iter() {
+                    let instantiated_field =
+                        Rc::new(RefCell::new(field.borrow().instantiate_field(
+                            type_id.clone(),
+                            &own_type_arguments,
+                            registry,
+                        )));
+                    type_
+                        .borrow_mut()
+                        .add_field(instantiated_field)
+                        .expect(&format!(
+                            "Name collision when trying to instantiate field `{}` of type `{}`",
+                            field.borrow().name,
+                            type_name
+                        ));
+                }
+
+                for method in base_type.methods.iter() {
+                    let instantiated_method =
+                        method
+                            .borrow()
+                            .instantiate(type_id.clone(), &own_type_arguments, registry);
+                    type_
+                        .borrow_mut()
+                        .add_method(instantiated_method)
+                        .expect(&format!(
+                            "Name collision when trying to instantiate method `{}` of type `{}`",
+                            method.borrow().name,
+                            type_name
+                        ));
+                }
+
+                registry.mark_complete_without_deps(&type_);
+            }
+            _ => panic!(
+                "Cannot use base type to complete type `{}`: not a template instance",
+                type_name
+            ),
         }
     }
 
-    /// If `self` is a pointer type, returns the type of target.
-    pub fn pointer_target_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
-        match self.type_id {
-            TypeId::TemplateInstance(TypeTemplateId::Pointer, ref type_parameters) => {
-                Some(Rc::clone(&registry.types[&type_parameters[0]]))
+    /// For a type template instantiation, a mapping from type parameters to actual arguments.
+    fn actual_type_arguments(&self, registry: &mut TypeRegistry) -> HashMap<TypeId, TypeId> {
+        match &self.type_id {
+            TypeId::TemplateInstance(template_id, type_arg_ids) => {
+                let template = Rc::clone(&registry.templates[template_id]);
+                let type_parameter_ids: Vec<_> = template
+                    .borrow()
+                    .type_parameters
+                    .iter()
+                    .map(|type_param| type_param.borrow().type_id.clone())
+                    .collect();
+
+                type_parameter_ids
+                    .iter()
+                    .zip(type_arg_ids.iter())
+                    .map(|(a, p)| (a.clone(), p.clone()))
+                    .collect()
             }
-            _ => None,
+            _ => panic!(
+                "Concrete type `{}` is not a template instance, and so has no type arguments",
+                self.name
+            ),
         }
     }
 
-    /// If `self` is an array type, returns the type of elements.
-    pub fn array_element_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
-        match self.type_id {
-            TypeId::TemplateInstance(TypeTemplateId::Array, ref type_parameters) => {
-                Some(Rc::clone(&registry.types[&type_parameters[0]]))
-            }
-            _ => None,
+    /// Collects the types of fields and methods, and also type arguments for template instances.
+    fn type_dependencies_from_global_interface(
+        &self,
+        registry: &TypeRegistry,
+    ) -> Vec<Rc<RefCell<Type>>> {
+        let mut result = Vec::new();
+        for field in &self.fields {
+            result.push(Rc::clone(&field.borrow().type_));
         }
+        for method in &self.methods {
+            result.push(Rc::clone(&method.borrow().return_type));
+            for parameter in &method.borrow().parameters {
+                result.push(Rc::clone(&parameter.borrow().type_));
+            }
+        }
+        if let TypeId::TemplateInstance(_, type_arg_ids) = &self.type_id {
+            for type_arg_id in type_arg_ids {
+                let type_arg = Rc::clone(&registry.lookup(type_arg_id));
+                result.push(type_arg)
+            }
+        }
+
+        result
     }
 }
 
@@ -233,14 +422,47 @@ impl TypeRegistry {
             templates: HashMap::new(),
         };
 
-        Type::new("void".to_string(), TypeId::Void, None, &mut registry);
-        Type::new("int".to_string(), TypeId::Int, None, &mut registry);
-        Type::new("bool".to_string(), TypeId::Bool, None, &mut registry);
-        Type::new("char".to_string(), TypeId::Char, None, &mut registry);
-        Type::new("string".to_string(), TypeId::String, None, &mut registry);
+        Type::new(
+            "void".to_string(),
+            TypeId::Void,
+            None,
+            TypeCompleteness::FullyComplete,
+            &mut registry,
+        );
+        Type::new(
+            "int".to_string(),
+            TypeId::Int,
+            None,
+            TypeCompleteness::FullyComplete,
+            &mut registry,
+        );
+        Type::new(
+            "bool".to_string(),
+            TypeId::Bool,
+            None,
+            TypeCompleteness::FullyComplete,
+            &mut registry,
+        );
+        Type::new(
+            "char".to_string(),
+            TypeId::Char,
+            None,
+            TypeCompleteness::FullyComplete,
+            &mut registry,
+        );
+        Type::new(
+            "string".to_string(),
+            TypeId::String,
+            None,
+            TypeCompleteness::FullyComplete,
+            &mut registry,
+        );
 
         create_array_template(&mut registry);
         create_pointer_template(&mut registry);
+
+        // Array is marked fully complete once its internal methods are initialized later.
+        registry.mark_fully_complete(&Rc::clone(registry.pointer()).borrow().base_type());
 
         registry
     }
@@ -305,11 +527,21 @@ impl TypeRegistry {
     pub fn all_types(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
         self.types.values()
     }
+
+    /// Marks a previously incomplete type as complete (but with possibly incomplete dependencies).
+    pub fn mark_complete_without_deps(&mut self, type_: &Rc<RefCell<Type>>) {
+        type_.borrow_mut().completeness = TypeCompleteness::CompleteWithoutDeps;
+    }
+
+    /// Marks a type as fully complete (with all dependencies also fully complete).
+    pub fn mark_fully_complete(&mut self, type_: &Rc<RefCell<Type>>) {
+        type_.borrow_mut().completeness = TypeCompleteness::FullyComplete;
+    }
 }
 
 pub struct TypeTemplate {
-    type_template_id: TypeTemplateId,
-    name: String,
+    pub type_template_id: TypeTemplateId,
+    pub name: String,
     definition_site: Option<InputSpan>,
 
     /// If the template has a quirky naming pattern (like arrays or pointers),
@@ -378,6 +610,7 @@ impl TypeTemplate {
                     fields: vec![],
                     methods: vec![],
                     scope: Scope::new_for_type(),
+                    completeness: TypeCompleteness::FullyComplete,
                 }));
                 registry.types.insert(
                     type_parameter.borrow().type_id.clone(),
@@ -414,6 +647,7 @@ impl TypeTemplate {
             fields: vec![],
             methods: vec![],
             scope: Scope::new_for_type(),
+            completeness: TypeCompleteness::Incomplete,
         }));
         registry
             .types
@@ -433,14 +667,6 @@ impl TypeTemplate {
             .insert(type_template_id, Rc::clone(&type_template));
 
         type_template
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn type_template_id(&self) -> &TypeTemplateId {
-        &self.type_template_id
     }
 
     pub fn definition_site(&self) -> Option<InputSpan> {
@@ -463,7 +689,7 @@ impl TypeTemplate {
     ) -> Result<Rc<RefCell<Type>>, CompilationError> {
         if type_arguments.len() != self.type_parameters.len() {
             return Err(CompilationError::wrong_number_of_type_template_arguments(
-                self.name(),
+                &self.name,
                 self.type_parameters.len(),
                 type_arguments.len(),
                 location.expect(
@@ -484,13 +710,6 @@ impl TypeTemplate {
             .map(|type_arg| type_arg.borrow().type_id.clone())
             .collect();
 
-        let type_argument_map: HashMap<TypeId, TypeId> = self
-            .type_parameters
-            .iter()
-            .map(|type_param| type_param.borrow().type_id.clone())
-            .zip(type_argument_ids.iter().map(TypeId::clone))
-            .collect();
-
         let concrete_type_id =
             TypeId::TemplateInstance(self.type_template_id.clone(), type_argument_ids);
         let concrete_type_name = (*self.name_template)(type_arguments);
@@ -506,33 +725,11 @@ impl TypeTemplate {
             fields: vec![],
             methods: vec![],
             scope: Scope::new_for_type(),
+            completeness: TypeCompleteness::Incomplete,
         }));
         registry
             .types
             .insert(concrete_type_id.clone(), Rc::clone(&concrete_type));
-
-        for field in self.base_type.borrow().fields.iter() {
-            let instantiated_field = Rc::new(RefCell::new(field.borrow().instantiate_field(
-                concrete_type_id.clone(),
-                &type_argument_map,
-                registry,
-            )));
-            concrete_type
-                .borrow_mut()
-                .add_field(instantiated_field)
-                .expect("Name collision on type template instantiation");
-        }
-
-        for method in self.base_type.borrow().methods.iter() {
-            let instantiated_method =
-                method
-                    .borrow()
-                    .instantiate(concrete_type_id.clone(), &type_argument_map, registry);
-            concrete_type
-                .borrow_mut()
-                .add_method(instantiated_method)
-                .expect("Name collision on type template instantiation");
-        }
 
         Ok(Rc::clone(&concrete_type))
     }

@@ -3,6 +3,7 @@
 
 use lalrpop_util::lalrpop_mod;
 
+mod analyzer;
 mod ast;
 mod scope;
 
@@ -16,14 +17,17 @@ use std::cell::RefCell;
 use std::iter;
 use std::rc::Rc;
 
+use crate::analyzer::type_exprs;
+use crate::analyzer::utils::global_visitor::GlobalVisitor;
 use crate::ast::{InputSpan, InputSpanFile};
 use crate::errors::CompilationError;
 use crate::program::transforms::valid::ValidityChecker;
 use crate::program::{
-    BlockBuilder, Function, InternalFunctionTag, ProtoTypeParameter, Type, TypeId, TypeTemplate,
-    ValueCategory, Variable,
+    BlockBuilder, Function, InternalFunctionTag, Type, TypeId, TypeTemplate, ValueCategory,
+    Variable,
 };
 use crate::scope::Scope;
+use std::collections::HashMap;
 
 pub fn run(source_code: &str) -> Result<program::Program, Vec<CompilationError>> {
     let std_ast = parse(stdlib::STD_SOURCE, InputSpanFile::Std)
@@ -57,12 +61,21 @@ fn parse(source_code: &str, file: InputSpanFile) -> Result<ast::Program, ast::Pa
 }
 
 /// Context that gets passed along to various compiler routines.
-struct CompilerContext {
+pub struct CompilerContext {
     program: program::Program,
     scope: Scope,
 
     /// In methods, this is the variable bound to `self`.
     self_: Option<Rc<RefCell<Variable>>>,
+
+    // Keep track of semantic objects created from syntactic definitions so that later passes
+    // can easily access them.
+    defined_types: HashMap<InputSpan, Rc<RefCell<Type>>>,
+    defined_type_templates: HashMap<InputSpan, Rc<RefCell<TypeTemplate>>>,
+    defined_functions: HashMap<InputSpan, Rc<RefCell<Function>>>,
+    defined_fields: HashMap<InputSpan, Rc<RefCell<Variable>>>,
+    defined_methods: HashMap<InputSpan, Rc<RefCell<Function>>>,
+
     errors: Vec<CompilationError>,
 }
 
@@ -81,6 +94,11 @@ impl CompilerContext {
             program,
             scope,
             self_: None,
+            defined_types: HashMap::new(),
+            defined_type_templates: HashMap::new(),
+            defined_functions: HashMap::new(),
+            defined_fields: HashMap::new(),
+            defined_methods: HashMap::new(),
             errors: vec![],
         }
     }
@@ -90,6 +108,19 @@ impl CompilerContext {
 fn compile(sources: Vec<ast::Program>) -> Result<program::Program, Vec<CompilationError>> {
     let mut context = CompilerContext::new();
 
+    // 1st pass: initialize all defined types (and base types of type templates).
+    analyzer::incomplete_types::IncompleteTypesAnalyzerPass::new()
+        .run(sources.iter().collect(), &mut context);
+
+    // 2nd pass: collect all global information.
+    analyzer::global_structure::GlobalStructureAnalyzerPass::new()
+        .run(sources.iter().collect(), &mut context);
+
+    // 3rd pass: complete all types referenced globally.
+    analyzer::complete_types::CompleteTypesAnalyzerPass::new()
+        .run(sources.iter().collect(), &mut context);
+
+    // Last pass (legacy).
     for source in sources {
         for struct_def in source.structs {
             compile_struct_def(struct_def, &mut context);
@@ -123,20 +154,15 @@ fn compile_struct_def(struct_def: ast::StructDef, context: &mut CompilerContext)
         return;
     }
 
-    let name = &struct_def.name.text;
-    let type_ = Type::new_struct(
-        name.to_string(),
-        struct_def.signature_span,
-        &mut context.program,
+    let type_ = Rc::clone(
+        context
+            .defined_types
+            .get(&struct_def.signature_span)
+            .expect(&format!(
+                "Missing type `{}` from previous passes",
+                struct_def.name.text
+            )),
     );
-
-    if let Err(error) = context.scope.add_type(Rc::clone(&type_)) {
-        context.errors.push(error);
-    }
-
-    for field_def in struct_def.fields {
-        compile_field_def(field_def, &type_, context);
-    }
 
     for method_def in struct_def.methods {
         compile_method_def(method_def, &type_, context);
@@ -144,41 +170,23 @@ fn compile_struct_def(struct_def: ast::StructDef, context: &mut CompilerContext)
 }
 
 fn compile_struct_template_def(struct_def: ast::StructDef, context: &mut CompilerContext) {
-    let type_parameters: Vec<_> = struct_def
-        .type_parameters
-        .into_iter()
-        .map(|type_param| ProtoTypeParameter {
-            name: type_param.text,
-            definition_site: Some(type_param.span),
-        })
-        .collect();
-    let template = TypeTemplate::new_struct_template(
-        struct_def.name.text.clone(),
-        type_parameters,
-        struct_def.signature_span,
-        &mut context.program,
-    );
-
-    let result = context.scope.add_type_template(Rc::clone(&template));
-    if let Err(error) = result {
-        context.errors.push(error);
-    }
+    let template = context
+        .defined_type_templates
+        .get(&struct_def.signature_span)
+        .expect(&format!(
+            "Missing type template `{}` from previous passes",
+            struct_def.name.text
+        ));
 
     // Type parameter scope.
     context.scope.push();
 
     for type_parameter in template.borrow().type_parameters() {
-        let result = context.scope.add_type(Rc::clone(&type_parameter));
-        if let Err(error) = result {
-            context.errors.push(error);
-        }
+        // Any scope errors have already been reported in a previous phase.
+        let _ = context.scope.add_type(Rc::clone(&type_parameter));
     }
 
     let base_type = Rc::clone(template.borrow().base_type());
-
-    for field_def in struct_def.fields {
-        compile_field_def(field_def, &base_type, context);
-    }
 
     for method_def in struct_def.methods {
         compile_method_def(method_def, &base_type, context);
@@ -188,100 +196,41 @@ fn compile_struct_template_def(struct_def: ast::StructDef, context: &mut Compile
     context.scope.pop();
 }
 
-fn compile_field_def(
-    field_def: ast::FieldDef,
-    current_type: &Rc<RefCell<Type>>,
-    context: &mut CompilerContext,
-) {
-    let type_ = compile_type_expr(field_def.type_, context);
-
-    let field = Variable::new_field(
-        field_def.name.text,
-        Rc::clone(&type_),
-        Some(field_def.span),
-        &mut context.program,
-    );
-    let field = match field {
-        Ok(field) => field,
-        Err(error) => {
-            context.errors.push(error);
-            return;
-        }
-    };
-    let field = Rc::new(RefCell::new(field));
-
-    let result = current_type.borrow_mut().add_field(Rc::clone(&field));
-    if let Err(error) = result {
-        context.errors.push(error);
-    }
-}
-
 fn compile_method_def(
     method_def: ast::FunctionDef,
     current_type: &Rc<RefCell<Type>>,
     context: &mut CompilerContext,
 ) {
-    let name = method_def.name.text.clone();
-    let return_type = compile_return_type(method_def.return_type, context);
-
-    let method = Rc::new(RefCell::new(Function::new(
-        name,
-        Rc::clone(&return_type),
-        method_def.signature_span,
-        context.program.symbol_ids_mut(),
-    )));
-
-    let result = current_type.borrow_mut().add_method(Rc::clone(&method));
-    if let Err(error) = result {
-        context.errors.push(error);
-    }
-
-    let (self_parameter, normal_parameters) = match method_def.parameters.get(0) {
-        Some(ast::Parameter::Self_(_)) => {
-            let mut parameters = method_def.parameters.into_iter();
-            let self_parameter = Some(parameters.next().unwrap().into_self());
-            let normal_parameters = parameters.collect();
-            (self_parameter, normal_parameters)
-        }
-        _ => (None, method_def.parameters),
-    };
+    let method = Rc::clone(
+        context
+            .defined_methods
+            .get(&method_def.signature_span)
+            .expect(&format!(
+                "Missing method `{}` of type `{}` from previous phase",
+                method_def.name.text,
+                current_type.borrow().name()
+            )),
+    );
 
     // Parameters have their own scope.
     context.scope.push();
-    let self_parameter = match self_parameter {
-        Some(parameter) => compile_self_parameter(parameter, Rc::clone(current_type), context),
-        None => {
-            let error =
-                CompilationError::method_first_parameter_is_not_self(method_def.signature_span);
-            context.errors.push(error);
+    context.self_ = Some(Rc::clone(&method.borrow().parameters.get(0).expect(
+        &format!(
+            "Attempt to parse method `{}` of type `{}` which is in an error state: no `self` parameter",
+            method_def.name.text,
+            current_type.borrow().name()
+        ),
+    )));
+    for parameter in &method.borrow().parameters[1..] {
+        // Ignore errors, they should be already reported in the previous phase.
+        let _ = context.scope.add_variable(Rc::clone(&parameter));
+    }
 
-            // For better error recovery.
-            let fake_self =
-                create_variable("<self>".to_string(), Rc::clone(current_type), None, context)
-                    .unwrap();
-            fake_self
-        }
-    };
-
-    let mut normal_parameters: Vec<Rc<RefCell<Variable>>> = normal_parameters
-        .into_iter()
-        .flat_map(|parameter| match parameter {
-            ast::Parameter::Self_(parameter) => {
-                let error = CompilationError::self_is_not_first_parameter(parameter.span);
-                context.errors.push(error);
-                None
-            }
-            ast::Parameter::Normal(parameter) => compile_normal_parameter(parameter, context),
-        })
-        .collect();
-
-    context.self_ = Some(Rc::clone(&self_parameter));
-
-    let mut all_parameters = vec![self_parameter];
-    all_parameters.append(&mut normal_parameters);
-    method.borrow_mut().fill_parameters(all_parameters);
-
-    let body = compile_block_expr(method_def.body, Some(Rc::clone(&return_type)), context);
+    let body = compile_block_expr(
+        method_def.body,
+        Some(Rc::clone(&method.borrow().return_type)),
+        context,
+    );
 
     context.self_ = None;
     context.scope.pop();
@@ -296,38 +245,29 @@ fn compile_method_def(
 /// Compiles the given function, adding it to the program symbol table. If any
 /// errors occur, they are added to `context`.
 fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerContext) {
-    let name = function_def.name.text.clone();
-    let return_type = compile_return_type(function_def.return_type, context);
-
-    let function = Function::new(
-        name.clone(),
-        Rc::clone(&return_type),
-        function_def.signature_span,
-        context.program.symbol_ids_mut(),
+    let function = Rc::clone(
+        context
+            .defined_functions
+            .get(&function_def.signature_span)
+            .expect(&format!(
+                "Missing function `{}` from previous phase",
+                function_def.name.text
+            )),
     );
-    let function = Rc::new(RefCell::new(function));
-    context.program.add_function(Rc::clone(&function));
-    if let Err(error) = context.scope.add_function(Rc::clone(&function)) {
-        context.errors.push(error);
-    }
 
     // Parameters have their own scope.
     context.scope.push();
-    let parameters: Vec<Rc<RefCell<Variable>>> = function_def
-        .parameters
-        .into_iter()
-        .flat_map(|parameter| match parameter {
-            ast::Parameter::Self_(parameter) => {
-                let error = CompilationError::self_not_in_method_signature(&name, parameter.span);
-                context.errors.push(error);
-                None
-            }
-            ast::Parameter::Normal(parameter) => compile_normal_parameter(parameter, context),
-        })
-        .collect();
-    function.borrow_mut().fill_parameters(parameters);
 
-    let body = compile_block_expr(function_def.body, Some(Rc::clone(&return_type)), context);
+    for parameter in &function.borrow().parameters {
+        // Ignore errors, they should be already reported in the previous phase.
+        let _ = context.scope.add_variable(Rc::clone(&parameter));
+    }
+
+    let body = compile_block_expr(
+        function_def.body,
+        Some(Rc::clone(&function.borrow().return_type)),
+        context,
+    );
 
     context.scope.pop();
 
@@ -335,40 +275,6 @@ fn compile_function_def(function_def: ast::FunctionDef, context: &mut CompilerCo
     if let Err(error) = function.borrow_mut().fill_body(body, body_type) {
         context.errors.push(error)
     };
-}
-
-fn compile_return_type(
-    return_type: Option<ast::TypeExpr>,
-    context: &mut CompilerContext,
-) -> Rc<RefCell<Type>> {
-    match return_type {
-        Some(return_type) => compile_type_expr(return_type, context),
-        None => Rc::clone(context.program.types().void()),
-    }
-}
-
-fn compile_normal_parameter(
-    parameter: ast::NormalParameter,
-    context: &mut CompilerContext,
-) -> Option<Rc<RefCell<Variable>>> {
-    let name = parameter.name.text;
-    let type_ = compile_type_expr(parameter.type_, context);
-
-    create_variable(name, type_, Some(parameter.span), context)
-}
-
-fn compile_self_parameter(
-    parameter: ast::SelfParameter,
-    current_type: Rc<RefCell<Type>>,
-    context: &mut CompilerContext,
-) -> Rc<RefCell<Variable>> {
-    let type_ = match parameter.kind {
-        ast::SelfParameterKind::ByValue => current_type,
-        ast::SelfParameterKind::ByPointer => context.program.types_mut().pointer_to(&current_type),
-    };
-
-    create_variable("<self>".to_string(), type_, Some(parameter.span), context)
-        .expect("Couldn't create variable for <self> parameter")
 }
 
 /// Compiles a single statement in the syntax sense. If compilation succeeds,
@@ -410,7 +316,7 @@ fn compile_var_decl_entry(
     // even if the variable produces an error.
     let type_ = declaration
         .variable_type
-        .map(|type_| compile_type_expr(type_, context));
+        .map(|type_| type_exprs::compile_type_expr(&type_, context));
     let initializer = declaration
         .initializer
         .map(|initializer| compile_expression(initializer, type_.clone(), context));
@@ -428,46 +334,37 @@ fn compile_var_decl_entry(
         },
     };
 
-    let variable = create_variable(name.text, type_, Some(declaration.span), context);
-    if let Some(variable) = variable {
-        current_block.add_local_variable(Rc::clone(&variable));
-
-        if let Some(initializer) = initializer {
-            let initialization = program::AssignInstruction::new(
-                program::VariableExpr::new(&variable, context.program.types_mut(), name.span),
-                initializer,
-                declaration.span,
-            );
-
-            match initialization {
-                Ok(initialization) => current_block.append_instruction(initialization),
-                Err(error) => context.errors.push(error),
-            }
-        }
-    }
-}
-
-/// Creates a variable, registers it with the program's symbol table, and adds it to the current
-/// scope.
-fn create_variable(
-    name: String,
-    type_: Rc<RefCell<Type>>,
-    definition_site: Option<InputSpan>,
-    context: &mut CompilerContext,
-) -> Option<Rc<RefCell<Variable>>> {
-    let result = Variable::new_variable(name, type_, definition_site, &mut context.program);
-    let variable = match result {
+    let variable = match Variable::new_variable(
+        name.text,
+        type_,
+        Some(declaration.span),
+        &mut context.program,
+    ) {
         Ok(variable) => Rc::new(RefCell::new(variable)),
         Err(error) => {
             context.errors.push(error);
-            return None;
+            return;
         }
     };
 
     if let Err(error) = context.scope.add_variable(Rc::clone(&variable)) {
         context.errors.push(error);
     };
-    Some(variable)
+
+    current_block.add_local_variable(Rc::clone(&variable));
+
+    if let Some(initializer) = initializer {
+        let initialization = program::AssignInstruction::new(
+            program::VariableExpr::new(&variable, context.program.types_mut(), name.span),
+            initializer,
+            declaration.span,
+        );
+
+        match initialization {
+            Ok(initialization) => current_block.append_instruction(initialization),
+            Err(error) => context.errors.push(error),
+        }
+    }
 }
 
 fn compile_read_stmt(
@@ -825,7 +722,7 @@ fn compile_new_expr(
     expression: ast::NewExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let target_type = compile_type_expr(expression.target_type, context);
+    let target_type = type_exprs::compile_type_expr(&expression.target_type, context);
     if target_type.borrow().is_error() {
         return program::Expression::error(expression.span);
     }
@@ -1172,93 +1069,6 @@ fn compile_block_expr(
 
     context.scope.pop();
     result
-}
-
-fn compile_type_expr(type_expr: ast::TypeExpr, context: &mut CompilerContext) -> Rc<RefCell<Type>> {
-    match type_expr {
-        ast::TypeExpr::Scalar(type_expr) => compile_scalar_type_expr(type_expr, context),
-        ast::TypeExpr::Array(type_expr) => compile_array_type_expr(type_expr, context),
-        ast::TypeExpr::Pointer(type_expr) => compile_pointer_type_expr(type_expr, context),
-        ast::TypeExpr::TemplateInstance(type_expr) => {
-            compile_template_instance_type_expr(type_expr, context)
-        }
-    }
-}
-
-fn compile_scalar_type_expr(
-    type_expr: ast::ScalarTypeExpr,
-    context: &mut CompilerContext,
-) -> Rc<RefCell<Type>> {
-    let name = &type_expr.name;
-    let type_ = context.scope.lookup_type(&name.text, type_expr.span);
-
-    match type_ {
-        Ok(type_) => Rc::clone(type_),
-        Err(error) => {
-            context.errors.push(error);
-            Type::error()
-        }
-    }
-}
-
-fn compile_array_type_expr(
-    type_expr: ast::ArrayTypeExpr,
-    context: &mut CompilerContext,
-) -> Rc<RefCell<Type>> {
-    let element = compile_type_expr(*type_expr.element, context);
-    let result = context.program.types_mut().array_of(&element);
-    result
-}
-
-fn compile_pointer_type_expr(
-    type_expr: ast::PointerTypeExpr,
-    context: &mut CompilerContext,
-) -> Rc<RefCell<Type>> {
-    let target = compile_type_expr(*type_expr.target, context);
-    let result = context.program.types_mut().pointer_to(&target);
-    result
-}
-
-fn compile_template_instance_type_expr(
-    type_expr: ast::TemplateInstanceTypeExpr,
-    context: &mut CompilerContext,
-) -> Rc<RefCell<Type>> {
-    let type_arguments: Vec<_> = type_expr
-        .type_arguments
-        .into_iter()
-        .map(|type_arg| compile_type_expr(type_arg, context))
-        .collect();
-
-    if type_arguments
-        .iter()
-        .any(|type_arg| type_arg.borrow().is_error())
-    {
-        return Type::error();
-    }
-
-    let template = context
-        .scope
-        .lookup_type_template(&type_expr.template.text, type_expr.template.span);
-    let template = match template {
-        Ok(template) => template,
-        Err(error) => {
-            context.errors.push(error);
-            return Type::error();
-        }
-    };
-
-    let type_ = template.borrow().instantiate(
-        type_arguments.iter().collect(),
-        context.program.types_mut(),
-        Some(type_expr.span),
-    );
-    match type_ {
-        Ok(type_) => type_,
-        Err(error) => {
-            context.errors.push(error);
-            return Type::error();
-        }
-    }
 }
 
 /// Automatic pointer dereferencing: in some contexts where it's obvious that pointers

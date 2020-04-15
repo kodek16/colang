@@ -194,6 +194,7 @@ impl Function {
                     .instantiate(type_arguments, types);
                 instantiated_function.base_method_id = Some(self.id.clone());
 
+                // TODO don't do it now
                 {
                     let function_body = instantiated_function.body.as_ref().unwrap();
                     let mut function_body = function_body.borrow_mut();

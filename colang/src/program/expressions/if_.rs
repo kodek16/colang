@@ -11,6 +11,7 @@ pub struct IfExpr {
     pub cond: Box<Expression>,
     pub then: Box<Expression>,
     pub else_: Box<Expression>,
+    pub span: Option<InputSpan>,
 }
 
 impl IfExpr {
@@ -28,7 +29,7 @@ impl IfExpr {
         if else_.is_none() && *then_type != *types.void() {
             let error = CompilationError::if_expression_missing_else(
                 &then_type.borrow().name(),
-                then.span
+                then.span()
                     .expect("Generated `then` block expression in a single-branch `if`"),
             );
             return Err(error);
@@ -50,9 +51,10 @@ impl IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Box::new(else_),
+            span: Some(span),
         });
 
-        Ok(Expression::new(kind, Some(span), types))
+        Ok(Expression::new(kind, types))
     }
 }
 
@@ -66,5 +68,9 @@ impl ExpressionKindImpl for IfExpr {
             (ValueCategory::Lvalue, ValueCategory::Lvalue) => ValueCategory::Lvalue,
             _ => ValueCategory::Rvalue,
         }
+    }
+
+    fn span(&self) -> Option<InputSpan> {
+        self.span
     }
 }

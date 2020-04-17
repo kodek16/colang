@@ -13,29 +13,20 @@ struct CloneContext<'a> {
     types: &'a mut TypeRegistry,
 }
 
-pub fn clone_function(
-    function: &Function,
-    id_clone_fn: impl FnOnce(&FunctionId) -> FunctionId,
+pub fn clone_function_body(
+    source_body: Rc<RefCell<Expression>>,
+    source_parameters: &Vec<Rc<RefCell<Variable>>>,
+    target_parameters: &Vec<Rc<RefCell<Variable>>>,
     variable_clone_fn: VariableCloneFn,
     types: &mut TypeRegistry,
-) -> Function {
-    let name = function.name.clone();
-    let id = id_clone_fn(&function.id);
-    let definition_site = function.definition_site;
+) -> Expression {
+    assert_eq!(source_parameters.len(), target_parameters.len());
 
-    let mut variable_map = VariableMap::new();
-
-    let parameters: Vec<_> = function
-        .parameters
+    let variable_map: VariableMap = source_parameters
         .iter()
-        .map(|parameter| {
-            let cloned_parameter =
-                Rc::new(RefCell::new(variable_clone_fn(&parameter.borrow(), types)));
-            variable_map.insert(parameter.borrow().id.clone(), Rc::clone(&cloned_parameter));
-            cloned_parameter
-        })
+        .map(|source| source.borrow().id.clone())
+        .zip(target_parameters.iter().map(Rc::clone))
         .collect();
-    let return_type = Rc::clone(&function.return_type);
 
     let mut context = CloneContext {
         variable_clone_fn,
@@ -43,26 +34,7 @@ pub fn clone_function(
         types,
     };
 
-    let body = function
-        .body
-        .as_ref()
-        .expect(&format!(
-            "Attempt to instantiate function `{}` without a body",
-            function.name
-        ))
-        .borrow();
-
-    let body = clone_expression(&body, &mut context);
-
-    Function {
-        name,
-        id,
-        definition_site,
-        parameters,
-        return_type,
-        body: Some(Rc::new(RefCell::new(body))),
-        base_method_id: function.base_method_id.clone(),
-    }
+    clone_expression(&source_body.borrow(), &mut context)
 }
 
 fn clone_instruction(instruction: &Instruction, context: &mut CloneContext) -> Instruction {
@@ -130,15 +102,16 @@ fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expr
         New(expression) => New(clone_new_expr(expression, context)),
         Variable(expression) => Variable(clone_variable_expr(expression, context)),
         Empty => Empty,
-        Error => Error,
+        Error(span) => Error(*span),
     };
 
-    Expression::new(kind, expression.span, context.types)
+    Expression::new(kind, context.types)
 }
 
 fn clone_address_expr(expression: &AddressExpr, context: &mut CloneContext) -> AddressExpr {
     AddressExpr {
         target: Box::new(clone_expression(&expression.target, context)),
+        span: expression.span,
     }
 }
 
@@ -149,6 +122,7 @@ fn clone_array_from_copy_expr(
     ArrayFromCopyExpr {
         element: Box::new(clone_expression(&expression.element, context)),
         size: Box::new(clone_expression(&expression.size, context)),
+        span: expression.span,
     }
 }
 
@@ -163,6 +137,7 @@ fn clone_array_from_elements_expr(
             .map(|element| clone_expression(element, context))
             .collect(),
         element_type: Rc::clone(&expression.element_type),
+        span: expression.span,
     }
 }
 
@@ -194,6 +169,7 @@ fn clone_block_expr(block: &BlockExpr, context: &mut CloneContext) -> BlockExpr 
         local_variables,
         instructions,
         value,
+        span: block.span,
     }
 }
 
@@ -205,12 +181,14 @@ fn clone_call_expr(expression: &CallExpr, context: &mut CloneContext) -> CallExp
             .iter()
             .map(|argument| clone_expression(argument, context))
             .collect(),
+        span: expression.span,
     }
 }
 
 fn clone_deref_expr(expression: &DerefExpr, context: &mut CloneContext) -> DerefExpr {
     DerefExpr {
         pointer: Box::new(clone_expression(&expression.pointer, context)),
+        span: expression.span,
     }
 }
 
@@ -221,6 +199,7 @@ fn clone_field_access_expr(
     FieldAccessExpr {
         receiver: Box::new(clone_expression(&expression.receiver, context)),
         field: Rc::clone(&expression.field),
+        span: expression.span,
     }
 }
 
@@ -229,6 +208,7 @@ fn clone_if_expr(expression: &IfExpr, context: &mut CloneContext) -> IfExpr {
         cond: Box::new(clone_expression(&expression.cond, context)),
         then: Box::new(clone_expression(&expression.then, context)),
         else_: Box::new(clone_expression(&expression.else_, context)),
+        span: expression.span,
     }
 }
 
@@ -239,6 +219,7 @@ fn clone_literal_expr(expression: &LiteralExpr, _: &mut CloneContext) -> Literal
 fn clone_new_expr(expression: &NewExpr, _: &mut CloneContext) -> NewExpr {
     NewExpr {
         target_type: Rc::clone(&expression.target_type),
+        span: expression.span,
     }
 }
 
@@ -250,5 +231,6 @@ fn clone_variable_expr(expression: &VariableExpr, context: &mut CloneContext) ->
                 .get(&expression.variable.borrow().id)
                 .expect("Attempt to clone access to non-cloned variable"),
         ),
+        span: expression.span,
     }
 }

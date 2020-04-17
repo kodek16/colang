@@ -16,8 +16,6 @@ pub mod new;
 pub mod variable;
 
 pub struct Expression {
-    pub span: Option<InputSpan>,
-
     kind: ExpressionKind,
     type_: Rc<RefCell<Type>>,
     value_category: ValueCategory,
@@ -26,16 +24,11 @@ pub struct Expression {
 }
 
 impl Expression {
-    pub fn new(
-        kind: ExpressionKind,
-        span: Option<InputSpan>,
-        types: &mut TypeRegistry,
-    ) -> Expression {
+    pub fn new(kind: ExpressionKind, types: &mut TypeRegistry) -> Expression {
         let type_ = kind.calculate_type(types);
         let value_category = kind.calculate_value_category();
 
         Expression {
-            span,
             kind,
             type_,
             value_category,
@@ -45,7 +38,6 @@ impl Expression {
 
     pub fn empty(types: &TypeRegistry) -> Expression {
         Expression {
-            span: None,
             kind: ExpressionKind::Empty,
             type_: Rc::clone(&types.void()),
             value_category: ValueCategory::Rvalue,
@@ -55,8 +47,7 @@ impl Expression {
 
     pub fn error(span: InputSpan) -> Expression {
         Expression {
-            span: Some(span),
-            kind: ExpressionKind::Error,
+            kind: ExpressionKind::Error(span),
             type_: Type::error(),
             value_category: ValueCategory::Rvalue,
             dirty: false,
@@ -83,9 +74,13 @@ impl Expression {
 
     pub fn is_error(&self) -> bool {
         match self.kind {
-            ExpressionKind::Error => true,
+            ExpressionKind::Error(_) => true,
             _ => false,
         }
+    }
+
+    pub fn span(&self) -> Option<InputSpan> {
+        self.kind.span()
     }
 
     pub fn type_(&self) -> &Rc<RefCell<Type>> {
@@ -121,7 +116,7 @@ pub enum ExpressionKind {
     /// A no-op expression of type `void`.
     Empty,
 
-    Error,
+    Error(InputSpan),
 }
 
 impl ExpressionKind {
@@ -141,7 +136,7 @@ impl ExpressionKind {
             Block(expr) => expr.calculate_type(types),
 
             Empty => Rc::clone(&types.void()),
-            Error => Type::error(),
+            Error(_) => Type::error(),
         }
     }
 
@@ -161,7 +156,27 @@ impl ExpressionKind {
             Block(expr) => expr.calculate_value_category(),
 
             Empty => ValueCategory::Rvalue,
-            Error => ValueCategory::Rvalue,
+            Error(_) => ValueCategory::Rvalue,
+        }
+    }
+
+    pub fn span(&self) -> Option<InputSpan> {
+        use ExpressionKind::*;
+        match self {
+            Variable(expr) => expr.span(),
+            Literal(expr) => expr.span(),
+            Address(expr) => expr.span(),
+            Deref(expr) => expr.span(),
+            New(expr) => expr.span(),
+            ArrayFromElements(expr) => expr.span(),
+            ArrayFromCopy(expr) => expr.span(),
+            FieldAccess(expr) => expr.span(),
+            Call(expr) => expr.span(),
+            If(expr) => expr.span(),
+            Block(expr) => expr.span(),
+
+            Empty => None,
+            Error(span) => Some(*span),
         }
     }
 }
@@ -169,4 +184,5 @@ impl ExpressionKind {
 trait ExpressionKindImpl {
     fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>>;
     fn calculate_value_category(&self) -> ValueCategory;
+    fn span(&self) -> Option<InputSpan>;
 }

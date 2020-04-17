@@ -11,6 +11,7 @@ pub struct BlockExpr {
     pub local_variables: Vec<Rc<RefCell<Variable>>>,
     pub instructions: Vec<Instruction>,
     pub value: Box<Expression>,
+    pub span: Option<InputSpan>,
 }
 
 impl ExpressionKindImpl for BlockExpr {
@@ -20,6 +21,10 @@ impl ExpressionKindImpl for BlockExpr {
 
     fn calculate_value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
+    }
+
+    fn span(&self) -> Option<InputSpan> {
+        self.span
     }
 }
 
@@ -57,7 +62,8 @@ impl BlockBuilder {
             local_variables: self.local_variables,
             instructions: self.instructions,
             value,
+            span: Some(span),
         });
-        Expression::new(kind, Some(span), types)
+        Expression::new(kind, types)
     }
 }

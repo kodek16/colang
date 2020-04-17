@@ -1,6 +1,5 @@
 use test_generator::test_resources;
 
-use colang::backends::debug::DebugBackend;
 use colang_cli::{Config, RunResult};
 use colang_interpreter::InterpreterBackend;
 
@@ -9,6 +8,7 @@ fn check_good_program(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
         backend: Box::new(InterpreterBackend),
+        debug: false,
         plaintext_compilation_errors: false,
     };
 
@@ -20,7 +20,8 @@ fn check_good_program(path: &str) {
 fn check_compile_error_program(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
-        backend: Box::new(DebugBackend),
+        backend: Box::new(InterpreterBackend),
+        debug: false,
         plaintext_compilation_errors: true,
     };
 
@@ -33,6 +34,7 @@ fn check_runtime_error_program(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
         backend: Box::new(InterpreterBackend),
+        debug: false,
         plaintext_compilation_errors: false,
     };
 

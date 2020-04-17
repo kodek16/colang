@@ -11,7 +11,7 @@ pub fn check_condition_is_bool(
         let error = CompilationError::condition_is_not_bool(
             cond_type.borrow().name(),
             condition
-                .span
+                .span()
                 .expect("Generated condition expression is not bool"),
         );
         Err(error)

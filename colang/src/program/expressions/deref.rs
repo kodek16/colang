@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 pub struct DerefExpr {
     pub pointer: Box<Expression>,
+    pub span: Option<InputSpan>,
 }
 
 impl DerefExpr {
@@ -19,7 +20,7 @@ impl DerefExpr {
             let error = CompilationError::can_only_dereference_pointer(
                 pointer.type_.borrow().name(),
                 pointer
-                    .span
+                    .span()
                     .expect("Attempt to dereference generated non-pointer expression"),
             );
             return Err(error);
@@ -27,9 +28,10 @@ impl DerefExpr {
 
         let kind = ExpressionKind::Deref(DerefExpr {
             pointer: Box::new(pointer),
+            span,
         });
 
-        Ok(Expression::new(kind, span, types))
+        Ok(Expression::new(kind, types))
     }
 }
 
@@ -47,5 +49,9 @@ impl ExpressionKindImpl for DerefExpr {
 
     fn calculate_value_category(&self) -> ValueCategory {
         ValueCategory::Lvalue
+    }
+
+    fn span(&self) -> Option<InputSpan> {
+        self.span
     }
 }

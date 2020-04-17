@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 pub struct NewExpr {
     pub target_type: Rc<RefCell<Type>>,
+    pub span: Option<InputSpan>,
 }
 
 impl NewExpr {
@@ -20,8 +21,11 @@ impl NewExpr {
             return Err(error);
         }
 
-        let kind = ExpressionKind::New(NewExpr { target_type });
-        Ok(Expression::new(kind, Some(span), types))
+        let kind = ExpressionKind::New(NewExpr {
+            target_type,
+            span: Some(span),
+        });
+        Ok(Expression::new(kind, types))
     }
 }
 
@@ -32,5 +36,9 @@ impl ExpressionKindImpl for NewExpr {
 
     fn calculate_value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
+    }
+
+    fn span(&self) -> Option<InputSpan> {
+        self.span
     }
 }

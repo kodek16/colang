@@ -21,7 +21,7 @@ FunctionDef: FunctionDef = {
             name,
             parameters,
             return_type,
-            body,
+            body: Expression::Block(body),
             signature_span: InputSpan { file, start, end }
         }
     },
@@ -136,7 +136,7 @@ StmtNotExpr: Statement = {
     <start: @L> KwWhile <cond:Expr> <body:Block> <end: @R> => {
         Statement::While(WhileStmt {
             cond: Box::new(cond),
-            body: Box::new(body),
+            body: Box::new(Expression::Block(body)),
             span: InputSpan { file, start, end },
         })
     },

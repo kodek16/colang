@@ -7,6 +7,7 @@ use std::rc::Rc;
 pub struct FieldAccessExpr {
     pub receiver: Box<Expression>,
     pub field: Rc<RefCell<Variable>>,
+    pub span: Option<InputSpan>,
 }
 
 impl FieldAccessExpr {
@@ -21,9 +22,10 @@ impl FieldAccessExpr {
         let kind = ExpressionKind::FieldAccess(FieldAccessExpr {
             receiver: Box::new(receiver),
             field,
+            span: Some(span),
         });
 
-        Expression::new(kind, Some(span), types)
+        Expression::new(kind, types)
     }
 }
 
@@ -34,5 +36,9 @@ impl ExpressionKindImpl for FieldAccessExpr {
 
     fn calculate_value_category(&self) -> ValueCategory {
         self.receiver.value_category()
+    }
+
+    fn span(&self) -> Option<InputSpan> {
+        self.span
     }
 }

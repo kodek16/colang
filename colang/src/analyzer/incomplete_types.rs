@@ -20,7 +20,7 @@ impl IncompleteTypesAnalyzerPass {
 impl GlobalVisitor for IncompleteTypesAnalyzerPass {
     fn analyze_non_template_struct_def(
         &mut self,
-        struct_def: &ast::StructDef,
+        struct_def: &mut ast::StructDef,
         context: &mut CompilerContext,
     ) {
         let name = &struct_def.name.text;
@@ -41,7 +41,7 @@ impl GlobalVisitor for IncompleteTypesAnalyzerPass {
 
     fn analyze_template_struct_def(
         &mut self,
-        struct_def: &ast::StructDef,
+        struct_def: &mut ast::StructDef,
         context: &mut CompilerContext,
     ) {
         let type_parameters: Vec<_> = struct_def
@@ -68,7 +68,7 @@ impl GlobalVisitor for IncompleteTypesAnalyzerPass {
         }
     }
 
-    fn analyze_function_def(&mut self, _: &FunctionDef, _: &mut CompilerContext) {
+    fn analyze_function_def(&mut self, _: &mut FunctionDef, _: &mut CompilerContext) {
         // skip functions
     }
 }

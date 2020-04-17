@@ -8,21 +8,21 @@ use std::rc::Rc;
 
 #[derive(Clone, Debug)]
 pub enum LiteralExpr {
-    Int(i32),
-    Bool(bool),
-    Char(u8),
-    String(String),
+    Int(i32, InputSpan),
+    Bool(bool, InputSpan),
+    Char(u8, InputSpan),
+    String(String, InputSpan),
 }
 
 impl LiteralExpr {
     pub fn int(value: i32, types: &mut TypeRegistry, span: InputSpan) -> Expression {
-        let kind = ExpressionKind::Literal(LiteralExpr::Int(value));
-        Expression::new(kind, Some(span), types)
+        let kind = ExpressionKind::Literal(LiteralExpr::Int(value, span));
+        Expression::new(kind, types)
     }
 
     pub fn bool(value: bool, types: &mut TypeRegistry, span: InputSpan) -> Expression {
-        let kind = ExpressionKind::Literal(LiteralExpr::Bool(value));
-        Expression::new(kind, Some(span), types)
+        let kind = ExpressionKind::Literal(LiteralExpr::Bool(value, span));
+        Expression::new(kind, types)
     }
 
     pub fn char(
@@ -37,8 +37,8 @@ impl LiteralExpr {
         };
 
         let result = literal.as_bytes()[0];
-        let kind = ExpressionKind::Literal(LiteralExpr::Char(result));
-        Ok(Expression::new(kind, Some(span), types))
+        let kind = ExpressionKind::Literal(LiteralExpr::Char(result, span));
+        Ok(Expression::new(kind, types))
     }
 
     pub fn string(
@@ -47,24 +47,32 @@ impl LiteralExpr {
         span: InputSpan,
     ) -> Result<Expression, CompilationError> {
         let literal = unescape(value, span)?;
-        let kind = ExpressionKind::Literal(LiteralExpr::String(literal));
-        Ok(Expression::new(kind, Some(span), types))
+        let kind = ExpressionKind::Literal(LiteralExpr::String(literal, span));
+        Ok(Expression::new(kind, types))
     }
 }
 
 impl ExpressionKindImpl for LiteralExpr {
     fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
-        use LiteralExpr::*;
         Rc::clone(match self {
-            Int(_) => types.int(),
-            Bool(_) => types.bool(),
-            Char(_) => types.char(),
-            String(_) => types.string(),
+            LiteralExpr::Int(_, _) => types.int(),
+            LiteralExpr::Bool(_, _) => types.bool(),
+            LiteralExpr::Char(_, _) => types.char(),
+            LiteralExpr::String(_, _) => types.string(),
         })
     }
 
     fn calculate_value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
+    }
+
+    fn span(&self) -> Option<InputSpan> {
+        match self {
+            LiteralExpr::Int(_, span) => Some(*span),
+            LiteralExpr::Bool(_, span) => Some(*span),
+            LiteralExpr::Char(_, span) => Some(*span),
+            LiteralExpr::String(_, span) => Some(*span),
+        }
     }
 }
 

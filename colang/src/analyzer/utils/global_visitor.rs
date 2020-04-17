@@ -7,19 +7,23 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub trait GlobalVisitor {
-    fn run(&mut self, program: Vec<&ast::Program>, context: &mut CompilerContext) {
+    fn run(&mut self, program: Vec<&mut ast::Program>, context: &mut CompilerContext) {
         for unit in program {
-            for struct_def in &unit.structs {
-                self.analyze_struct_def(&struct_def, context);
+            for mut struct_def in &mut unit.structs {
+                self.analyze_struct_def(&mut struct_def, context);
             }
 
-            for function_def in &unit.functions {
-                self.analyze_function_def(&function_def, context);
+            for mut function_def in &mut unit.functions {
+                self.analyze_function_def(&mut function_def, context);
             }
         }
     }
 
-    fn analyze_struct_def(&mut self, struct_def: &ast::StructDef, context: &mut CompilerContext) {
+    fn analyze_struct_def(
+        &mut self,
+        struct_def: &mut ast::StructDef,
+        context: &mut CompilerContext,
+    ) {
         if struct_def.type_parameters.is_empty() {
             self.analyze_non_template_struct_def(struct_def, context);
         } else {
@@ -29,7 +33,7 @@ pub trait GlobalVisitor {
 
     fn analyze_non_template_struct_def(
         &mut self,
-        struct_def: &ast::StructDef,
+        struct_def: &mut ast::StructDef,
         context: &mut CompilerContext,
     ) {
         let type_ = Rc::clone(
@@ -42,12 +46,12 @@ pub trait GlobalVisitor {
                 )),
         );
 
-        for field_def in &struct_def.fields {
-            self.analyze_field_def(&field_def, &type_, context);
+        for mut field_def in &mut struct_def.fields {
+            self.analyze_field_def(&mut field_def, &type_, context);
         }
 
-        for method_def in &struct_def.methods {
-            self.analyze_method_def(&method_def, &type_, context);
+        for mut method_def in &mut struct_def.methods {
+            self.analyze_method_def(&mut method_def, &type_, context);
         }
 
         self.revisit_non_template_struct_def(struct_def, type_, context);
@@ -55,16 +59,15 @@ pub trait GlobalVisitor {
 
     fn revisit_non_template_struct_def(
         &mut self,
-        _struct_def: &ast::StructDef,
+        _struct_def: &mut ast::StructDef,
         _type_: Rc<RefCell<Type>>,
         _context: &mut CompilerContext,
     ) {
-        unimplemented!("Not implemented for this analyzer pass");
     }
 
     fn analyze_template_struct_def(
         &mut self,
-        struct_def: &ast::StructDef,
+        struct_def: &mut ast::StructDef,
         context: &mut CompilerContext,
     ) {
         let template = Rc::clone(
@@ -89,12 +92,12 @@ pub trait GlobalVisitor {
 
         let base_type = Rc::clone(template.borrow().base_type());
 
-        for field_def in &struct_def.fields {
-            self.analyze_field_def(&field_def, &base_type, context);
+        for mut field_def in &mut struct_def.fields {
+            self.analyze_field_def(&mut field_def, &base_type, context);
         }
 
-        for method_def in &struct_def.methods {
-            self.analyze_method_def(&method_def, &base_type, context);
+        for mut method_def in &mut struct_def.methods {
+            self.analyze_method_def(&mut method_def, &base_type, context);
         }
 
         // Type parameter scope.
@@ -105,17 +108,16 @@ pub trait GlobalVisitor {
 
     fn revisit_template_struct_def(
         &mut self,
-        _struct_def: &ast::StructDef,
+        _struct_def: &mut ast::StructDef,
         _template: Rc<RefCell<TypeTemplate>>,
         _base_type: Rc<RefCell<Type>>,
         _context: &mut CompilerContext,
     ) {
-        unimplemented!("Not implemented for this analyzer pass");
     }
 
     fn analyze_field_def(
         &mut self,
-        field_def: &ast::FieldDef,
+        field_def: &mut ast::FieldDef,
         current_type: &Rc<RefCell<Type>>,
         context: &mut CompilerContext,
     ) {
@@ -130,17 +132,16 @@ pub trait GlobalVisitor {
 
     fn revisit_field_def(
         &mut self,
-        _field_def: &ast::FieldDef,
+        _field_def: &mut ast::FieldDef,
         _current_type: &Rc<RefCell<Type>>,
         _field: Rc<RefCell<Variable>>,
         _context: &mut CompilerContext,
     ) {
-        unimplemented!("Not implemented for this analyzer pass");
     }
 
     fn analyze_method_def(
         &mut self,
-        method_def: &ast::FunctionDef,
+        method_def: &mut ast::FunctionDef,
         current_type: &Rc<RefCell<Type>>,
         context: &mut CompilerContext,
     ) {
@@ -160,17 +161,16 @@ pub trait GlobalVisitor {
 
     fn revisit_method_def(
         &mut self,
-        _method_def: &ast::FunctionDef,
+        _method_def: &mut ast::FunctionDef,
         _current_type: &Rc<RefCell<Type>>,
         _method: Rc<RefCell<Function>>,
         _context: &mut CompilerContext,
     ) {
-        unimplemented!("Not implemented for this analyzer pass");
     }
 
     fn analyze_function_def(
         &mut self,
-        function_def: &ast::FunctionDef,
+        function_def: &mut ast::FunctionDef,
         context: &mut CompilerContext,
     ) {
         let function = Rc::clone(
@@ -188,10 +188,9 @@ pub trait GlobalVisitor {
 
     fn revisit_function_def(
         &mut self,
-        _function_def: &ast::FunctionDef,
+        _function_def: &mut ast::FunctionDef,
         _function: Rc<RefCell<Function>>,
         _context: &mut CompilerContext,
     ) {
-        unimplemented!("Not implemented for this analyzer pass");
     }
 }

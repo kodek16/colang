@@ -1,9 +1,9 @@
 //! In this pass, all globally referenced types are ensured to be fully complete.
 
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
-use crate::ast::{self, FieldDef, FunctionDef, InputSpan, StructDef};
+use crate::ast::{self, FieldDef, FunctionDef, InputSpan};
 use crate::errors::CompilationError;
-use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::program::{Function, Type, Variable};
 use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,28 +17,9 @@ impl CompleteTypesAnalyzerPass {
 }
 
 impl GlobalVisitor for CompleteTypesAnalyzerPass {
-    fn revisit_non_template_struct_def(
-        &mut self,
-        _: &StructDef,
-        _: Rc<RefCell<Type>>,
-        _: &mut CompilerContext,
-    ) {
-        // no-op
-    }
-
-    fn revisit_template_struct_def(
-        &mut self,
-        _: &StructDef,
-        _: Rc<RefCell<TypeTemplate>>,
-        _: Rc<RefCell<Type>>,
-        _: &mut CompilerContext,
-    ) {
-        // no-op
-    }
-
     fn revisit_field_def(
         &mut self,
-        field_def: &FieldDef,
+        field_def: &mut FieldDef,
         _: &Rc<RefCell<Type>>,
         field: Rc<RefCell<Variable>>,
         context: &mut CompilerContext,
@@ -49,7 +30,7 @@ impl GlobalVisitor for CompleteTypesAnalyzerPass {
 
     fn revisit_method_def(
         &mut self,
-        method_def: &FunctionDef,
+        method_def: &mut FunctionDef,
         _: &Rc<RefCell<Type>>,
         method: Rc<RefCell<Function>>,
         context: &mut CompilerContext,
@@ -59,7 +40,7 @@ impl GlobalVisitor for CompleteTypesAnalyzerPass {
 
     fn revisit_function_def(
         &mut self,
-        function_def: &FunctionDef,
+        function_def: &mut FunctionDef,
         function: Rc<RefCell<Function>>,
         context: &mut CompilerContext,
     ) {
@@ -68,7 +49,7 @@ impl GlobalVisitor for CompleteTypesAnalyzerPass {
 }
 
 fn complete_function_types(
-    function_def: &ast::FunctionDef,
+    function_def: &mut ast::FunctionDef,
     function: Rc<RefCell<Function>>,
     context: &mut CompilerContext,
 ) {
@@ -106,14 +87,9 @@ fn complete_type(
     let result =
         Type::ensure_is_complete_with_dependencies(Rc::clone(&type_), context.program.types_mut());
     if let Err(type_chain) = result {
-        let type_chain: Vec<_> = type_chain
-            .iter()
-            .map(|type_| type_.borrow().name().to_string())
-            .collect();
-
         let error = CompilationError::type_infinite_dependency_chain(
-            type_.borrow().name(),
-            type_chain.iter().map(AsRef::as_ref).collect(),
+            &type_.borrow(),
+            type_chain,
             reference_location,
         );
         context.errors.push(error);

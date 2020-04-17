@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 pub struct AddressExpr {
     pub target: Box<Expression>,
+    pub span: Option<InputSpan>,
 }
 
 impl AddressExpr {
@@ -18,7 +19,7 @@ impl AddressExpr {
         if target.value_category != ValueCategory::Lvalue {
             let error = CompilationError::address_of_rvalue(
                 target
-                    .span
+                    .span()
                     .expect("attempt to take address of generated rvalue expression."),
             );
             return Err(error);
@@ -26,9 +27,10 @@ impl AddressExpr {
 
         let kind = ExpressionKind::Address(AddressExpr {
             target: Box::new(target),
+            span: Some(span),
         });
 
-        Ok(Expression::new(kind, Some(span), types))
+        Ok(Expression::new(kind, types))
     }
 
     pub fn new_synthetic(
@@ -38,9 +40,10 @@ impl AddressExpr {
     ) -> Expression {
         let kind = ExpressionKind::Address(AddressExpr {
             target: Box::new(target),
+            span: Some(span),
         });
 
-        Expression::new(kind, Some(span), types)
+        Expression::new(kind, types)
     }
 }
 
@@ -51,5 +54,9 @@ impl ExpressionKindImpl for AddressExpr {
 
     fn calculate_value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
+    }
+
+    fn span(&self) -> Option<InputSpan> {
+        self.span
     }
 }

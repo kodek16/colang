@@ -26,7 +26,7 @@ pub struct FunctionDef {
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
     pub return_type: Option<TypeExpr>,
-    pub body: BlockExpr,
+    pub body: Expression,
 
     pub signature_span: InputSpan,
 }
@@ -169,7 +169,7 @@ pub struct WriteStmt {
 #[derive(Debug)]
 pub struct WhileStmt {
     pub cond: Box<Expression>,
-    pub body: Box<BlockExpr>,
+    pub body: Box<Expression>,
 
     pub span: InputSpan,
 }

@@ -1,5 +1,6 @@
 //! Utilities for analysing type expressions. Used in multiple passes.
 
+use crate::errors::CompilationError;
 use crate::program::Type;
 use crate::{ast, CompilerContext};
 use std::cell::RefCell;
@@ -17,6 +18,24 @@ pub fn compile_type_expr(
             compile_template_instance_type_expr(type_expr, context)
         }
     }
+}
+
+pub fn compile_type_expr_and_ensure_complete(
+    type_expr: &ast::TypeExpr,
+    context: &mut CompilerContext,
+) -> Rc<RefCell<Type>> {
+    let type_ = compile_type_expr(&type_expr, context);
+    let result =
+        Type::ensure_is_complete_with_dependencies(Rc::clone(&type_), context.program.types_mut());
+    if let Err(type_chain) = result {
+        let error = CompilationError::type_infinite_dependency_chain(
+            &type_.borrow(),
+            type_chain,
+            type_expr.span(),
+        );
+        context.errors.push(error);
+    }
+    type_
 }
 
 fn compile_scalar_type_expr(

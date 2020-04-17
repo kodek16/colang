@@ -3,7 +3,6 @@ use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use std::env::Args;
 use std::fs;
 
-use colang::backends::debug::DebugBackend;
 use colang::backends::Backend;
 use colang::errors::CompilationError;
 use colang_interpreter::InterpreterBackend;
@@ -11,6 +10,9 @@ use colang_interpreter::InterpreterBackend;
 pub struct Config {
     pub source_path: String,
     pub backend: Box<dyn Backend>,
+
+    /// Instead of executing the program, dump an s-exp representation of it to stdout.
+    pub debug: bool,
 
     /// A flag for integration tests: this allows to better capture output. There is
     /// no way to set it through command-line.
@@ -22,11 +24,8 @@ impl Config {
     pub fn new(args: Args) -> Result<Config, &'static str> {
         // TODO use a command line parser library.
         let mut args: Vec<String> = args.skip(1).collect();
-        let backend: Box<dyn Backend> = if args.iter().any(|a| a == "--debug") {
-            Box::new(DebugBackend)
-        } else {
-            Box::new(InterpreterBackend)
-        };
+
+        let debug = args.iter().any(|a| a == "--debug");
 
         // Drop flags.
         args.retain(|f| !f.starts_with("--"));
@@ -35,7 +34,8 @@ impl Config {
             let source_path = args[0].to_owned();
             Ok(Config {
                 source_path,
-                backend,
+                backend: Box::new(InterpreterBackend),
+                debug,
                 plaintext_compilation_errors: false,
             })
         } else {
@@ -64,6 +64,15 @@ pub fn run(config: Config) -> RunResult {
             return RunResult::CompilerError;
         }
     };
+
+    if config.debug {
+        let result = colang::run_debug(&source_code);
+        return if result.is_ok() {
+            RunResult::Ok
+        } else {
+            RunResult::CompilerError
+        };
+    }
 
     let program = match colang::run(&source_code) {
         Ok(program) => program,

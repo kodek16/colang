@@ -69,13 +69,7 @@ impl Function {
             sexp_str!("function"),
             sexp_list!(sexp_str!("name"), sexp_str!(&self.name)),
             sexp_list!(sexp_str!("signature"), self.signature_sexp()),
-            sexp_list!(
-                sexp_str!("body"),
-                self.body
-                    .as_ref()
-                    .map(|body| { body.borrow().to_sexp() })
-                    .unwrap_or(sexp_str!("missing"))
-            )
+            sexp_list!(sexp_str!("body"), self.body().borrow().to_sexp())
         )
     }
 
@@ -178,7 +172,7 @@ impl ToSexp for Expression {
             New(expr) => expr.to_sexp(),
             Variable(expr) => expr.to_sexp(),
             Empty => sexp_str!("empty"),
-            Error => sexp_str!("error"),
+            Error(_) => sexp_str!("error"),
         }
     }
 }
@@ -272,13 +266,14 @@ impl ToSexp for LiteralExpr {
         sexp_list!(
             sexp_str!("literal"),
             match self {
-                LiteralExpr::Int(value) => sexp_int!(*value),
-                LiteralExpr::Bool(value) => sexp_list!(
+                LiteralExpr::Int(value, _) => sexp_int!(*value),
+                LiteralExpr::Bool(value, _) => sexp_list!(
                     sexp_str!("bool"),
                     sexp_str!(if *value { "true" } else { "false " })
                 ),
-                LiteralExpr::Char(value) => sexp_list!(sexp_str!("char"), sexp_int!(*value as i32)),
-                LiteralExpr::String(value) => sexp_list!(sexp_str!("string"), sexp_str!(&value)),
+                LiteralExpr::Char(value, _) =>
+                    sexp_list!(sexp_str!("char"), sexp_int!(*value as i32)),
+                LiteralExpr::String(value, _) => sexp_list!(sexp_str!("string"), sexp_str!(&value)),
             }
         )
     }

@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 pub struct VariableExpr {
     pub variable: Rc<RefCell<Variable>>,
+    pub span: Option<InputSpan>,
 }
 
 impl VariableExpr {
@@ -17,8 +18,9 @@ impl VariableExpr {
     ) -> Expression {
         let kind = ExpressionKind::Variable(VariableExpr {
             variable: Rc::clone(variable),
+            span: Some(span),
         });
-        Expression::new(kind, Some(span), types)
+        Expression::new(kind, types)
     }
 }
 
@@ -29,5 +31,9 @@ impl ExpressionKindImpl for VariableExpr {
 
     fn calculate_value_category(&self) -> ValueCategory {
         ValueCategory::Lvalue
+    }
+
+    fn span(&self) -> Option<InputSpan> {
+        self.span
     }
 }

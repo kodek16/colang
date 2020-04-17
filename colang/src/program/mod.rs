@@ -44,12 +44,13 @@ impl SymbolIdRegistry {
 pub struct Program {
     symbol_ids: SymbolIdRegistry,
 
+    // All user-defined functions and methods in the program.
     user_functions: Vec<Rc<RefCell<Function>>>,
+    types: TypeRegistry,
 
     // This collection only contains functions, not methods. Internal methods
     // should be accessed through the type scope mechanism.
     internal_functions: HashMap<InternalFunctionTag, Rc<RefCell<Function>>>,
-    types: TypeRegistry,
 
     main_function: Option<Rc<RefCell<Function>>>,
 }
@@ -60,8 +61,8 @@ impl Program {
         Program {
             symbol_ids: SymbolIdRegistry::new(),
             user_functions: vec![],
-            internal_functions: HashMap::new(),
             types: TypeRegistry::new(),
+            internal_functions: HashMap::new(),
             main_function: None,
         }
     }
@@ -69,14 +70,11 @@ impl Program {
     /// Adds a new function to the program.
     pub(crate) fn add_function(&mut self, function: Rc<RefCell<Function>>) {
         match function.borrow().id.clone() {
-            FunctionId::UserDefined(_) => self.user_functions.push(Rc::clone(&function)),
-            FunctionId::InstantiatedMethod(_, _) => {
-                panic!("Attempted to add instatiated method to global functions table")
-            }
             FunctionId::Internal(tag) => {
                 self.internal_functions
                     .insert(tag.clone(), Rc::clone(&function));
             }
+            _ => self.user_functions.push(Rc::clone(&function)),
         }
     }
 
@@ -106,24 +104,9 @@ impl Program {
         &self.types
     }
 
-    /// Collects all user-defined functions present in the program.
-    pub fn all_user_functions(&self) -> Vec<Rc<RefCell<Function>>> {
-        let mut result = Vec::new();
-
-        for type_ in self.types.all_types() {
-            let type_ = type_.borrow();
-            if type_.is_user_defined() {
-                for method in type_.methods() {
-                    result.push(Rc::clone(method));
-                }
-            }
-        }
-
-        for function in &self.user_functions {
-            result.push(Rc::clone(&function));
-        }
-
-        result
+    /// All user-defined functions in the program, except unused template method instantiations.
+    pub fn all_user_functions(&self) -> impl Iterator<Item = &Rc<RefCell<Function>>> {
+        self.user_functions.iter()
     }
 
     pub fn main_function(&self) -> impl Deref<Target = Function> + '_ {
@@ -153,7 +136,7 @@ pub use expressions::new::NewExpr;
 pub use expressions::variable::VariableExpr;
 pub use expressions::{Expression, ExpressionKind};
 
-pub use function::{Function, FunctionId};
+pub use function::{Function, FunctionBody, FunctionId};
 pub use internal::InternalFunctionTag;
 pub use typing::{ProtoTypeParameter, Type, TypeId, TypeRegistry, TypeTemplate, TypeTemplateId};
 pub use variable::{Variable, VariableId};

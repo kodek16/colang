@@ -22,7 +22,7 @@ impl GlobalStructureAnalyzerPass {
 impl GlobalVisitor for GlobalStructureAnalyzerPass {
     fn revisit_non_template_struct_def(
         &mut self,
-        _: &StructDef,
+        _: &mut StructDef,
         type_: Rc<RefCell<Type>>,
         context: &mut CompilerContext,
     ) {
@@ -34,7 +34,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
 
     fn revisit_template_struct_def(
         &mut self,
-        _: &StructDef,
+        _: &mut StructDef,
         _: Rc<RefCell<TypeTemplate>>,
         base_type: Rc<RefCell<Type>>,
         context: &mut CompilerContext,
@@ -47,7 +47,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
 
     fn analyze_field_def(
         &mut self,
-        field_def: &ast::FieldDef,
+        field_def: &mut ast::FieldDef,
         current_type: &Rc<RefCell<Type>>,
         context: &mut CompilerContext,
     ) {
@@ -78,7 +78,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
 
     fn analyze_method_def(
         &mut self,
-        method_def: &ast::FunctionDef,
+        method_def: &mut ast::FunctionDef,
         current_type: &Rc<RefCell<Type>>,
         context: &mut CompilerContext,
     ) {
@@ -95,6 +95,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             .defined_methods
             .insert(method_def.signature_span, Rc::clone(&method));
 
+        context.program.add_function(Rc::clone(&method));
         let result = current_type.borrow_mut().add_method(Rc::clone(&method));
         if let Err(error) = result {
             context.errors.push(error);
@@ -120,9 +121,14 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
                 context.errors.push(error);
 
                 // For better error recovery.
-                let fake_self =
-                    create_variable("<self>".to_string(), Rc::clone(current_type), None, context)
-                        .unwrap();
+                // TODO synthesize a more precise span for fake `self`.
+                let fake_self = create_variable(
+                    "<self>".to_string(),
+                    Rc::clone(current_type),
+                    Some(method_def.signature_span),
+                    context,
+                )
+                .unwrap();
                 fake_self
             }
         };
@@ -148,7 +154,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
 
     fn analyze_function_def(
         &mut self,
-        function_def: &ast::FunctionDef,
+        function_def: &mut ast::FunctionDef,
         context: &mut CompilerContext,
     ) {
         let name = function_def.name.text.clone();

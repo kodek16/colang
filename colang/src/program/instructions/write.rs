@@ -14,7 +14,7 @@ impl WriteInstruction {
     ) -> Result<Instruction, CompilationError> {
         let expression_type = Rc::clone(expression.type_());
         let expression_span = expression
-            .span
+            .span()
             .expect("Attempt to write a synthetic `int` expression");
 
         let stringified_expr = match expression_type.borrow().type_id {

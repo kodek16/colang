@@ -1,18 +1,17 @@
 use crate::ast::InputSpan;
+use crate::errors::CompilationError;
+use crate::program::expressions::ExpressionKindImpl;
 use crate::program::{
     AddressExpr, Expression, ExpressionKind, Function, InternalFunctionTag, Program, Type, TypeId,
     TypeRegistry, ValueCategory,
 };
-
-use crate::errors::CompilationError;
-
-use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct CallExpr {
     pub function: Rc<RefCell<Function>>,
     pub arguments: Vec<Expression>,
+    pub span: Option<InputSpan>,
 }
 
 impl CallExpr {
@@ -57,19 +56,20 @@ impl CallExpr {
         let kind = ExpressionKind::Call(CallExpr {
             function,
             arguments,
+            span: Some(span),
         });
 
-        Ok(Expression::new(kind, Some(span), types))
+        Ok(Expression::new(kind, types))
     }
 
     pub fn new_read(
         target: Expression,
         program: &mut Program,
     ) -> Result<Expression, CompilationError> {
-        let target_span = target.span.expect("Attempt to read to generated target");
+        let target_span = target.span().expect("Attempt to read to generated target");
         if target.value_category != ValueCategory::Lvalue {
             let error = CompilationError::read_target_not_lvalue(
-                target.span.expect("Attempt to read generated rvalue."),
+                target.span().expect("Attempt to read generated rvalue."),
             );
             return Err(error);
         }
@@ -83,7 +83,7 @@ impl CallExpr {
                 let error = CompilationError::read_unsupported_type(
                     target_type.borrow().name(),
                     target
-                        .span
+                        .span()
                         .expect("Attempt to read generated value of unsupported type"),
                 );
                 return Err(error);
@@ -95,12 +95,9 @@ impl CallExpr {
         let kind = ExpressionKind::Call(CallExpr {
             function,
             arguments: vec![argument],
+            span: Some(target_span),
         });
-        Ok(Expression::new(
-            kind,
-            Some(target_span),
-            program.types_mut(),
-        ))
+        Ok(Expression::new(kind, program.types_mut()))
     }
 }
 
@@ -111,5 +108,9 @@ impl ExpressionKindImpl for CallExpr {
 
     fn calculate_value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
+    }
+
+    fn span(&self) -> Option<InputSpan> {
+        self.span
     }
 }

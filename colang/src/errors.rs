@@ -4,8 +4,11 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::ast;
 use crate::ast::InputSpanFile;
+use crate::program::{Function, Type};
 use ast::InputSpan;
 use ast::ParseError;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct CompilationError {
@@ -483,21 +486,49 @@ impl CompilationError {
     }
 
     pub fn type_infinite_dependency_chain(
-        type_name: &str,
-        type_chain: Vec<&str>,
+        source_type: &Type,
+        type_chain: Vec<Rc<RefCell<Type>>>,
         location: InputSpan,
     ) -> CompilationError {
-        let dependency_chain: String = type_chain.join(" -> ");
-        let dependency_chain = format!("Type dependency chain: {}", dependency_chain);
+        let type_chain: Vec<_> = type_chain
+            .iter()
+            .map(|type_| type_.borrow().name().to_string())
+            .collect();
+
+        let type_chain: String = type_chain.join(" -> ");
+        let type_chain = format!("Type dependency chain: {}", type_chain);
 
         CompilationError {
             code: "E9043",
             message: format!(
-                "type `{}` causes an infinite type dependency chain through its fields and methods.",
-                type_name
+                "type `{}` causes an infinite type dependency chain through its fields and methods",
+                source_type.name()
             ),
             location: Some(location),
-            free_notes: vec![dependency_chain],
+            free_notes: vec![type_chain],
+        }
+    }
+
+    pub fn function_infinite_dependency_chain(
+        source_function: &Function,
+        function_chain: Vec<Rc<RefCell<Function>>>,
+        location: InputSpan,
+    ) -> CompilationError {
+        let function_chain: Vec<_> = function_chain
+            .iter()
+            .map(|function| function.borrow().name.clone())
+            .collect();
+        let function_chain: String = function_chain.join("\n -> ");
+        let function_chain = format!("Function dependency chain:\n    {}", function_chain);
+
+        CompilationError {
+            code: "E9044",
+            message: format!(
+                "call to function `{}` causes an infinite function dependency chain",
+                source_function.name
+            ),
+            location: Some(location),
+            free_notes: vec![function_chain],
         }
     }
 }

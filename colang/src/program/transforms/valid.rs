@@ -5,6 +5,8 @@
 
 use crate::program::transforms::visitor::CodeVisitor;
 use crate::program::*;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct ValidityChecker<'a> {
     program: &'a mut Program,
@@ -20,12 +22,12 @@ impl<'a> ValidityChecker<'a> {
     }
 
     pub fn check(mut self) -> Vec<String> {
-        for function in self.program.all_user_functions() {
+        let all_functions: Vec<Rc<RefCell<Function>>> =
+            self.program.all_user_functions().map(Rc::clone).collect();
+
+        for function in all_functions {
             let function = function.borrow();
-            let body = function
-                .body
-                .as_ref()
-                .expect("User-defined function without a body");
+            let body = function.body();
             let mut body = body.borrow_mut();
             self.visit_expression(&mut body);
         }

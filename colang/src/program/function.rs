@@ -18,9 +18,7 @@ pub struct Function {
 
     pub definition_site: Option<InputSpan>,
 
-    // Body is wrapped in a separate cell so that we can still borrow function immutably
-    // while the body is borrowed mutably. This is very useful for recursive functions.
-    pub body: Option<Rc<RefCell<Expression>>>,
+    pub body: FunctionBody,
 
     /// For instantiated methods, this is the ID of their prototype method in the base type.
     pub base_method_id: Option<FunctionId>,
@@ -31,6 +29,18 @@ pub enum FunctionId {
     UserDefined(SymbolId),
     InstantiatedMethod(SymbolId, TypeId),
     Internal(InternalFunctionTag),
+}
+
+pub enum FunctionBody {
+    // Body is wrapped in a separate cell so that we can still borrow function immutably
+    // while the body is borrowed mutably. This is very useful for recursive functions.
+    Filled(Rc<RefCell<Expression>>),
+    ToBeFilled,
+    ToBeInstantiated {
+        base: Rc<RefCell<Function>>,
+        type_arguments: HashMap<TypeId, TypeId>,
+    },
+    Internal,
 }
 
 pub struct ProtoInternalParameter {
@@ -52,7 +62,7 @@ impl Function {
             definition_site: Some(definition_site),
             parameters: vec![],
             return_type,
-            body: None,
+            body: FunctionBody::ToBeFilled,
             base_method_id: None,
         }
     }
@@ -82,7 +92,7 @@ impl Function {
             definition_site: None,
             parameters,
             return_type,
-            body: None,
+            body: FunctionBody::Internal,
             base_method_id: None,
         }
     }
@@ -112,24 +122,41 @@ impl Function {
             return Err(error);
         }
 
-        self.body = Some(Rc::new(RefCell::new(body)));
+        self.body = FunctionBody::Filled(Rc::new(RefCell::new(body)));
         Ok(())
     }
 
     pub fn body(&self) -> &Rc<RefCell<Expression>> {
-        self.body.as_ref().expect("function body was not filled")
+        match &self.body {
+            FunctionBody::Filled(ref body) => body,
+            _ => {
+                panic!(
+                    "Body of user-defined function `{}` ({:?}) has not been filled",
+                    self.name, self.id
+                );
+            }
+        }
     }
 
-    /// Create a copy of this function with all occurrences of type parameters replaced by
+    pub fn body_needs_instantiation(&self) -> bool {
+        match &self.body {
+            FunctionBody::ToBeInstantiated { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// Create a copy of a function with all occurrences of type parameters replaced by
     /// concrete type arguments.
-    pub fn instantiate(
-        &self,
+    /// The function body is not copied yet, it has to be done later by calling `instantiate_body`.
+    pub fn instantiate_interface(
+        function: Rc<RefCell<Function>>,
         instantiated_type_id: TypeId,
         type_arguments: &HashMap<TypeId, TypeId>,
         types: &mut TypeRegistry,
     ) -> Rc<RefCell<Function>> {
-        match self.id {
+        match function.borrow().id {
             FunctionId::Internal(ref tag) => {
+                let function = function.borrow();
                 let tag = match tag {
                     InternalFunctionTag::ArrayPush(type_id) => InternalFunctionTag::ArrayPush(
                         type_arguments.get(type_id).unwrap_or(type_id).clone(),
@@ -147,7 +174,7 @@ impl Function {
                 };
                 let id = FunctionId::Internal(tag.clone());
 
-                let parameters = self
+                let parameters = function
                     .parameters
                     .iter()
                     .map(|parameter| {
@@ -161,55 +188,108 @@ impl Function {
                     })
                     .collect();
 
-                let return_type = self.return_type.borrow().instantiate(type_arguments, types);
+                let return_type = function
+                    .return_type
+                    .borrow()
+                    .instantiate(type_arguments, types);
 
                 Rc::new(RefCell::new(Function {
                     id,
                     parameters,
                     return_type,
-                    name: self.name.clone(),
-                    definition_site: self.definition_site,
-                    body: None,
-                    base_method_id: Some(self.id.clone()),
+                    name: function.name.clone(),
+                    definition_site: function.definition_site,
+                    body: FunctionBody::Internal,
+                    base_method_id: Some(function.id.clone()),
                 }))
             }
             FunctionId::UserDefined(template_id) => {
+                let body = FunctionBody::ToBeInstantiated {
+                    base: Rc::clone(&function),
+                    type_arguments: type_arguments.clone(),
+                };
+                let function = function.borrow();
+
                 let function_id =
                     FunctionId::InstantiatedMethod(template_id, instantiated_type_id.clone());
+                let parameters: Vec<_> = function
+                    .parameters
+                    .iter()
+                    .map(|parameter| {
+                        Rc::new(RefCell::new(parameter.borrow().instantiate_local_variable(
+                            function_id.clone(),
+                            type_arguments,
+                            types,
+                        )))
+                    })
+                    .collect();
+                let return_type = Rc::clone(&function.return_type)
+                    .borrow()
+                    .instantiate(type_arguments, types);
+                let base_method_id = Some(function.id.clone());
 
-                let mut instantiated_function = transforms::clone::clone_function(
-                    self,
-                    |_| FunctionId::InstantiatedMethod(template_id, instantiated_type_id),
+                Rc::new(RefCell::new(Function {
+                    name: function.name.clone(),
+                    id: function_id,
+                    definition_site: function.definition_site,
+                    parameters,
+                    return_type,
+                    base_method_id,
+                    body,
+                }))
+            }
+            FunctionId::InstantiatedMethod(_, _) => {
+                panic!("Attempt to instantiate an already instantiated method");
+            }
+        }
+    }
+
+    pub fn instantiate_body(
+        function: Rc<RefCell<Function>>,
+        types: &mut TypeRegistry,
+    ) -> Rc<RefCell<Expression>> {
+        // Extract body from function.
+        let mut body = FunctionBody::ToBeFilled;
+        std::mem::swap(&mut body, &mut function.borrow_mut().body);
+
+        let function_id = function.borrow().id.clone();
+
+        match body {
+            FunctionBody::ToBeInstantiated {
+                base,
+                type_arguments,
+            } => {
+                let base = base.borrow();
+                let base_body = match base.body {
+                    FunctionBody::Filled(ref body) => Rc::clone(&body),
+                    _ => panic!("Base function body has not been filled"),
+                };
+
+                let mut new_body = transforms::clone::clone_function_body(
+                    base_body,
+                    &base.parameters,
+                    &function.borrow().parameters,
                     &|variable, types| {
                         variable.instantiate_local_variable(
                             function_id.clone(),
-                            type_arguments,
+                            &type_arguments,
                             types,
                         )
                     },
                     types,
                 );
-                instantiated_function.return_type = Rc::clone(&instantiated_function.return_type)
-                    .borrow()
-                    .instantiate(type_arguments, types);
-                instantiated_function.base_method_id = Some(self.id.clone());
 
-                // TODO don't do it now
-                {
-                    let function_body = instantiated_function.body.as_ref().unwrap();
-                    let mut function_body = function_body.borrow_mut();
-                    let mut rewriter = InstantiatedMethodBodyRewriter {
-                        types,
-                        type_arguments,
-                    };
-                    rewriter.visit_expression(&mut function_body);
-                }
+                let mut rewriter = InstantiatedMethodBodyRewriter {
+                    types,
+                    type_arguments: &type_arguments,
+                };
+                rewriter.visit_expression(&mut new_body);
 
-                Rc::new(RefCell::new(instantiated_function))
+                let new_body = Rc::new(RefCell::new(new_body));
+                function.borrow_mut().body = FunctionBody::Filled(Rc::clone(&new_body));
+                new_body
             }
-            FunctionId::InstantiatedMethod(_, _) => {
-                panic!("Attempt to instantiate an already instantiated method");
-            }
+            _ => panic!("Attempt to instantiate body of a function that was not instantiated"),
         }
     }
 
@@ -231,6 +311,12 @@ impl Function {
             self.name,
             instantiated_type.name()
         )
+    }
+}
+
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 

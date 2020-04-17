@@ -4,8 +4,6 @@
 
 use crate::program::Program;
 
-pub mod debug;
-
 /// Common backend interface.
 pub trait Backend {
     /// Process the compiled CO program. Backends should report any user-caused errors to

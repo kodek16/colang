@@ -25,7 +25,7 @@ pub struct Type {
     completeness: TypeCompleteness,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 enum TypeCompleteness {
     /// Fields and methods not yet analyzed.
     Incomplete,
@@ -97,6 +97,7 @@ impl Type {
 
     #[must_use]
     pub fn add_method(&mut self, method: Rc<RefCell<Function>>) -> Result<(), CompilationError> {
+        eprintln!("Adding method `{}::{}`", self.name, method.borrow().name);
         self.methods.push(Rc::clone(&method));
         self.scope.add_function(method)
     }
@@ -219,6 +220,11 @@ impl Type {
         type_: Rc<RefCell<Type>>,
         registry: &mut TypeRegistry,
     ) -> Result<(), Vec<Rc<RefCell<Type>>>> {
+        eprintln!(
+            "Ensuring completeness for type `{}`, state is {:?}",
+            type_.borrow().name,
+            type_.borrow().completeness
+        );
         let mut type_stack: Vec<Rc<RefCell<Type>>> = Vec::new();
         type_stack.push(Rc::clone(&type_));
 
@@ -259,6 +265,7 @@ impl Type {
     /// For an incomplete type instantiated from a template, complete the instantiation by
     /// copying fields and methods from the base type.
     fn complete_from_base_type(type_: Rc<RefCell<Type>>, registry: &mut TypeRegistry) {
+        eprintln!("Completing type `{}`", type_.borrow().name);
         if type_.borrow().completeness != TypeCompleteness::Incomplete {
             panic!(
                 "Attempted to complete type `{}`, which is already complete",
@@ -303,10 +310,12 @@ impl Type {
                 }
 
                 for method in base_type.methods.iter() {
-                    let instantiated_method =
-                        method
-                            .borrow()
-                            .instantiate(type_id.clone(), &own_type_arguments, registry);
+                    let instantiated_method = Function::instantiate_interface(
+                        Rc::clone(&method),
+                        type_id.clone(),
+                        &own_type_arguments,
+                        registry,
+                    );
                     type_
                         .borrow_mut()
                         .add_method(instantiated_method)

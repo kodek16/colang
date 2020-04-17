@@ -10,7 +10,6 @@ pub fn compile_index_expr(
 ) -> program::Expression {
     let collection = compile_expression(*expression.collection, None, context);
     let collection_type = Rc::clone(collection.type_());
-    let collection_type = collection_type.borrow();
 
     let index = compile_expression(*expression.index, None, context);
 
@@ -18,9 +17,12 @@ pub fn compile_index_expr(
         return program::Expression::error(expression.span);
     }
 
-    let method = collection_type.lookup_method("index", expression.span);
+    let method = collection_type
+        .borrow()
+        .lookup_method("index", expression.span)
+        .map(Rc::clone);
     let method = match method {
-        Ok(method) => Rc::clone(&method),
+        Ok(method) => method,
         Err(error) => {
             context.errors.push(error);
             return program::Expression::error(expression.span);
@@ -43,7 +45,7 @@ pub fn compile_index_expr(
         Ok(result) => result,
         Err(_) => {
             let error = CompilationError::index_method_returns_not_pointer(
-                collection_type.name(),
+                collection_type.borrow().name(),
                 pointer_type.borrow().name(),
                 expression.span,
             );

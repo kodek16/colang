@@ -1,0 +1,5 @@
+struct Foo<T> {
+  foo: Foo<Foo<T>>;
+}
+
+fun main() { }

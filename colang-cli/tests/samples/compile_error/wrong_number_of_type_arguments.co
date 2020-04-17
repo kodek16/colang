@@ -1,0 +1,8 @@
+struct Wrapper<T> {
+  arr: [T];
+
+}
+
+fun main() {
+  var w: Wrapper<int, bool>;
+}

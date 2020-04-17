@@ -1,0 +1,18 @@
+struct Wrapper<T> {
+  arr: [T];
+
+  fun index(self, index: int): &T {
+    if (index == 0) {
+      &self.arr[self.arr.len() - 1]
+    } else {
+      self.arr.pop();
+      self.index(index - 1)
+    }
+  }
+}
+
+fun main() {
+  var w: Wrapper<int>;
+  w.arr = [3, 2, 1, 0];
+  assert(*w.index(2) == 2);
+}

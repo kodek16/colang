@@ -1,0 +1,12 @@
+struct Pair<A, B> {
+  first: A;
+  second: B;
+}
+
+fun main() {
+  var p: Pair<int, bool>;
+  p.first = 42;
+  p.second = true;
+  assert(p.first == 42);
+  assert(p.second);
+}

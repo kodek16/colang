@@ -1,8 +1,9 @@
 use super::compile_expression;
 use crate::analyzer::bodies::{call_and_remember, compile_arguments, maybe_deref};
 use crate::errors::CompilationError;
-use crate::program::ValueCategory;
+use crate::program::{Function, ValueCategory};
 use crate::{ast, program, CompilerContext};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn compile_method_call_expr(
@@ -18,12 +19,14 @@ pub fn compile_method_call_expr(
     // Automatically dereference pointers.
     let receiver = maybe_deref(receiver, context);
     let receiver_type = Rc::clone(receiver.type_());
-    let receiver_type = receiver_type.borrow();
 
-    let method = receiver_type.lookup_method(&expression.method.text, expression.method.span);
+    let method = receiver_type
+        .borrow()
+        .lookup_method(&expression.method.text, expression.method.span)
+        .map(Rc::clone);
 
-    let method = match method {
-        Ok(method) => Rc::clone(method),
+    let method: Rc<RefCell<Function>> = match method {
+        Ok(method) => method,
         Err(error) => {
             context.errors.push(error);
             return program::Expression::error(expression.method.span);

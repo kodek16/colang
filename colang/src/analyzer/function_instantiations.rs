@@ -65,8 +65,9 @@ fn process_function(function: Rc<RefCell<Function>>, context: &mut CompilerConte
             }
         }
         _ => panic!(
-            "Function `{}` was not filled during the responsible compiler pass",
-            function.borrow().name
+            "Function `{}` ({:?}) was not filled during the responsible compiler pass",
+            function.borrow().name,
+            function.borrow().id,
         ),
     }
 }

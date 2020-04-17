@@ -60,11 +60,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
         context.self_ = None;
         context.scope.pop();
 
-        let body_type = Rc::clone(body.type_());
-        let result = method.borrow_mut().fill_body(body, body_type);
-        if let Err(error) = result {
-            context.errors.push(error)
-        };
+        fill_function_body(method, body, context);
     }
 
     fn revisit_function_def(
@@ -97,11 +93,33 @@ impl GlobalVisitor for BodiesAnalyzerPass {
 
         context.scope.pop();
 
-        let body_type = Rc::clone(body.type_());
-        if let Err(error) = function.borrow_mut().fill_body(body, body_type) {
-            context.errors.push(error)
-        };
+        fill_function_body(function, body, context);
     }
+}
+
+fn fill_function_body(
+    function: Rc<RefCell<Function>>,
+    body: program::Expression,
+    context: &mut CompilerContext,
+) {
+    {
+        let body_type = body.type_();
+        let return_type = &function.borrow().return_type;
+
+        if body_type != return_type {
+            let error = CompilationError::function_body_type_mismatch(
+                return_type.borrow().name(),
+                body_type.borrow().name(),
+                function
+                    .borrow()
+                    .definition_site
+                    .expect("Attempt to fill body for internal function"),
+            );
+            context.errors.push(error);
+        }
+    }
+
+    function.borrow_mut().body = FunctionBody::Filled(Rc::new(RefCell::new(body)));
 }
 
 /// Automatic pointer dereferencing: in some contexts where it's obvious that pointers

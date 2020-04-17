@@ -1,0 +1,37 @@
+struct Wrapper<T> {
+  arr: [T];
+
+  fun middle_left(&self): T {
+    if (self.arr.len() == 1) {
+      self.arr[0]
+    } else {
+      self.arr.pop();
+      self.middle_right()
+    }
+  }
+
+  fun middle_right(&self): T {
+    if (self.arr.len() == 1) {
+      self.arr[0]
+    } else {
+      self.pop_left();
+      self.middle_left()
+    }
+  }
+
+  fun pop_left(&self) {
+    var new_arr: [T];
+    var index = 1;
+    while (index < self.arr.len()) {
+      new_arr.push(self.arr[index]);
+      index = index + 1;
+    }
+    self.arr = new_arr;
+  }
+}
+
+fun main() {
+  var w: Wrapper<int>;
+  w.arr = [3, 2, 1, 0];
+  assert(w.middle_right() == 1);
+}

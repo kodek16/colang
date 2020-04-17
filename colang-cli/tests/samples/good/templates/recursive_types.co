@@ -1,0 +1,12 @@
+struct A<T> {
+  x: B<T>;
+}
+
+struct B<Q> {
+  y: &A<Q>;
+}
+
+fun main() {
+  var a: A<int>;
+  a.x.y = &a;
+}

@@ -1,5 +1,4 @@
 use crate::ast::InputSpan;
-use crate::errors::CompilationError;
 use crate::program::internal::InternalFunctionTag;
 use crate::program::transforms::visitor::CodeVisitor;
 use crate::program::{
@@ -101,29 +100,6 @@ impl Function {
     // This has to be called for user-defined functions.
     pub fn fill_parameters(&mut self, parameters: Vec<Rc<RefCell<Variable>>>) {
         self.parameters = parameters
-    }
-
-    // We need to accept `body_type` as a separate parameter, because computing
-    // the type for recursive functions involves borrowing the function immutably,
-    // so if we do this inside the method, where we have a mutable borrow, it would cause a panic.
-    #[must_use]
-    pub fn fill_body(
-        &mut self,
-        body: Expression,
-        body_type: Rc<RefCell<Type>>,
-    ) -> Result<(), CompilationError> {
-        if body_type != self.return_type {
-            let error = CompilationError::function_body_type_mismatch(
-                &self.return_type.borrow().name(),
-                &body_type.borrow().name(),
-                self.definition_site
-                    .expect("Attempt to fill body for internal function"),
-            );
-            return Err(error);
-        }
-
-        self.body = FunctionBody::Filled(Rc::new(RefCell::new(body)));
-        Ok(())
     }
 
     pub fn body(&self) -> &Rc<RefCell<Expression>> {

@@ -37,8 +37,8 @@ pub fn compile_array_from_elements_expr(
             let element_type = element.type_();
             if *element_type != inferred_type {
                 Some(CompilationError::array_elements_type_mismatch(
-                    inferred_type.borrow().name(),
-                    element_type.borrow().name(),
+                    &inferred_type.borrow().name,
+                    &element_type.borrow().name,
                     element
                         .span()
                         .expect("Implicit array element type mismatch"),

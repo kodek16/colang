@@ -45,8 +45,8 @@ pub fn compile_binary_op_expr(
         None => {
             let error = CompilationError::binary_operator_unsupported_types(
                 &expression.operator.to_string(),
-                lhs.type_().borrow().name(),
-                rhs.type_().borrow().name(),
+                &lhs.type_().borrow().name,
+                &rhs.type_().borrow().name,
                 expression.span,
             );
             context.errors.push(error);

@@ -164,10 +164,7 @@ impl Function {
                     })
                     .collect();
 
-                let return_type = function
-                    .return_type
-                    .borrow()
-                    .instantiate(type_arguments, types);
+                let return_type = Type::substitute(&function.return_type, type_arguments, types);
 
                 Rc::new(RefCell::new(Function {
                     id,
@@ -199,9 +196,7 @@ impl Function {
                         )))
                     })
                     .collect();
-                let return_type = Rc::clone(&function.return_type)
-                    .borrow()
-                    .instantiate(type_arguments, types);
+                let return_type = Type::substitute(&function.return_type, type_arguments, types);
                 let base_method_id = Some(function.id.clone());
 
                 Rc::new(RefCell::new(Function {
@@ -284,8 +279,7 @@ impl Function {
 
         panic!(
             "Could not find an instance of method `{}` in type `{}`",
-            self.name,
-            instantiated_type.name()
+            self.name, instantiated_type.name
         )
     }
 }
@@ -308,9 +302,8 @@ impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
 
     fn visit_array_from_elements_expr(&mut self, expression: &mut ArrayFromElementsExpr) {
         self.walk_array_from_elements_expr(expression);
-        expression.element_type = Rc::clone(&expression.element_type)
-            .borrow()
-            .instantiate(self.type_arguments, self.types)
+        expression.element_type =
+            Type::substitute(&expression.element_type, self.type_arguments, self.types);
     }
 
     fn visit_call_expr(&mut self, expression: &mut CallExpr) {

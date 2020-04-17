@@ -45,8 +45,8 @@ pub fn compile_index_expr(
         Ok(result) => result,
         Err(_) => {
             let error = CompilationError::index_method_returns_not_pointer(
-                collection_type.borrow().name(),
-                pointer_type.borrow().name(),
+                &collection_type.borrow().name,
+                &pointer_type.borrow().name,
                 expression.span,
             );
             context.errors.push(error);

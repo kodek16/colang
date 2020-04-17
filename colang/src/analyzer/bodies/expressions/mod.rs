@@ -56,10 +56,8 @@ pub fn compile_expression(
     };
 
     // All expressions must have fully complete types.
-    let result = Type::ensure_is_complete_with_dependencies(
-        Rc::clone(expression.type_()),
-        context.program.types_mut(),
-    );
+    let result =
+        Type::ensure_is_fully_complete(Rc::clone(expression.type_()), context.program.types_mut());
     if let Err(type_chain) = result {
         let error = CompilationError::type_infinite_dependency_chain(
             &expression.type_().borrow(),

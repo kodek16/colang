@@ -1,0 +1,8 @@
+struct Foo<T> {
+  x: T;
+  x: T;
+}
+
+fun main() {
+  var f: Foo<int>;
+}

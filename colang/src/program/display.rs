@@ -42,7 +42,7 @@ impl Type {
     fn to_full_sexp(&self) -> Sexp {
         sexp_list!(
             sexp_str!("type"),
-            sexp_list!(sexp_str!("name"), sexp_str!(self.name())),
+            sexp_list!(sexp_str!("name"), sexp_str!(&self.name)),
             sexp_list!(
                 sexp_str!("fields"),
                 Sexp::List(
@@ -113,7 +113,7 @@ impl ToSexp for Function {
 
 impl ToSexp for Type {
     fn to_sexp(&self) -> Sexp {
-        sexp_str!(self.name())
+        sexp_str!(&self.name)
     }
 }
 

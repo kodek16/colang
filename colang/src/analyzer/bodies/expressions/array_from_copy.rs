@@ -21,7 +21,7 @@ pub fn compile_array_from_copy_expr(
     let size_type = size.type_();
     if *size_type != *context.program.types().int() {
         let error = CompilationError::array_size_not_int(
-            size_type.borrow().name(),
+            &size_type.borrow().name,
             size.span().expect("Generated array size is not int"),
         );
         context.errors.push(error);

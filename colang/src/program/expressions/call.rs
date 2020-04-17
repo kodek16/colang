@@ -44,8 +44,8 @@ impl CallExpr {
                 if *argument_type != *parameter_type {
                     let error = CompilationError::call_argument_type_mismatch(
                         parameter_name,
-                        parameter_type.borrow().name(),
-                        argument_type.borrow().name(),
+                        &parameter_type.borrow().name,
+                        &argument_type.borrow().name,
                         span,
                     );
                     return Err(error);
@@ -81,7 +81,7 @@ impl CallExpr {
             TypeId::String => program.internal_function(InternalFunctionTag::ReadWord),
             _ => {
                 let error = CompilationError::read_unsupported_type(
-                    target_type.borrow().name(),
+                    &target_type.borrow().name,
                     target
                         .span()
                         .expect("Attempt to read generated value of unsupported type"),

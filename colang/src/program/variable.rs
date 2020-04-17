@@ -106,7 +106,7 @@ impl Variable {
             id,
             name: self.name.clone(),
             definition_site: self.definition_site,
-            type_: self.type_.borrow().instantiate(type_arguments, types),
+            type_: Type::substitute(&self.type_, type_arguments, types),
             base_field_id: Some(self.id.clone()),
         }
     }
@@ -128,7 +128,7 @@ impl Variable {
             id,
             name: self.name.clone(),
             definition_site: self.definition_site,
-            type_: self.type_.borrow().instantiate(type_arguments, types),
+            type_: Type::substitute(&self.type_, type_arguments, types),
             base_field_id: None,
         }
     }
@@ -150,7 +150,7 @@ impl Variable {
             id,
             name: self.name.clone(),
             definition_site: self.definition_site,
-            type_: self.type_.borrow().instantiate(type_arguments, types),
+            type_: Type::substitute(&self.type_, type_arguments, types),
             base_field_id: None,
         }
     }
@@ -170,8 +170,7 @@ impl Variable {
 
         panic!(
             "Could not find an instance of field `{}` in type `{}`",
-            self.name,
-            instantiated_type.name()
+            self.name, instantiated_type.name
         )
     }
 }

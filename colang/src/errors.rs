@@ -492,7 +492,7 @@ impl CompilationError {
     ) -> CompilationError {
         let type_chain: Vec<_> = type_chain
             .iter()
-            .map(|type_| type_.borrow().name().to_string())
+            .map(|type_| type_.borrow().name.clone())
             .collect();
 
         let type_chain: String = type_chain.join(" -> ");
@@ -502,7 +502,7 @@ impl CompilationError {
             code: "E9043",
             message: format!(
                 "type `{}` causes an infinite type dependency chain through its fields and methods",
-                source_type.name()
+                source_type.name
             ),
             location: Some(location),
             free_notes: vec![type_chain],

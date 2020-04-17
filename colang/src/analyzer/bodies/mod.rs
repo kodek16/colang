@@ -35,7 +35,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
             &format!(
                 "Attempt to parse method `{}` of type `{}` which is in an error state: no `self` parameter",
                 method_def.name.text,
-                current_type.borrow().name()
+                current_type.borrow().name
             ),
         )));
         for parameter in &method.borrow().parameters[1..] {
@@ -108,8 +108,8 @@ fn fill_function_body(
 
         if body_type != return_type {
             let error = CompilationError::function_body_type_mismatch(
-                return_type.borrow().name(),
-                body_type.borrow().name(),
+                &return_type.borrow().name,
+                &body_type.borrow().name,
                 function
                     .borrow()
                     .definition_site

@@ -45,7 +45,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
         if instruction.expression.type_() != self.types().string() {
             self.errors.push(format!(
                 "`write` instruction expression has type `{}`",
-                instruction.expression.type_().borrow().name()
+                instruction.expression.type_().borrow().name
             ))
         }
     }
@@ -55,7 +55,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
         if instruction.cond.type_() != self.types().bool() {
             self.errors.push(format!(
                 "`while` condition has type `{}`",
-                instruction.cond.type_().borrow().name()
+                instruction.cond.type_().borrow().name
             ))
         }
     }
@@ -65,8 +65,8 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
         if instruction.target.type_() != instruction.value.type_() {
             self.errors.push(format!(
                 "`assign` instruction target has type `{}`, value has different type `{}`",
-                instruction.target.type_().borrow().name(),
-                instruction.value.type_().borrow().name()
+                instruction.target.type_().borrow().name,
+                instruction.value.type_().borrow().name
             ))
         }
     }
@@ -84,7 +84,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
         if expression.size.type_() != self.types().int() {
             self.errors.push(format!(
                 "array-from-copy expr has size of type `{}`",
-                expression.size.type_().borrow().name()
+                expression.size.type_().borrow().name
             ))
         }
     }
@@ -96,8 +96,8 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
             if *element.type_().borrow() != *element_type {
                 self.errors.push(format!(
                     "one of array elements has type `{}`, not expected `{}`",
-                    element.type_().borrow().name(),
-                    element_type.name()
+                    element.type_().borrow().name,
+                    element_type.name
                 ))
             }
         }
@@ -121,7 +121,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
         if !expression.pointer.type_().borrow().is_pointer() {
             self.errors.push(format!(
                 "deref expr for target of non-pointer type `{}`",
-                expression.pointer.type_().borrow().name()
+                expression.pointer.type_().borrow().name
             ))
         }
     }
@@ -132,7 +132,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
         if !receiver_type.fields().any(|f| *f == expression.field) {
             self.errors.push(format!(
                 "field access expr for type `{}` and wrong field `{}`",
-                receiver_type.name(),
+                receiver_type.name,
                 expression.field.borrow().name
             ))
         }
@@ -143,15 +143,15 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
         if expression.cond.type_() != self.types().bool() {
             self.errors.push(format!(
                 "`if` condition has type `{}`",
-                expression.cond.type_().borrow().name()
+                expression.cond.type_().borrow().name
             ))
         }
 
         if expression.then.type_() != expression.else_.type_() {
             self.errors.push(format!(
                 "`if` branches have differing types `{}` and `{}`",
-                expression.then.type_().borrow().name(),
-                expression.else_.type_().borrow().name()
+                expression.then.type_().borrow().name,
+                expression.else_.type_().borrow().name
             ))
         }
     }

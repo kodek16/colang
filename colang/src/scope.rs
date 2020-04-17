@@ -292,7 +292,7 @@ impl NamedEntityKind for Variable {
 
 impl NamedEntityKind for Function {
     fn name(&self) -> String {
-        self.name.to_string()
+        self.name.clone()
     }
 
     fn definition_site(&self) -> Option<InputSpan> {
@@ -306,11 +306,11 @@ impl NamedEntityKind for Function {
 
 impl NamedEntityKind for Type {
     fn name(&self) -> String {
-        self.name().to_string()
+        self.name.clone()
     }
 
     fn definition_site(&self) -> Option<InputSpan> {
-        self.definition_site()
+        self.definition_site
     }
 
     fn to_named(type_: Rc<RefCell<Type>>) -> NamedEntity {
@@ -320,11 +320,11 @@ impl NamedEntityKind for Type {
 
 impl NamedEntityKind for TypeTemplate {
     fn name(&self) -> String {
-        self.name.to_string()
+        self.name.clone()
     }
 
     fn definition_site(&self) -> Option<InputSpan> {
-        self.definition_site()
+        self.definition_site
     }
 
     fn to_named(type_template: Rc<RefCell<TypeTemplate>>) -> NamedEntity {

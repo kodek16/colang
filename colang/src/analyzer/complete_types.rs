@@ -84,8 +84,7 @@ fn complete_type(
     reference_location: InputSpan,
     context: &mut CompilerContext,
 ) {
-    let result =
-        Type::ensure_is_complete_with_dependencies(Rc::clone(&type_), context.program.types_mut());
+    let result = Type::ensure_is_fully_complete(Rc::clone(&type_), context.program.types_mut());
     if let Err(type_chain) = result {
         let error = CompilationError::type_infinite_dependency_chain(
             &type_.borrow(),

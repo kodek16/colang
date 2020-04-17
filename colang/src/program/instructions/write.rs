@@ -31,7 +31,7 @@ impl WriteInstruction {
             }
             _ => {
                 let error = CompilationError::write_value_is_not_stringable(
-                    &expression_type.borrow().name(),
+                    &expression_type.borrow().name,
                     expression_span,
                 );
                 return Err(error);

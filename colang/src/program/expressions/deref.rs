@@ -18,7 +18,7 @@ impl DerefExpr {
     ) -> Result<Expression, CompilationError> {
         if !pointer.type_.borrow().is_pointer() {
             let error = CompilationError::can_only_dereference_pointer(
-                pointer.type_.borrow().name(),
+                &pointer.type_.borrow().name,
                 pointer
                     .span()
                     .expect("Attempt to dereference generated non-pointer expression"),
@@ -42,7 +42,7 @@ impl ExpressionKindImpl for DerefExpr {
         } else {
             panic!(
                 "DerefExpr is in an invalid state: pointer expression type is `{}`",
-                self.pointer.type_().borrow().name()
+                self.pointer.type_().borrow().name
             )
         }
     }

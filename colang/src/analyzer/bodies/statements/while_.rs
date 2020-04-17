@@ -19,7 +19,7 @@ pub fn compile_while_stmt(
 
     let body_type = body.type_();
     if *body_type != *context.program.types().void() {
-        let error = CompilationError::while_body_not_void(&body_type.borrow().name(), body_span);
+        let error = CompilationError::while_body_not_void(&body_type.borrow().name, body_span);
         context.errors.push(error)
     }
     let body = program::EvalInstruction::new(body);

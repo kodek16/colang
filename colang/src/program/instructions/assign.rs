@@ -28,8 +28,8 @@ impl AssignInstruction {
 
         if *target_type != *value_type {
             let error = CompilationError::assignment_type_mismatch(
-                target_type.borrow().name(),
-                value_type.borrow().name(),
+                &target_type.borrow().name,
+                &value_type.borrow().name,
                 location,
             );
             return Err(error);

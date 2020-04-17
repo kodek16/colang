@@ -25,8 +25,7 @@ pub fn compile_type_expr_and_ensure_complete(
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
     let type_ = compile_type_expr(&type_expr, context);
-    let result =
-        Type::ensure_is_complete_with_dependencies(Rc::clone(&type_), context.program.types_mut());
+    let result = Type::ensure_is_fully_complete(Rc::clone(&type_), context.program.types_mut());
     if let Err(type_chain) = result {
         let error = CompilationError::type_infinite_dependency_chain(
             &type_.borrow(),

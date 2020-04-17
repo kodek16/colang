@@ -124,7 +124,7 @@ pub trait GlobalVisitor {
         let field = Rc::clone(context.defined_fields.get(&field_def.span).expect(&format!(
             "Missing field `{}` of type `{}` from previous phase",
             field_def.name.text,
-            current_type.borrow().name()
+            current_type.borrow().name
         )));
 
         self.revisit_field_def(field_def, current_type, field, context);
@@ -152,7 +152,7 @@ pub trait GlobalVisitor {
                 .expect(&format!(
                     "Missing method `{}` of type `{}` from previous phase",
                     method_def.name.text,
-                    current_type.borrow().name()
+                    current_type.borrow().name
                 )),
         );
 

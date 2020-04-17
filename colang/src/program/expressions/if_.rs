@@ -28,7 +28,7 @@ impl IfExpr {
 
         if else_.is_none() && *then_type != *types.void() {
             let error = CompilationError::if_expression_missing_else(
-                &then_type.borrow().name(),
+                &then_type.borrow().name,
                 then.span()
                     .expect("Generated `then` block expression in a single-branch `if`"),
             );
@@ -40,8 +40,8 @@ impl IfExpr {
 
         if then_type != else_type {
             let error = CompilationError::if_expression_branch_type_mismatch(
-                &then_type.borrow().name(),
-                &else_type.borrow().name(),
+                &then_type.borrow().name,
+                &else_type.borrow().name,
                 span,
             );
             return Err(error);

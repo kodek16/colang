@@ -1,0 +1,12 @@
+struct Foo<T> {
+  ptr: &T;
+
+  fun run(self) {
+    self.ptr = new T;
+  }
+}
+
+fun main() {
+  var f: Foo<int>;
+  f.run();
+}

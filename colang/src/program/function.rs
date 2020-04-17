@@ -2,7 +2,7 @@ use crate::ast::InputSpan;
 use crate::program::internal::InternalFunctionTag;
 use crate::program::transforms::visitor::CodeVisitor;
 use crate::program::{
-    transforms, ArrayFromElementsExpr, CallExpr, Expression, FieldAccessExpr, SymbolId,
+    transforms, ArrayFromElementsExpr, CallExpr, Expression, FieldAccessExpr, NewExpr, SymbolId,
     SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
 };
 use std::cell::RefCell;
@@ -343,5 +343,12 @@ impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
                 .lookup_instantiated_field(&receiver_type);
             expression.field = instantiated_field;
         }
+    }
+
+    fn visit_new_expr(&mut self, expression: &mut NewExpr) {
+        self.walk_new_expr(expression);
+
+        expression.target_type =
+            Type::substitute(&expression.target_type, self.type_arguments, self.types);
     }
 }

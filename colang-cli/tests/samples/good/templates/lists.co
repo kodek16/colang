@@ -1,0 +1,56 @@
+struct ListNode<T> {
+  value: T;
+  next: &ListNode<T>;
+}
+
+struct List<T> {
+  head: &ListNode<T>;
+
+  fun prepend(&self, value: T) {
+    self.head = {
+      var node = new ListNode<T>;
+      node.value = value;
+      node.next = self.head;
+      node
+    };
+  }
+
+  fun len(&self): int {
+    var cur_node = self.head;
+    var result = 0;
+    while (!(cur_node is null)) {
+      result = result + 1;
+      cur_node = cur_node.next;
+    }
+    result
+  }
+
+  fun tail(&self): List<T> {
+    var result: List<T>;
+    result.head = self.head.next;
+    result
+  }
+
+  fun index(self, index: int): &T {
+    if (index == 0) {
+      &self.head.value
+    } else {
+      self.tail().index(index - 1)
+    }
+  }
+}
+
+fun main() {
+  var l: List<int>;
+  assert(l.len() == 0);
+
+  l.prepend(42);
+  assert(l.len() == 1);
+  assert(l[0] == 42);
+
+  l.prepend(17);
+  l[1] = 19;
+
+  assert(l[0] == 17);
+  assert(l[1] == 19);
+}

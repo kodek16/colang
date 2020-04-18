@@ -1,0 +1,8 @@
+fun main() {
+  var x = 10;
+  var p: &int;
+
+  // RHS must not be evaluated.
+  assert(x == 10 || *p == 10);
+  assert(!(x == 5 && *p == 5));
+}

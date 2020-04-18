@@ -5,7 +5,7 @@ mod statements;
 
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
-use crate::ast::{FunctionDef, InputSpan};
+use crate::ast::FunctionDef;
 use crate::errors::CompilationError;
 use crate::program::{Function, FunctionBody, Type, Variable};
 use crate::{ast, program, CompilerContext};
@@ -134,25 +134,6 @@ fn maybe_deref(
     } else {
         expression
     }
-}
-
-/// Construct a Call expression while also taking a note that the body of the called function
-/// must be analyzed or instantiated at some point.
-fn call_and_remember(
-    function: Rc<RefCell<Function>>,
-    arguments: Vec<program::Expression>,
-    span: InputSpan,
-    context: &mut CompilerContext,
-) -> Result<program::Expression, CompilationError> {
-    match function.borrow().body {
-        FunctionBody::ToBeFilled | FunctionBody::ToBeInstantiated { .. } => {
-            context
-                .incomplete_functions
-                .insert(function.borrow().id.clone(), Rc::clone(&function));
-        }
-        _ => (),
-    }
-    program::CallExpr::new(function, arguments, context.program.types_mut(), span)
 }
 
 /// Compile a list of arguments using type hints from their corresponding parameters.

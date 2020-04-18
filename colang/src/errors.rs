@@ -531,6 +531,21 @@ impl CompilationError {
             free_notes: vec![function_chain],
         }
     }
+
+    pub fn logical_operator_operand_wrong_type(
+        operator: &str,
+        actual_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError::new(
+            "E9045",
+            format!(
+                "operand of logical operator `{}` must have type `bool`, not `{}`",
+                operator, actual_type
+            ),
+            location,
+        )
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

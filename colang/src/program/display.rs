@@ -164,6 +164,7 @@ impl ToSexp for Expression {
             ArrayFromCopy(expr) => expr.to_sexp(),
             ArrayFromElements(expr) => expr.to_sexp(),
             Block(expr) => expr.to_sexp(),
+            BooleanOp(expr) => expr.to_sexp(),
             Call(expr) => expr.to_sexp(),
             Deref(expr) => expr.to_sexp(),
             FieldAccess(expr) => expr.to_sexp(),
@@ -221,6 +222,20 @@ impl ToSexp for BlockExpr {
             ),
             sexp_list!(sexp_str!("value"), self.value.to_sexp())
         )
+    }
+}
+
+impl ToSexp for BooleanOpExpr {
+    fn to_sexp(&self) -> Sexp {
+        match self.op {
+            BooleanOp::And(ref lhs, ref rhs) => {
+                sexp_list!(sexp_str!("and"), lhs.to_sexp(), rhs.to_sexp())
+            }
+            BooleanOp::Or(ref lhs, ref rhs) => {
+                sexp_list!(sexp_str!("or"), lhs.to_sexp(), rhs.to_sexp())
+            }
+            BooleanOp::Not(ref operand) => sexp_list!(sexp_str!("not"), operand.to_sexp()),
+        }
     }
 }
 

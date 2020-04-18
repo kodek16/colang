@@ -65,6 +65,7 @@ pub trait CodeVisitor {
             ArrayFromCopy(expression) => self.visit_array_from_copy_expr(expression),
             ArrayFromElements(expression) => self.visit_array_from_elements_expr(expression),
             Block(expression) => self.visit_block_expr(expression),
+            BooleanOp(expression) => self.visit_boolean_op_expr(expression),
             Call(expression) => self.visit_call_expr(expression),
             Deref(expression) => self.visit_deref_expr(expression),
             FieldAccess(expression) => self.visit_field_access_expr(expression),
@@ -119,6 +120,26 @@ pub trait CodeVisitor {
         }
 
         self.visit_expression(&mut block.value);
+    }
+
+    fn visit_boolean_op_expr(&mut self, expression: &mut BooleanOpExpr) {
+        self.walk_boolean_op_expr(expression);
+    }
+
+    fn walk_boolean_op_expr(&mut self, expression: &mut BooleanOpExpr) {
+        match &mut expression.op {
+            BooleanOp::And(ref mut lhs, ref mut rhs) => {
+                self.visit_expression(lhs);
+                self.visit_expression(rhs);
+            }
+            BooleanOp::Or(ref mut lhs, ref mut rhs) => {
+                self.visit_expression(lhs);
+                self.visit_expression(rhs);
+            }
+            BooleanOp::Not(ref mut operand) => {
+                self.visit_expression(operand);
+            }
+        }
     }
 
     fn visit_call_expr(&mut self, expression: &mut CallExpr) {

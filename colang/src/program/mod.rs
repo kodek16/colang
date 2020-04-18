@@ -127,6 +127,7 @@ pub use expressions::address::AddressExpr;
 pub use expressions::array_from_copy::ArrayFromCopyExpr;
 pub use expressions::array_from_elements::ArrayFromElementsExpr;
 pub use expressions::block::{BlockBuilder, BlockExpr};
+pub use expressions::boolean_op::{BooleanOp, BooleanOpExpr};
 pub use expressions::call::CallExpr;
 pub use expressions::deref::DerefExpr;
 pub use expressions::field_access::FieldAccessExpr;

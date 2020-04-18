@@ -197,6 +197,7 @@ pub enum Expression {
     CharLiteral(CharLiteralExpr),
     StringLiteral(StringLiteralExpr),
     Self_(SelfExpr),
+    UnaryOp(UnaryOperatorExpr),
     BinaryOp(BinaryOperatorExpr),
     Address(AddressExpr),
     Deref(DerefExpr),
@@ -221,6 +222,7 @@ impl Expression {
             CharLiteral(e) => e.span,
             StringLiteral(e) => e.span,
             Self_(e) => e.span,
+            UnaryOp(e) => e.span,
             BinaryOp(e) => e.span,
             Address(e) => e.span,
             Deref(e) => e.span,
@@ -262,6 +264,10 @@ impl Expression {
                 ..e
             }),
             Expression::Self_(e) => Expression::Self_(SelfExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::UnaryOp(e) => Expression::UnaryOp(UnaryOperatorExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -359,35 +365,12 @@ pub struct SelfExpr {
     pub span: InputSpan,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum BinaryOperator {
-    Add,
-    Sub,
-    Mul,
-    Less,
-    Greater,
-    LessEq,
-    GreaterEq,
-    Eq,
-    NotEq,
-}
+#[derive(Debug)]
+pub struct UnaryOperatorExpr {
+    pub operator: UnaryOperator,
+    pub operand: Box<Expression>,
 
-impl Display for BinaryOperator {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        use BinaryOperator::*;
-        let symbol = match self {
-            Add => "+",
-            Sub => "-",
-            Mul => "*",
-            Less => "<",
-            Greater => ">",
-            LessEq => "<=",
-            GreaterEq => ">=",
-            Eq => "==",
-            NotEq => "!=",
-        };
-        write!(f, "{}", symbol)
-    }
+    pub span: InputSpan,
 }
 
 #[derive(Debug)]
@@ -483,6 +466,55 @@ pub struct BlockExpr {
     pub final_expr: Option<Box<Expression>>,
 
     pub span: InputSpan,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum UnaryOperator {
+    LogicalNot,
+}
+
+impl Display for UnaryOperator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let symbol = match self {
+            UnaryOperator::LogicalNot => "!",
+        };
+        write!(f, "{}", symbol)
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+    Less,
+    Greater,
+    LessEq,
+    GreaterEq,
+    Eq,
+    NotEq,
+    LogicalAnd,
+    LogicalOr,
+}
+
+impl Display for BinaryOperator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use BinaryOperator::*;
+        let symbol = match self {
+            Add => "+",
+            Sub => "-",
+            Mul => "*",
+            Less => "<",
+            Greater => ">",
+            LessEq => "<=",
+            GreaterEq => ">=",
+            Eq => "==",
+            NotEq => "!=",
+            LogicalAnd => "&&",
+            LogicalOr => "||",
+        };
+        write!(f, "{}", symbol)
+    }
 }
 
 #[derive(Debug)]

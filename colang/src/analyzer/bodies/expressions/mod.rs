@@ -15,6 +15,7 @@ mod method_call;
 mod new;
 mod self_;
 mod string_literal;
+mod unary_op;
 mod variable;
 
 use crate::errors::CompilationError;
@@ -37,6 +38,7 @@ pub fn compile_expression(
             string_literal::compile_string_literal_expr(e, context)
         }
         ast::Expression::Self_(e) => self_::compile_self_expr(e, context),
+        ast::Expression::UnaryOp(e) => unary_op::compile_unary_op_expression(e, context),
         ast::Expression::BinaryOp(e) => binary_op::compile_binary_op_expr(e, context),
         ast::Expression::Address(e) => address::compile_address_expr(e, type_hint, context),
         ast::Expression::Deref(e) => deref::compile_deref_expr(e, type_hint, context),

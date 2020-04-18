@@ -1,5 +1,5 @@
 use super::compile_expression;
-use crate::analyzer::bodies::{call_and_remember, compile_arguments, maybe_deref};
+use crate::analyzer::bodies::{compile_arguments, maybe_deref};
 use crate::errors::CompilationError;
 use crate::program::{Function, ValueCategory};
 use crate::{ast, program, CompilerContext};
@@ -75,7 +75,12 @@ pub fn compile_method_call_expr(
         arguments
     };
 
-    let result = call_and_remember(method, arguments, expression.span, context);
+    let result = program::CallExpr::new(
+        method,
+        arguments,
+        context.program.types_mut(),
+        expression.span,
+    );
     match result {
         Ok(expression) => expression,
         Err(error) => {

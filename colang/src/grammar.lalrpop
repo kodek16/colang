@@ -293,7 +293,13 @@ BlockExpr: Expression = {
 };
 
 // Lowest precedence level.
-BinaryOpExpr = Expr5;
+BinaryOpExpr = Expr6;
+
+Expr6 = LeftAssocBinaryOpExprTier<Expr6Op, Expr5>;
+Expr6Op: BinaryOperator = {
+    "&&" => BinaryOperator::LogicalAnd,
+    "||" => BinaryOperator::LogicalOr,
+};
 
 Expr5 = LeftAssocBinaryOpExprTier<Expr5Op, Expr4>;
 Expr5Op: BinaryOperator = {
@@ -323,11 +329,12 @@ Expr2Op: BinaryOperator = {
 Expr1: Expression = {
     AddressExpr,
     DerefExpr,
+    UnaryOpExpr,
     Expr0,
 };
 
 AddressExpr: Expression = {
-    <start:@L> "&" <target:Expr0> <end:@R> => {
+    <start:@L> "&" <target:Expr1> <end:@R> => {
         Expression::Address(AddressExpr {
             target: Box::new(target),
             span: InputSpan { file, start, end },
@@ -336,12 +343,26 @@ AddressExpr: Expression = {
 };
 
 DerefExpr: Expression = {
-    <start:@L> "*" <pointer:Expr0> <end:@R> => {
+    <start:@L> "*" <pointer:Expr1> <end:@R> => {
         Expression::Deref(DerefExpr {
             pointer: Box::new(pointer),
             span: InputSpan { file, start, end },
         })
     },
+};
+
+UnaryOpExpr: Expression = {
+    <start:@L> <operator:UnaryOp> <operand:Expr1> <end:@R> => {
+        Expression::UnaryOp(UnaryOperatorExpr {
+            operator,
+            operand: Box::new(operand),
+            span: InputSpan { file, start, end },
+        })
+    },
+};
+
+UnaryOp: UnaryOperator = {
+    "!" => UnaryOperator::LogicalNot,
 };
 
 Expr0: Expression = {

@@ -1,4 +1,4 @@
-use crate::analyzer::bodies::{call_and_remember, compile_arguments};
+use crate::analyzer::bodies::compile_arguments;
 use crate::program::Function;
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
@@ -30,7 +30,12 @@ pub fn compile_call_expr(
         context,
     );
 
-    let result = call_and_remember(function, arguments, expression.span, context);
+    let result = program::CallExpr::new(
+        function,
+        arguments,
+        context.program.types_mut(),
+        expression.span,
+    );
     match result {
         Ok(expression) => expression,
         Err(error) => {

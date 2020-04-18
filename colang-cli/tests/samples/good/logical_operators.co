@@ -1,0 +1,5 @@
+fun main() {
+  var x = 42;
+  assert(30 <= x && x <= 50);
+  assert(!(x == 40 || x == 41));
+}

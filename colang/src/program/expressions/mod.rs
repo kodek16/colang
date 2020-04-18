@@ -7,6 +7,7 @@ pub mod address;
 pub mod array_from_copy;
 pub mod array_from_elements;
 pub mod block;
+pub mod boolean_op;
 pub mod call;
 pub mod deref;
 pub mod field_access;
@@ -110,6 +111,7 @@ pub enum ExpressionKind {
     ArrayFromCopy(array_from_copy::ArrayFromCopyExpr),
     FieldAccess(field_access::FieldAccessExpr),
     Call(call::CallExpr),
+    BooleanOp(boolean_op::BooleanOpExpr),
     If(if_::IfExpr),
     Block(block::BlockExpr),
 
@@ -132,6 +134,7 @@ impl ExpressionKind {
             ArrayFromCopy(expr) => expr.calculate_type(types),
             FieldAccess(expr) => expr.calculate_type(types),
             Call(expr) => expr.calculate_type(types),
+            BooleanOp(expr) => expr.calculate_type(types),
             If(expr) => expr.calculate_type(types),
             Block(expr) => expr.calculate_type(types),
 
@@ -152,6 +155,7 @@ impl ExpressionKind {
             ArrayFromCopy(expr) => expr.calculate_value_category(),
             FieldAccess(expr) => expr.calculate_value_category(),
             Call(expr) => expr.calculate_value_category(),
+            BooleanOp(expr) => expr.calculate_value_category(),
             If(expr) => expr.calculate_value_category(),
             Block(expr) => expr.calculate_value_category(),
 
@@ -172,6 +176,7 @@ impl ExpressionKind {
             ArrayFromCopy(expr) => expr.span(),
             FieldAccess(expr) => expr.span(),
             Call(expr) => expr.span(),
+            BooleanOp(expr) => expr.span(),
             If(expr) => expr.span(),
             Block(expr) => expr.span(),
 

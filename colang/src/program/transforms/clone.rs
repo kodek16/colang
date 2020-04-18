@@ -1,5 +1,4 @@
 use crate::program::*;
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -94,6 +93,7 @@ fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expr
             ArrayFromElements(clone_array_from_elements_expr(expression, context))
         }
         Block(expression) => Block(clone_block_expr(expression, context)),
+        BooleanOp(expression) => BooleanOp(clone_boolean_op_expr(expression, context)),
         Call(expression) => Call(clone_call_expr(expression, context)),
         Deref(expression) => Deref(clone_deref_expr(expression, context)),
         FieldAccess(expression) => FieldAccess(clone_field_access_expr(expression, context)),
@@ -170,6 +170,25 @@ fn clone_block_expr(block: &BlockExpr, context: &mut CloneContext) -> BlockExpr 
         instructions,
         value,
         span: block.span,
+    }
+}
+
+fn clone_boolean_op_expr(expression: &BooleanOpExpr, context: &mut CloneContext) -> BooleanOpExpr {
+    let op = match &expression.op {
+        BooleanOp::And(lhs, rhs) => BooleanOp::And(
+            Box::new(clone_expression(lhs, context)),
+            Box::new(clone_expression(rhs, context)),
+        ),
+        BooleanOp::Or(lhs, rhs) => BooleanOp::Or(
+            Box::new(clone_expression(lhs, context)),
+            Box::new(clone_expression(rhs, context)),
+        ),
+        BooleanOp::Not(operand) => BooleanOp::Not(Box::new(clone_expression(operand, context))),
+    };
+
+    BooleanOpExpr {
+        op,
+        span: expression.span,
     }
 }
 

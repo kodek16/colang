@@ -168,6 +168,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ExpressionKind::New(e) => run_new_expr(e, state),
         ExpressionKind::ArrayFromElements(e) => run_array_from_elements_expr(e, state),
         ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
+        ExpressionKind::BooleanOp(e) => run_boolean_op_expr(e, state),
         ExpressionKind::Call(e) => run_call_expr(e, state),
         ExpressionKind::FieldAccess(e) => run_field_access_expr(e, state),
         ExpressionKind::If(e) => run_if_expr(e, state),
@@ -245,6 +246,23 @@ fn run_array_from_copy_expr(expression: &ArrayFromCopyExpr, state: &mut State) -
     let array = array.into_iter().map(Lvalue::store).collect();
 
     Ok(Value::Rvalue(Rvalue::Array(Rc::new(RefCell::new(array)))))
+}
+
+fn run_boolean_op_expr(expression: &BooleanOpExpr, state: &mut State) -> RunResult<Value> {
+    // Boolean expressions short-circuit as they should.
+    let value = match expression.op {
+        BooleanOp::And(ref lhs, ref rhs) => {
+            run_expression(lhs, state)?.into_rvalue().as_bool()
+                && run_expression(rhs, state)?.into_rvalue().as_bool()
+        }
+        BooleanOp::Or(ref lhs, ref rhs) => {
+            run_expression(lhs, state)?.into_rvalue().as_bool()
+                || run_expression(rhs, state)?.into_rvalue().as_bool()
+        }
+        BooleanOp::Not(ref operand) => !run_expression(operand, state)?.into_rvalue().as_bool(),
+    };
+
+    Ok(Value::Rvalue(Rvalue::Bool(value)))
 }
 
 fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {

@@ -1,5 +1,5 @@
 use super::compile_expression;
-use crate::analyzer::bodies::call_and_remember;
+use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::{InternalFunctionTag, TypeId};
 use crate::{ast, program, CompilerContext};
@@ -16,7 +16,28 @@ pub fn compile_binary_op_expr(
         return program::Expression::error(expression.span);
     }
 
-    let tag = match expression.operator {
+    match expression.operator {
+        ast::BinaryOperator::LogicalAnd | ast::BinaryOperator::LogicalOr => {
+            compile_logical_binary_op_expr(expression.operator, lhs, rhs, expression.span, context)
+        }
+        _ => compile_method_backed_binary_op_expr(
+            expression.operator,
+            lhs,
+            rhs,
+            expression.span,
+            context,
+        ),
+    }
+}
+
+fn compile_method_backed_binary_op_expr(
+    operator: ast::BinaryOperator,
+    lhs: program::Expression,
+    rhs: program::Expression,
+    span: InputSpan,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    let tag = match operator {
         ast::BinaryOperator::Add => match lhs.type_().borrow().type_id {
             TypeId::Int => Some(InternalFunctionTag::AddInt),
             TypeId::String => Some(InternalFunctionTag::StringAdd),
@@ -38,30 +59,62 @@ pub fn compile_binary_op_expr(
             TypeId::String => Some(InternalFunctionTag::StringNotEq),
             _ => None,
         },
+        ast::BinaryOperator::LogicalAnd | ast::BinaryOperator::LogicalOr => {
+            panic!("Logical `and` and `or` operators must be handled separately")
+        }
     };
 
     let tag = match tag {
         Some(tag) => tag,
         None => {
             let error = CompilationError::binary_operator_unsupported_types(
-                &expression.operator.to_string(),
+                &operator.to_string(),
                 &lhs.type_().borrow().name,
                 &rhs.type_().borrow().name,
-                expression.span,
+                span,
             );
             context.errors.push(error);
-            return program::Expression::error(expression.span);
+            return program::Expression::error(span);
         }
     };
 
     let function = Rc::clone(context.program.internal_function(tag));
 
-    let result = call_and_remember(function, vec![lhs, rhs], expression.span, context);
+    let result =
+        program::CallExpr::new(function, vec![lhs, rhs], context.program.types_mut(), span);
     match result {
         Ok(expr) => expr,
         Err(error) => {
             context.errors.push(error);
-            program::Expression::error(expression.span)
+            program::Expression::error(span)
         }
     }
+}
+
+fn compile_logical_binary_op_expr(
+    operator: ast::BinaryOperator,
+    lhs: program::Expression,
+    rhs: program::Expression,
+    span: InputSpan,
+    context: &mut CompilerContext,
+) -> program::Expression {
+    for operand in &[&lhs, &rhs] {
+        if operand.type_() != context.program.types().bool() {
+            let error = CompilationError::logical_operator_operand_wrong_type(
+                &operator.to_string(),
+                &operand.type_().borrow().name,
+                operand.span().unwrap(),
+            );
+            context.errors.push(error);
+        }
+    }
+
+    let op = match operator {
+        ast::BinaryOperator::LogicalAnd => program::BooleanOp::And(Box::new(lhs), Box::new(rhs)),
+        ast::BinaryOperator::LogicalOr => program::BooleanOp::Or(Box::new(lhs), Box::new(rhs)),
+        _ => panic!("`{}` is not a logical operator", operator.to_string()),
+    };
+
+    let kind = program::ExpressionKind::BooleanOp(program::BooleanOpExpr { op, span });
+    program::Expression::new(kind, context.program.types_mut())
 }

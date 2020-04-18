@@ -17,7 +17,7 @@ use crate::analyzer::utils::global_visitor::GlobalVisitor;
 use crate::ast::{InputSpan, InputSpanFile};
 use crate::errors::CompilationError;
 use crate::program::transforms::valid::ValidityChecker;
-use crate::program::{Function, FunctionId, Type, TypeTemplate, Variable};
+use crate::program::{Function, Type, TypeTemplate, Variable};
 use crate::scope::Scope;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -91,11 +91,6 @@ pub struct CompilerContext {
     defined_fields: HashMap<InputSpan, Rc<RefCell<Variable>>>,
     defined_methods: HashMap<InputSpan, Rc<RefCell<Function>>>,
 
-    // This collection stores functions that are called from other functions, but have
-    // no body yet. Bodies for these functions have to be instantiated from their base
-    // functions (methods) after all base function bodies are analyzed.
-    incomplete_functions: HashMap<FunctionId, Rc<RefCell<Function>>>,
-
     errors: Vec<CompilationError>,
 }
 
@@ -119,7 +114,6 @@ impl CompilerContext {
             defined_functions: HashMap::new(),
             defined_fields: HashMap::new(),
             defined_methods: HashMap::new(),
-            incomplete_functions: HashMap::new(),
             errors: vec![],
         }
     }

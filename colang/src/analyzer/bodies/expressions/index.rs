@@ -1,5 +1,4 @@
 use super::compile_expression;
-use crate::analyzer::bodies::call_and_remember;
 use crate::errors::CompilationError;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
@@ -29,7 +28,12 @@ pub fn compile_index_expr(
         }
     };
 
-    let pointer = call_and_remember(method, vec![collection, index], expression.span, context);
+    let pointer = program::CallExpr::new(
+        method,
+        vec![collection, index],
+        context.program.types_mut(),
+        expression.span,
+    );
     let pointer = match pointer {
         Ok(pointer) => pointer,
         Err(error) => {

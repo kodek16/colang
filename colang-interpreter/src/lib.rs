@@ -167,6 +167,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ExpressionKind::Deref(e) => run_deref_expr(e, state),
         ExpressionKind::New(e) => run_new_expr(e, state),
         ExpressionKind::Is(e) => run_is_expr(e, state),
+        ExpressionKind::Null(e) => run_null_expr(e, state),
         ExpressionKind::ArrayFromElements(e) => run_array_from_elements_expr(e, state),
         ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
         ExpressionKind::BooleanOp(e) => run_boolean_op_expr(e, state),
@@ -226,6 +227,10 @@ fn run_is_expr(expression: &IsExpr, state: &mut State) -> RunResult<Value> {
         _ => false,
     };
     Ok(Value::Rvalue(Rvalue::Bool(result)))
+}
+
+fn run_null_expr(_: &NullExpr, _: &mut State) -> RunResult<Value> {
+    Ok(Value::Rvalue(Rvalue::Pointer(None)))
 }
 
 fn run_array_from_elements_expr(

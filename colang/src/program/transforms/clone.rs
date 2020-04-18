@@ -101,6 +101,7 @@ fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expr
         Is(expression) => Is(clone_is_expr(expression, context)),
         Literal(expression) => Literal(clone_literal_expr(expression, context)),
         New(expression) => New(clone_new_expr(expression, context)),
+        Null(expression) => Null(clone_null_expr(expression, context)),
         Variable(expression) => Variable(clone_variable_expr(expression, context)),
         Empty => Empty,
         Error(span) => Error(*span),
@@ -246,6 +247,13 @@ fn clone_is_expr(expression: &IsExpr, context: &mut CloneContext) -> IsExpr {
 
 fn clone_new_expr(expression: &NewExpr, _: &mut CloneContext) -> NewExpr {
     NewExpr {
+        target_type: Rc::clone(&expression.target_type),
+        span: expression.span,
+    }
+}
+
+fn clone_null_expr(expression: &NullExpr, _: &mut CloneContext) -> NullExpr {
+    NullExpr {
         target_type: Rc::clone(&expression.target_type),
         span: expression.span,
     }

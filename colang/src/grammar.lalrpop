@@ -386,6 +386,7 @@ Expr0: Expression = {
     BoolLiteralExpr,
     CharLiteralExpr,
     StringLiteralExpr,
+    NullExpr,
     SelfExpr,
     ArrayFromElementsExpr,
     ArrayFromCopyExpr,
@@ -436,6 +437,14 @@ StringLiteralExpr: Expression = {
     <start:@L> <value:StringLiteral> <end:@R> => {
         Expression::StringLiteral(StringLiteralExpr {
             value,
+            span: InputSpan { file, start, end },
+        })
+    },
+};
+
+NullExpr: Expression = {
+    <start:@L> KwNull <end:@R> => {
+        Expression::Null(NullExpr {
             span: InputSpan { file, start, end },
         })
     },
@@ -626,6 +635,7 @@ KwStruct: () = { "struct" }
 KwSelf: () = { "self" }
 KwNew: () = { "new" }
 KwIs: () = { "is" }
+KwNull: () = { "null" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {

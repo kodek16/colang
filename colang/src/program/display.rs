@@ -172,6 +172,7 @@ impl ToSexp for Expression {
             Is(expr) => expr.to_sexp(),
             Literal(expr) => expr.to_sexp(),
             New(expr) => expr.to_sexp(),
+            Null(expr) => expr.to_sexp(),
             Variable(expr) => expr.to_sexp(),
             Empty => sexp_str!("empty"),
             Error(_) => sexp_str!("error"),
@@ -304,6 +305,12 @@ impl ToSexp for LiteralExpr {
 impl ToSexp for NewExpr {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(sexp_str!("new"), self.target_type.borrow().to_sexp())
+    }
+}
+
+impl ToSexp for NullExpr {
+    fn to_sexp(&self) -> Sexp {
+        sexp_str!("null")
     }
 }
 

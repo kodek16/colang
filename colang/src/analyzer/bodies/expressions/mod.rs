@@ -14,6 +14,7 @@ mod int_literal;
 mod is;
 mod method_call;
 mod new;
+mod null;
 mod self_;
 mod string_literal;
 mod unary_op;
@@ -38,6 +39,7 @@ pub fn compile_expression(
         ast::Expression::StringLiteral(e) => {
             string_literal::compile_string_literal_expr(e, context)
         }
+        ast::Expression::Null(e) => null::compile_null_expr(e, type_hint, context),
         ast::Expression::Self_(e) => self_::compile_self_expr(e, context),
         ast::Expression::UnaryOp(e) => unary_op::compile_unary_op_expression(e, context),
         ast::Expression::BinaryOp(e) => binary_op::compile_binary_op_expr(e, context),

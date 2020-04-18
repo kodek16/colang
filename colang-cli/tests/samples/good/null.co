@@ -1,0 +1,8 @@
+fun main() {
+  var p: &int;
+  assert(p is null);
+
+  var x = 42;
+  p = &x;
+  assert(!(p is null));
+}

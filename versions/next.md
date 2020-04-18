@@ -12,6 +12,11 @@
 - Added `is` expression that compares pointers: `x is y`, where `x` and `y`
   are pointers to the same type, is true iff `x` and `y` point to the same
   location in memory.
+- Added `null` keyword: `null` is an expression that evaluates to a null
+  pointer. Just like `[]`, the type of `null` must be inferred from the context:
+  in an expression such as `p is null`, the type of `null` is inferred to be
+  the same as `p`, but in free contexts such as `var p = null`, the type
+  is unknown and so has to be specified explicitly, e.g. `var p: &char = null`.
   
 ## Bugfixes
 

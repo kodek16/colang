@@ -1,0 +1,12 @@
+struct Foo<T> {
+  ptr: &T;
+
+  fun init(&self) {
+    self.ptr = null;
+  }
+}
+
+fun main() {
+  var foo: Foo<int>;
+  foo.init();
+}

@@ -73,6 +73,7 @@ pub trait CodeVisitor {
             Is(expression) => self.visit_is_expr(expression),
             Literal(expression) => self.visit_literal_expr(expression),
             New(expression) => self.visit_new_expr(expression),
+            Null(expression) => self.visit_null_expr(expression),
             Variable(expression) => self.visit_variable_expr(expression),
             Empty => (),
             Error(_) => (),
@@ -199,6 +200,12 @@ pub trait CodeVisitor {
     }
 
     fn walk_new_expr(&mut self, _expression: &mut NewExpr) {}
+
+    fn visit_null_expr(&mut self, expression: &mut NullExpr) {
+        self.walk_null_expr(expression);
+    }
+
+    fn walk_null_expr(&mut self, _expression: &mut NullExpr) {}
 
     fn visit_variable_expr(&mut self, expression: &mut VariableExpr) {
         self.walk_variable_expr(expression);

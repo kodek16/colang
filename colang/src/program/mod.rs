@@ -135,6 +135,7 @@ pub use expressions::if_::IfExpr;
 pub use expressions::is::IsExpr;
 pub use expressions::literal::LiteralExpr;
 pub use expressions::new::NewExpr;
+pub use expressions::null::NullExpr;
 pub use expressions::variable::VariableExpr;
 pub use expressions::{Expression, ExpressionKind};
 

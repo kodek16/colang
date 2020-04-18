@@ -573,6 +573,14 @@ impl CompilationError {
             location,
         )
     }
+
+    pub fn null_expr_type_cannot_be_inferred(location: InputSpan) -> CompilationError {
+        CompilationError::new(
+            "E9048",
+            format!("type of `null` expression cannot be inferred from context"),
+            location,
+        )
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

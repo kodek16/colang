@@ -12,6 +12,7 @@ pub mod call;
 pub mod deref;
 pub mod field_access;
 pub mod if_;
+pub mod is;
 pub mod literal;
 pub mod new;
 pub mod variable;
@@ -107,6 +108,7 @@ pub enum ExpressionKind {
     Address(address::AddressExpr),
     Deref(deref::DerefExpr),
     New(new::NewExpr),
+    Is(is::IsExpr),
     ArrayFromElements(array_from_elements::ArrayFromElementsExpr),
     ArrayFromCopy(array_from_copy::ArrayFromCopyExpr),
     FieldAccess(field_access::FieldAccessExpr),
@@ -130,6 +132,7 @@ impl ExpressionKind {
             Address(expr) => expr.calculate_type(types),
             Deref(expr) => expr.calculate_type(types),
             New(expr) => expr.calculate_type(types),
+            Is(expr) => expr.calculate_type(types),
             ArrayFromElements(expr) => expr.calculate_type(types),
             ArrayFromCopy(expr) => expr.calculate_type(types),
             FieldAccess(expr) => expr.calculate_type(types),
@@ -151,6 +154,7 @@ impl ExpressionKind {
             Address(expr) => expr.calculate_value_category(),
             Deref(expr) => expr.calculate_value_category(),
             New(expr) => expr.calculate_value_category(),
+            Is(expr) => expr.calculate_value_category(),
             ArrayFromElements(expr) => expr.calculate_value_category(),
             ArrayFromCopy(expr) => expr.calculate_value_category(),
             FieldAccess(expr) => expr.calculate_value_category(),
@@ -172,6 +176,7 @@ impl ExpressionKind {
             Address(expr) => expr.span(),
             Deref(expr) => expr.span(),
             New(expr) => expr.span(),
+            Is(expr) => expr.span(),
             ArrayFromElements(expr) => expr.span(),
             ArrayFromCopy(expr) => expr.span(),
             FieldAccess(expr) => expr.span(),

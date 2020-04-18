@@ -293,19 +293,34 @@ BlockExpr: Expression = {
 };
 
 // Lowest precedence level.
-BinaryOpExpr = Expr6;
+BinaryOpExpr = Expr7;
 
-Expr6 = LeftAssocBinaryOpExprTier<Expr6Op, Expr5>;
-Expr6Op: BinaryOperator = {
+Expr7 = LeftAssocBinaryOpExprTier<Expr7Op, Expr6>;
+Expr7Op: BinaryOperator = {
     "&&" => BinaryOperator::LogicalAnd,
     "||" => BinaryOperator::LogicalOr,
 };
 
-Expr5 = LeftAssocBinaryOpExprTier<Expr5Op, Expr4>;
-Expr5Op: BinaryOperator = {
+Expr6 = LeftAssocBinaryOpExprTier<Expr6Op, Expr5>;
+Expr6Op: BinaryOperator = {
     "==" => BinaryOperator::Eq,
     "!=" => BinaryOperator::NotEq,
 }
+
+Expr5: Expression = {
+    IsExpr,
+    Expr4,
+};
+
+IsExpr: Expression = {
+    <start:@L> <lhs:Expr5> KwIs <rhs:Expr4> <end:@R> => {
+        Expression::Is(IsExpr {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            span: InputSpan { file, start, end },
+        })
+    },
+};
 
 Expr4 = LeftAssocBinaryOpExprTier<Expr4Op, Expr3>;
 Expr4Op: BinaryOperator = {
@@ -610,6 +625,7 @@ KwFalse: () = { "false" }
 KwStruct: () = { "struct" }
 KwSelf: () = { "self" }
 KwNew: () = { "new" }
+KwIs: () = { "is" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {

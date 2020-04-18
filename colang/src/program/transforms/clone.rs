@@ -98,6 +98,7 @@ fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expr
         Deref(expression) => Deref(clone_deref_expr(expression, context)),
         FieldAccess(expression) => FieldAccess(clone_field_access_expr(expression, context)),
         If(expression) => If(clone_if_expr(expression, context)),
+        Is(expression) => Is(clone_is_expr(expression, context)),
         Literal(expression) => Literal(clone_literal_expr(expression, context)),
         New(expression) => New(clone_new_expr(expression, context)),
         Variable(expression) => Variable(clone_variable_expr(expression, context)),
@@ -233,6 +234,14 @@ fn clone_if_expr(expression: &IfExpr, context: &mut CloneContext) -> IfExpr {
 
 fn clone_literal_expr(expression: &LiteralExpr, _: &mut CloneContext) -> LiteralExpr {
     expression.clone()
+}
+
+fn clone_is_expr(expression: &IsExpr, context: &mut CloneContext) -> IsExpr {
+    IsExpr {
+        lhs: Box::new(clone_expression(&expression.lhs, context)),
+        rhs: Box::new(clone_expression(&expression.rhs, context)),
+        span: expression.span,
+    }
 }
 
 fn clone_new_expr(expression: &NewExpr, _: &mut CloneContext) -> NewExpr {

@@ -9,6 +9,9 @@
   same is possible for types (through fields).
 - Added logical operators: binary `&&` and `||`, and unary `!`.
   They behave as usual, short-circuiting when possible.
+- Added `is` expression that compares pointers: `x is y`, where `x` and `y`
+  are pointers to the same type, is true iff `x` and `y` point to the same
+  location in memory.
   
 ## Bugfixes
 

@@ -546,6 +546,33 @@ impl CompilationError {
             location,
         )
     }
+
+    pub fn is_expr_operand_wrong_type(actual_type: &str, location: InputSpan) -> CompilationError {
+        CompilationError::new(
+            "E9046",
+            format!(
+                "only pointers can be compared using `is`, but this is a value of type `{}`",
+                actual_type
+            ),
+            location,
+        )
+    }
+
+    pub fn is_expr_type_mismatch(
+        lhs_type: &str,
+        rhs_type: &str,
+        location: InputSpan,
+    ) -> CompilationError {
+        CompilationError::new(
+            "E9047",
+            format!(
+                "`is` expression operands must have same type, but here they are different: `{}` and `{}`",
+                lhs_type,
+                rhs_type,
+            ),
+            location,
+        )
+    }
 }
 
 /// Words that are commonly used as parameters for generic error types.

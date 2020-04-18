@@ -70,6 +70,7 @@ pub trait CodeVisitor {
             Deref(expression) => self.visit_deref_expr(expression),
             FieldAccess(expression) => self.visit_field_access_expr(expression),
             If(expression) => self.visit_if_expr(expression),
+            Is(expression) => self.visit_is_expr(expression),
             Literal(expression) => self.visit_literal_expr(expression),
             New(expression) => self.visit_new_expr(expression),
             Variable(expression) => self.visit_variable_expr(expression),
@@ -183,6 +184,15 @@ pub trait CodeVisitor {
     }
 
     fn walk_literal_expr(&mut self, _expression: &mut LiteralExpr) {}
+
+    fn visit_is_expr(&mut self, expression: &mut IsExpr) {
+        self.walk_is_expr(expression);
+    }
+
+    fn walk_is_expr(&mut self, expression: &mut IsExpr) {
+        self.walk_expression(&mut expression.lhs);
+        self.walk_expression(&mut expression.rhs);
+    }
 
     fn visit_new_expr(&mut self, expression: &mut NewExpr) {
         self.walk_new_expr(expression);

@@ -50,6 +50,11 @@ impl Lvalue {
     pub fn borrow_mut(&self) -> impl DerefMut<Target = Rvalue> + '_ {
         self.0.borrow_mut()
     }
+
+    /// Checks if `other` is an lvalue identifying the same named location.
+    pub fn is_same(&self, other: &Lvalue) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 /// Every value that exists in the program belongs to this type.

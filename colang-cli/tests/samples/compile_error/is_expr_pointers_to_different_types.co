@@ -1,0 +1,4 @@
+fun main() {
+  var x = 2, y = true;
+  assert(&x is &y);
+}

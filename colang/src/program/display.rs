@@ -169,6 +169,7 @@ impl ToSexp for Expression {
             Deref(expr) => expr.to_sexp(),
             FieldAccess(expr) => expr.to_sexp(),
             If(expr) => expr.to_sexp(),
+            Is(expr) => expr.to_sexp(),
             Literal(expr) => expr.to_sexp(),
             New(expr) => expr.to_sexp(),
             Variable(expr) => expr.to_sexp(),
@@ -273,6 +274,12 @@ impl ToSexp for IfExpr {
             sexp_list!(sexp_str!("then"), self.then.to_sexp()),
             sexp_list!(sexp_str!("else"), self.else_.to_sexp()),
         )
+    }
+}
+
+impl ToSexp for IsExpr {
+    fn to_sexp(&self) -> Sexp {
+        sexp_list!(sexp_str!("is"), self.lhs.to_sexp(), self.rhs.to_sexp(),)
     }
 }
 

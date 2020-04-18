@@ -166,6 +166,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ExpressionKind::Address(e) => run_address_expr(e, state),
         ExpressionKind::Deref(e) => run_deref_expr(e, state),
         ExpressionKind::New(e) => run_new_expr(e, state),
+        ExpressionKind::Is(e) => run_is_expr(e, state),
         ExpressionKind::ArrayFromElements(e) => run_array_from_elements_expr(e, state),
         ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
         ExpressionKind::BooleanOp(e) => run_boolean_op_expr(e, state),
@@ -209,6 +210,22 @@ fn run_deref_expr(expression: &DerefExpr, state: &mut State) -> RunResult<Value>
 fn run_new_expr(expression: &NewExpr, _: &mut State) -> RunResult<Value> {
     let target = default_value_for_type(&expression.target_type.borrow());
     Ok(Value::Rvalue(Rvalue::Pointer(Some(Lvalue::store(target)))))
+}
+
+fn run_is_expr(expression: &IsExpr, state: &mut State) -> RunResult<Value> {
+    let lhs = run_expression(&expression.lhs, state)?
+        .into_rvalue()
+        .into_pointer();
+    let rhs = run_expression(&expression.rhs, state)?
+        .into_rvalue()
+        .into_pointer();
+
+    let result = match (lhs, rhs) {
+        (Some(lhs), Some(rhs)) => lhs.is_same(&rhs),
+        (None, None) => true,
+        _ => false,
+    };
+    Ok(Value::Rvalue(Rvalue::Bool(result)))
 }
 
 fn run_array_from_elements_expr(

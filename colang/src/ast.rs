@@ -202,6 +202,7 @@ pub enum Expression {
     Address(AddressExpr),
     Deref(DerefExpr),
     New(NewExpr),
+    Is(IsExpr),
     ArrayFromElements(ArrayFromElementsExpr),
     ArrayFromCopy(ArrayFromCopyExpr),
     Index(IndexExpr),
@@ -227,6 +228,7 @@ impl Expression {
             Address(e) => e.span,
             Deref(e) => e.span,
             New(e) => e.span,
+            Is(e) => e.span,
             ArrayFromElements(e) => e.span,
             ArrayFromCopy(e) => e.span,
             Index(e) => e.span,
@@ -284,6 +286,10 @@ impl Expression {
                 ..e
             }),
             Expression::New(e) => Expression::New(NewExpr {
+                span: f(&e.span),
+                ..e
+            }),
+            Expression::Is(e) => Expression::Is(IsExpr {
                 span: f(&e.span),
                 ..e
             }),
@@ -399,6 +405,14 @@ pub struct DerefExpr {
 #[derive(Debug)]
 pub struct NewExpr {
     pub target_type: TypeExpr,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct IsExpr {
+    pub lhs: Box<Expression>,
+    pub rhs: Box<Expression>,
 
     pub span: InputSpan,
 }

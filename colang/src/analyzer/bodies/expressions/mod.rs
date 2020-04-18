@@ -11,6 +11,7 @@ mod field_access;
 mod if_;
 mod index;
 mod int_literal;
+mod is;
 mod method_call;
 mod new;
 mod self_;
@@ -43,6 +44,7 @@ pub fn compile_expression(
         ast::Expression::Address(e) => address::compile_address_expr(e, type_hint, context),
         ast::Expression::Deref(e) => deref::compile_deref_expr(e, type_hint, context),
         ast::Expression::New(e) => new::compile_new_expr(e, context),
+        ast::Expression::Is(e) => is::compile_is_expr(e, context),
         ast::Expression::ArrayFromElements(e) => {
             array_from_elements::compile_array_from_elements_expr(e, type_hint, context)
         }

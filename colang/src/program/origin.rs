@@ -27,16 +27,27 @@ pub enum SourceOrigin {
     /// Object is an `AddressExpr` wrapping a receiver of a method accepting `&self`.
     AddressedForMethodCall(InputSpan),
 
-    /// Object is an `EmptyExpr` created as a value of a missing `else` branch.
+    /// Object is an empty expression created as a value of a missing `else` branch.
     /// Enclosing `if` expression location is preserved.
     MissingElse(InputSpan),
+
+    /// Object is an empty expression created as a value of a block not terminated with an
+    /// expression.
+    MissingBlockValue(InputSpan),
 }
 
 impl SourceOrigin {
     pub fn as_plain(&self) -> InputSpan {
         match self {
             SourceOrigin::Plain(span) => *span,
-            _ => panic!("Attempted to treat a synthetic expression or statement as plain"),
+            SourceOrigin::AutoDeref(span) => *span,
+            SourceOrigin::DereferencedIndex(span) => *span,
+            SourceOrigin::AddressedForRead(span) => *span,
+            SourceOrigin::ReadFunctionCall(span) => *span,
+            SourceOrigin::Stringified(span) => *span,
+            SourceOrigin::AddressedForMethodCall(span) => *span,
+            SourceOrigin::MissingElse(span) => *span,
+            SourceOrigin::MissingBlockValue(span) => *span,
         }
     }
 }

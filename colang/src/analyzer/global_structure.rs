@@ -6,7 +6,7 @@ use crate::analyzer::utils::global_visitor::GlobalVisitor;
 use crate::ast;
 use crate::ast::{InputSpan, StructDef};
 use crate::errors::CompilationError;
-use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::program::{Function, SourceOrigin, Type, TypeTemplate, Variable};
 use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -53,19 +53,12 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
     ) {
         let type_ = type_exprs::compile_type_expr(&field_def.type_, context);
 
-        let field = Variable::new_field(
+        let field = Rc::new(RefCell::new(Variable::new_field(
             field_def.name.text.clone(),
             Rc::clone(&type_),
             Some(field_def.span),
             &mut context.program,
-        );
-        let field = match field {
-            Ok(field) => Rc::new(RefCell::new(field)),
-            Err(error) => {
-                context.errors.push(error);
-                return;
-            }
-        };
+        )));
         context
             .defined_fields
             .insert(field_def.span, Rc::clone(&field));
@@ -116,13 +109,14 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
         let self_parameter = match self_parameter {
             Some(parameter) => compile_self_parameter(&parameter, Rc::clone(current_type), context),
             None => {
-                let error =
-                    CompilationError::method_first_parameter_is_not_self(method_def.signature_span);
+                let error = CompilationError::method_first_parameter_is_not_self(
+                    SourceOrigin::Plain(method_def.signature_span),
+                );
                 context.errors.push(error);
 
                 // For better error recovery.
                 // TODO synthesize a more precise span for fake `self`.
-                let fake_self = create_variable(
+                let fake_self = create_parameter(
                     "<self>".to_string(),
                     Rc::clone(current_type),
                     Some(method_def.signature_span),
@@ -137,7 +131,9 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             .iter()
             .flat_map(|parameter| match parameter {
                 ast::Parameter::Self_(parameter) => {
-                    let error = CompilationError::self_is_not_first_parameter(parameter.span);
+                    let error = CompilationError::self_is_not_first_parameter(SourceOrigin::Plain(
+                        parameter.span,
+                    ));
                     context.errors.push(error);
                     None
                 }
@@ -182,8 +178,10 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             .iter()
             .flat_map(|parameter| match parameter {
                 ast::Parameter::Self_(parameter) => {
-                    let error =
-                        CompilationError::self_not_in_method_signature(&name, parameter.span);
+                    let error = CompilationError::self_not_in_method_signature(
+                        &name,
+                        SourceOrigin::Plain(parameter.span),
+                    );
                     context.errors.push(error);
                     None
                 }
@@ -213,7 +211,7 @@ fn compile_normal_parameter(
     let name = parameter.name.text.clone();
     let type_ = type_exprs::compile_type_expr(&parameter.type_, context);
 
-    create_variable(name, type_, Some(parameter.span), context)
+    create_parameter(name, type_, Some(parameter.span), context)
 }
 
 fn compile_self_parameter(
@@ -226,24 +224,22 @@ fn compile_self_parameter(
         ast::SelfParameterKind::ByPointer => context.program.types_mut().pointer_to(&current_type),
     };
 
-    create_variable("<self>".to_string(), type_, Some(parameter.span), context)
+    create_parameter("<self>".to_string(), type_, Some(parameter.span), context)
         .expect("Couldn't create variable for <self> parameter")
 }
 
-fn create_variable(
+fn create_parameter(
     name: String,
     type_: Rc<RefCell<Type>>,
     definition_site: Option<InputSpan>,
     context: &mut CompilerContext,
 ) -> Option<Rc<RefCell<Variable>>> {
-    let result = Variable::new_variable(name, type_, definition_site, &mut context.program);
-    let variable = match result {
-        Ok(variable) => Rc::new(RefCell::new(variable)),
-        Err(error) => {
-            context.errors.push(error);
-            return None;
-        }
-    };
+    let variable = Rc::new(RefCell::new(Variable::new_variable(
+        name,
+        type_,
+        definition_site,
+        &mut context.program,
+    )));
 
     if let Err(error) = context.scope.add_variable(Rc::clone(&variable)) {
         context.errors.push(error);

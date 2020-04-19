@@ -53,6 +53,7 @@ fn clone_assign_instruction(
     AssignInstruction {
         target: Box::new(clone_expression(&instruction.target, context)),
         value: Box::new(clone_expression(&instruction.value, context)),
+        location: instruction.location,
     }
 }
 
@@ -72,6 +73,7 @@ fn clone_while_instruction(
     WhileInstruction {
         cond: Box::new(clone_expression(&instruction.cond, context)),
         body: Box::new(clone_instruction(&instruction.body, context)),
+        location: instruction.location,
     }
 }
 
@@ -81,6 +83,7 @@ fn clone_write_instruction(
 ) -> WriteInstruction {
     WriteInstruction {
         expression: clone_expression(&instruction.expression, context),
+        location: instruction.location,
     }
 }
 
@@ -103,8 +106,8 @@ fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expr
         New(expression) => New(clone_new_expr(expression, context)),
         Null(expression) => Null(clone_null_expr(expression, context)),
         Variable(expression) => Variable(clone_variable_expr(expression, context)),
-        Empty => Empty,
-        Error(span) => Error(*span),
+        Empty(location) => Empty(*location),
+        Error(location) => Error(*location),
     };
 
     Expression::new(kind, context.types)

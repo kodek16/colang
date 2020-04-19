@@ -1,6 +1,6 @@
 use super::compile_expression;
 use crate::errors::CompilationError;
-use crate::program::{ExpressionKind, Type};
+use crate::program::{ExpressionKind, SourceOrigin, Type};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -24,7 +24,8 @@ pub fn compile_array_from_elements_expr(
         None => match type_hint.and_then(|hint| hint.borrow().array_element_type(types)) {
             Some(element_type) => element_type,
             None => {
-                let error = CompilationError::cannot_infer_empty_type(expression.span);
+                let error =
+                    CompilationError::cannot_infer_empty_type(SourceOrigin::Plain(expression.span));
                 context.errors.push(error);
                 return program::Expression::error(expression.span);
             }
@@ -39,9 +40,7 @@ pub fn compile_array_from_elements_expr(
                 Some(CompilationError::array_elements_type_mismatch(
                     &inferred_type.borrow().name,
                     &element_type.borrow().name,
-                    element
-                        .location()
-                        .expect("Implicit array element type mismatch"),
+                    element.location(),
                 ))
             } else {
                 None
@@ -57,7 +56,7 @@ pub fn compile_array_from_elements_expr(
     let kind = ExpressionKind::ArrayFromElements(program::ArrayFromElementsExpr {
         elements,
         element_type: inferred_type,
-        location: Some(expression.span),
+        location: SourceOrigin::Plain(expression.span),
     });
 
     program::Expression::new(kind, types)

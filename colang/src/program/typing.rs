@@ -2,7 +2,7 @@
 
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Function, Program, SymbolId, Variable};
+use crate::program::{Function, Program, SourceOrigin, SymbolId, Variable};
 use crate::scope::Scope;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -86,7 +86,7 @@ impl Type {
             definition_site: None,
             fields: vec![],
             methods: vec![],
-            scope: Scope::new_for_type(),
+            scope: Scope::new(),
             completeness: TypeCompleteness::FullyComplete,
         }))
     }
@@ -106,7 +106,7 @@ impl Type {
             definition_site,
             fields: vec![],
             methods: vec![],
-            scope: Scope::new_for_type(),
+            scope: Scope::new(),
             completeness,
         };
         let type_ = Rc::new(RefCell::new(type_));
@@ -124,14 +124,14 @@ impl Type {
     #[must_use]
     pub fn add_field(&mut self, field: Rc<RefCell<Variable>>) -> Result<(), CompilationError> {
         self.fields.push(Rc::clone(&field));
-        self.scope.add_variable(field)
+        self.scope.add_field(field)
     }
 
     /// Adds a method to the list of type members.
     #[must_use]
     pub fn add_method(&mut self, method: Rc<RefCell<Function>>) -> Result<(), CompilationError> {
         self.methods.push(Rc::clone(&method));
-        self.scope.add_function(method)
+        self.scope.add_method(method)
     }
 
     /// Looks up a field in the type member scope.
@@ -140,7 +140,7 @@ impl Type {
         name: &str,
         reference_location: InputSpan,
     ) -> Result<&Rc<RefCell<Variable>>, CompilationError> {
-        self.scope.lookup_variable(name, reference_location)
+        self.scope.lookup_field(name, reference_location)
     }
 
     /// Looks up a method in the type member scope.
@@ -149,7 +149,7 @@ impl Type {
         name: &str,
         reference_location: InputSpan,
     ) -> Result<&Rc<RefCell<Function>>, CompilationError> {
-        self.scope.lookup_function(name, reference_location)
+        self.scope.lookup_method(name, reference_location)
     }
 
     pub fn fields(&self) -> impl Iterator<Item = &Rc<RefCell<Variable>>> {
@@ -729,9 +729,9 @@ impl TypeTemplate {
                 &self.name,
                 self.type_parameters.len(),
                 type_arguments.len(),
-                location.expect(
+                SourceOrigin::Plain(location.expect(
                     "Synthetic instantiation of type template with wrong number of type arguments",
-                ),
+                )),
             ));
         }
 

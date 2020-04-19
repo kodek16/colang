@@ -24,7 +24,8 @@ pub fn compile_null_expr(
             program::Expression::new(kind, context.program.types_mut())
         }
         None => {
-            let error = CompilationError::null_expr_type_cannot_be_inferred(span);
+            let error =
+                CompilationError::null_expr_type_cannot_be_inferred(SourceOrigin::Plain(span));
             context.errors.push(error);
             program::Expression::error(span)
         }

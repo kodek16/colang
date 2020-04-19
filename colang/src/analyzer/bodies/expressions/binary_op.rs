@@ -72,7 +72,7 @@ fn compile_method_backed_binary_op_expr(
                 &operator.to_string(),
                 &lhs.type_().borrow().name,
                 &rhs.type_().borrow().name,
-                span,
+                SourceOrigin::Plain(span),
             );
             context.errors.push(error);
             return program::Expression::error(span);
@@ -108,7 +108,7 @@ fn compile_logical_binary_op_expr(
             let error = CompilationError::logical_operator_operand_wrong_type(
                 &operator.to_string(),
                 &operand.type_().borrow().name,
-                operand.span().unwrap(),
+                operand.location(),
             );
             context.errors.push(error);
         }

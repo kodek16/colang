@@ -56,7 +56,7 @@ pub fn compile_index_expr(
         let error = CompilationError::index_method_returns_not_pointer(
             &collection_type.borrow().name,
             &pointer.type_().borrow().name,
-            expression.span,
+            SourceOrigin::Plain(expression.span),
         );
         context.errors.push(error);
         program::Expression::error(expression.span)

@@ -174,7 +174,7 @@ impl ToSexp for Expression {
             New(expr) => expr.to_sexp(),
             Null(expr) => expr.to_sexp(),
             Variable(expr) => expr.to_sexp(),
-            Empty => sexp_str!("empty"),
+            Empty(_) => sexp_str!("empty"),
             Error(_) => sexp_str!("error"),
         }
     }

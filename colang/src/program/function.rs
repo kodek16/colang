@@ -3,7 +3,7 @@ use crate::program::internal::InternalFunctionTag;
 use crate::program::transforms::visitor::CodeVisitor;
 use crate::program::{
     transforms, ArrayFromElementsExpr, CallExpr, Expression, FieldAccessExpr, NewExpr, NullExpr,
-    SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
+    SourceOrigin, SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -15,7 +15,7 @@ pub struct Function {
     pub parameters: Vec<Rc<RefCell<Variable>>>,
     pub return_type: Rc<RefCell<Type>>,
 
-    pub definition_site: Option<InputSpan>,
+    pub definition_site: Option<SourceOrigin>,
 
     pub body: FunctionBody,
 
@@ -58,7 +58,7 @@ impl Function {
         Function {
             name,
             id: FunctionId::UserDefined(symbol_ids.next_id()),
-            definition_site: Some(definition_site),
+            definition_site: Some(SourceOrigin::Plain(definition_site)),
             parameters: vec![],
             return_type,
             body: FunctionBody::ToBeFilled,

@@ -57,7 +57,10 @@ impl BlockBuilder {
         types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Expression {
-        let value = Box::new(final_expr.unwrap_or_else(|| Expression::empty(types)));
+        let value =
+            Box::new(final_expr.unwrap_or_else(|| {
+                Expression::empty(SourceOrigin::MissingBlockValue(span), types)
+            }));
 
         let kind = ExpressionKind::Block(BlockExpr {
             local_variables: self.local_variables,

@@ -107,14 +107,7 @@ fn fill_function_body(
         let return_type = &function.borrow().return_type;
 
         if body_type != return_type {
-            let error = CompilationError::function_body_type_mismatch(
-                &return_type.borrow().name,
-                &body_type.borrow().name,
-                function
-                    .borrow()
-                    .definition_site
-                    .expect("Attempt to fill body for internal function"),
-            );
+            let error = CompilationError::function_body_type_mismatch(&function.borrow(), &body);
             context.errors.push(error);
         }
     }
@@ -128,11 +121,13 @@ fn maybe_deref(
     expression: program::Expression,
     context: &mut CompilerContext,
 ) -> program::Expression {
+    let location = expression.location();
+
     if expression.type_().borrow().is_pointer() {
         program::Expression::new(
             program::ExpressionKind::Deref(program::DerefExpr {
                 pointer: Box::new(expression),
-                location: SourceOrigin::AutoDeref(expression.location().as_plain()),
+                location: SourceOrigin::AutoDeref(location.as_plain()),
             }),
             context.program.types_mut(),
         )
@@ -145,12 +140,8 @@ fn maybe_deref(
 fn check_condition_is_bool(condition: &program::Expression, context: &mut CompilerContext) {
     let cond_type = condition.type_();
     if cond_type != context.program.types().bool() {
-        let error = CompilationError::condition_is_not_bool(
-            &cond_type.borrow().name,
-            condition
-                .location()
-                .expect("Generated condition expression is not bool"),
-        );
+        let error =
+            CompilationError::condition_is_not_bool(&cond_type.borrow(), condition.location());
         context.errors.push(error);
     }
 }
@@ -171,7 +162,7 @@ fn check_argument_types(
             function_name,
             parameters.len(),
             arguments.len(),
-            span,
+            SourceOrigin::Plain(span),
         );
         context.errors.push(error);
         return Err(());
@@ -188,7 +179,7 @@ fn check_argument_types(
                 parameter_name,
                 &parameter_type.borrow().name,
                 &argument_type.borrow().name,
-                span,
+                SourceOrigin::Plain(span),
             );
             context.errors.push(error);
             had_errors = true;

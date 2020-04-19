@@ -16,7 +16,8 @@ pub fn compile_self_expr(
             context.program.types_mut(),
         ),
         None => {
-            let error = CompilationError::self_in_function_body(expression.span);
+            let error =
+                CompilationError::self_in_function_body(SourceOrigin::Plain(expression.span));
             context.errors.push(error);
             program::Expression::error(expression.span)
         }

@@ -4,7 +4,8 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::ast;
 use crate::ast::InputSpanFile;
-use crate::program::{Function, Type};
+use crate::program::{Expression, ExpressionKind, Function, SourceOrigin, Type};
+use crate::scope::{NamedEntity, NamedEntityKind};
 use ast::InputSpan;
 use ast::ParseError;
 use std::cell::RefCell;
@@ -12,18 +13,69 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct CompilationError {
+    /// Unique code identifying a class of errors.
     pub code: &'static str,
+
+    /// Short (single-line) message describing the problem.
     pub message: String,
+
+    /// Location in code where the problem occurred.
     pub location: Option<InputSpan>,
+
+    /// Extended description of the problem that is shown directly next to code.
+    pub subtitle: Option<String>,
+
+    /// Useful information related to the error, bound to some location in code.
+    pub bound_notes: Vec<(InputSpan, String)>,
+
+    /// Useful information related to the error, not bound to any location.
     pub free_notes: Vec<String>,
 }
 
 impl CompilationError {
-    fn new(code: &'static str, message: String, location: InputSpan) -> CompilationError {
+    fn new(code: &'static str, message: String, location: SourceOrigin) -> CompilationError {
+        let (location, location_note) = match location {
+            SourceOrigin::Plain(span) => (span, None),
+            SourceOrigin::AutoDeref(span) => {
+                (span, Some("expression was automatically dereferenced"))
+            }
+            SourceOrigin::DereferencedIndex(span) => (
+                span,
+                Some("`index` method return value was automatically dereferenced"),
+            ),
+            SourceOrigin::AddressedForRead(span) => (
+                span,
+                Some("expression address was automatically taken for reading into"),
+            ),
+            SourceOrigin::ReadFunctionCall(span) => (
+                span,
+                Some("internal function call was automatically generated for `read`"),
+            ),
+            SourceOrigin::Stringified(span) => (
+                span,
+                Some("expression was automatically converted to `string`"),
+            ),
+            SourceOrigin::AddressedForMethodCall(span) => (
+                span,
+                Some("reference to method receiver was automatically taken"),
+            ),
+            SourceOrigin::MissingElse(span) => {
+                (span, Some("`else` branch of an `if` expression is missing"))
+            }
+            SourceOrigin::MissingBlockValue(span) => (
+                span,
+                Some("block has type `void` because it is does not contain a finishing expression"),
+            ),
+        };
+
+        let location_note = location_note.map(|note| (location, note.to_string()));
+
         CompilationError {
             code,
             message,
             location: Some(location),
+            subtitle: None,
+            bound_notes: location_note.into_iter().collect(),
             free_notes: Vec::new(),
         }
     }
@@ -31,21 +83,37 @@ impl CompilationError {
 
 impl CompilationError {
     /// Builds a `codespan_reporting` diagnostic.
-    pub fn to_codespan<I>(&self, user_program_id: I, std_id: I) -> Diagnostic<I> {
-        let mut result = Diagnostic::error()
-            .with_message(&self.message)
-            .with_code(self.code);
+    pub fn to_codespan<I: Copy>(&self, user_program_id: I, std_id: I) -> Diagnostic<I> {
+        let mut labels = Vec::new();
 
         if let Some(ref location) = self.location {
             let file_id = match location.file {
                 InputSpanFile::UserProgram => user_program_id,
                 InputSpanFile::Std => std_id,
             };
-            result =
-                result.with_labels(vec![Label::primary(file_id, location.start..location.end)]);
+
+            if let Some(ref subtitle) = self.subtitle {
+                labels.push(
+                    Label::primary(file_id, location.start..location.end).with_message(subtitle),
+                );
+            } else {
+                labels.push(Label::primary(file_id, location.start..location.end));
+            }
         }
 
-        result.with_notes(self.free_notes.clone())
+        for (location, note) in &self.bound_notes {
+            let file_id = match location.file {
+                InputSpanFile::UserProgram => user_program_id,
+                InputSpanFile::Std => std_id,
+            };
+            labels.push(Label::secondary(file_id, location.start..location.end).with_message(note));
+        }
+
+        Diagnostic::error()
+            .with_code(self.code)
+            .with_message(&self.message)
+            .with_labels(labels)
+            .with_notes(self.free_notes.clone())
     }
 
     // Error definitions from this point onwards.
@@ -79,107 +147,188 @@ impl CompilationError {
             } => ("Extra token", InputSpan { file, start, end }),
         };
 
-        CompilationError::new("E9000", message.to_string(), location)
+        CompilationError::new("E9000", message.to_string(), SourceOrigin::Plain(location))
     }
 
-    pub fn variable_type_omitted(variable_name: &str, location: InputSpan) -> CompilationError {
-        CompilationError::new(
+    pub fn variable_no_type_or_initializer(
+        variable_name: &str,
+        location: SourceOrigin,
+    ) -> CompilationError {
+        let mut error = CompilationError::new(
             "E9004",
             format!(
-                "variable `{}` can't be declared without either a type or an initializer expression",
+                "variable `{}` cannot be defined with no type or initializer expression",
                 variable_name
             ),
-            location
-        )
+            location,
+        );
+
+        error.subtitle = Some(format!("type of `{}` is unknown here", variable_name));
+        error.bound_notes.push((
+            location.as_plain(),
+            format!(
+                "help: try adding a type, for example `{}: int`",
+                variable_name
+            ),
+        ));
+
+        error
+    }
+
+    pub fn named_entity_not_found(
+        name: &str,
+        kind: NamedEntityKind,
+        location: SourceOrigin,
+    ) -> CompilationError {
+        let mut error = CompilationError::new(
+            "E9006",
+            format!(
+                "no {} with name `{}` could be found in the current scope",
+                kind.text(),
+                name
+            ),
+            location,
+        );
+        error.subtitle = Some(format!("refers to an unknown {}", kind.text()));
+        error
     }
 
     pub fn named_entity_kind_mismatch(
         name: &str,
-        expected: Word,
-        actual: Word,
-        location: InputSpan,
+        expected: NamedEntityKind,
+        actual: &NamedEntity,
+        location: SourceOrigin,
     ) -> CompilationError {
-        CompilationError::new(
+        let mut error = CompilationError::new(
             "E9005",
             format!(
-                "`{}` is not {}, but {}",
+                "expected `{}` to be {}, but it is {}",
                 name,
+                actual.kind().text_with_indefinite_article(),
                 expected.text_with_indefinite_article(),
-                actual.text_with_indefinite_article(),
             ),
             location,
-        )
+        );
+        error.subtitle = Some(format!("`{}` is used here in a type context", name));
+
+        if let Some(definition_site) = actual.definition_site() {
+            error.bound_notes.push((
+                definition_site.as_plain(),
+                format!(
+                    "`{}` is defined here as {}",
+                    actual.name(),
+                    actual.kind().text_with_indefinite_article(),
+                ),
+            ));
+        }
+        error
     }
 
-    pub fn named_entity_not_found(name: &str, kind: Word, location: InputSpan) -> CompilationError {
-        CompilationError::new(
-            "E9006",
-            format!(
-                "no {} named `{}` could be found in the current scope",
-                kind.text(),
-                name
-            ),
-            location,
-        )
-    }
-
-    // TODO: add previous declaration site note.
-    pub fn named_entity_already_exists(
+    pub fn named_entity_already_defined(
         name: &str,
-        kind: Word,
-        location: InputSpan,
+        existing: &NamedEntity,
+        location: SourceOrigin,
     ) -> CompilationError {
-        CompilationError::new(
+        let mut error = CompilationError::new(
             "E9007",
             format!(
                 "{} with name `{}` is already defined in this scope",
-                kind.text(),
+                existing.kind().text_with_indefinite_article(),
                 name
             ),
             location,
-        )
+        );
+
+        error.subtitle = Some(format!("attempted to redefine `{}` here", name));
+        if let Some(definition_site) = existing.definition_site() {
+            error.bound_notes.push((
+                definition_site.as_plain(),
+                format!("`{}` previously defined here", name),
+            ));
+        }
+
+        error
     }
 
-    pub fn condition_is_not_bool(actual_type: &str, location: InputSpan) -> CompilationError {
-        CompilationError::new(
+    pub fn condition_is_not_bool(actual_type: &Type, location: SourceOrigin) -> CompilationError {
+        let mut error = CompilationError::new(
             "E9008",
-            format!("condition must have type `bool`, not `{}`", actual_type),
-            location,
-        )
-    }
-
-    pub fn read_unsupported_type(actual_type: &str, location: InputSpan) -> CompilationError {
-        CompilationError::new(
-            "E9010",
             format!(
-                "can only read `int` and `string` variables, not `{}`",
-                actual_type
+                "condition must have type `bool`, not `{}`",
+                actual_type.name
             ),
             location,
-        )
+        );
+        error.subtitle = Some(format!(
+            "has type `{}`, but only `bool` can be used here",
+            actual_type.name
+        ));
+        error
     }
 
-    pub fn assignment_target_not_lvalue(location: InputSpan) -> CompilationError {
-        CompilationError::new(
+    pub fn read_unsupported_type(expression: &Expression) -> CompilationError {
+        let actual_type = expression.type_().borrow();
+        let mut error = CompilationError::new(
+            "E9010",
+            format!(
+                "can only read `int` and `string` values, not `{}`",
+                actual_type.name
+            ),
+            expression.location(),
+        );
+
+        error.subtitle = Some(format!(
+            "value has type `{}` that does not support reading",
+            actual_type.name
+        ));
+
+        error
+    }
+
+    pub fn assignment_target_not_lvalue(location: SourceOrigin) -> CompilationError {
+        let mut error = CompilationError::new(
             "E9011",
             "assignment target must be an lvalue".to_string(),
             location,
-        )
+        );
+
+        error.subtitle = Some(
+            "expression evaluates to an rvalue, but only lvalues can be assigned to".to_string(),
+        );
+
+        error
     }
 
     pub fn assignment_type_mismatch(
-        target_type: &str,
-        value_type: &str,
-        location: InputSpan,
+        target: &Expression,
+        value: &Expression,
+        assignment_location: SourceOrigin,
     ) -> CompilationError {
-        CompilationError::new(
+        let target_type = target.type_().borrow();
+        let value_type = value.type_().borrow();
+
+        let mut error = CompilationError::new(
             "E9012",
             format!(
                 "cannot assign value of type `{}` to a target of type `{}`",
-                value_type, target_type
+                value_type.name, target_type.name
             ),
-            location,
-        )
+            assignment_location,
+        );
+
+        error.subtitle = Some("types must be the same".to_string());
+
+        error.bound_notes.push((
+            target.location().as_plain(),
+            format!("target has type `{}`", target_type.name),
+        ));
+        error.bound_notes.push((
+            value.location().as_plain(),
+            format!("value has type `{}`", value_type.name),
+        ));
+        explain_expression_type(value, &mut error);
+
+        error
     }
 
     pub fn main_function_not_found() -> CompilationError {
@@ -187,34 +336,65 @@ impl CompilationError {
             code: "E9013",
             message: "`main` function not found: you must define one".to_string(),
             location: None,
+            subtitle: None,
+            bound_notes: Vec::new(),
             free_notes: Vec::new(),
         }
     }
 
-    pub fn variable_of_type_void(location: InputSpan) -> CompilationError {
-        CompilationError::new(
+    pub fn explicit_reference_to_void(location: SourceOrigin) -> CompilationError {
+        let mut error = CompilationError::new(
             "E9014",
-            format!("variables are not allowed to have type `void`"),
+            "cannot explicitly refer to `void` type".to_string(),
             location,
-        )
+        );
+        error.subtitle = Some("`void` type cannot be used explicitly".to_string());
+        error
     }
 
-    pub fn function_body_type_mismatch(
-        return_type: &str,
-        body_type: &str,
-        location: InputSpan,
+    pub fn variable_initializer_is_void(
+        variable_name: &str,
+        initializer: &Expression,
     ) -> CompilationError {
-        CompilationError::new(
+        let mut error = CompilationError::new(
+            "E9049",
+            format!(
+                "cannot initialize variable `{}` with a value of type `void`",
+                variable_name
+            ),
+            initializer.location(),
+        );
+
+        error.subtitle = Some("has type `void`, so cannot be used as an initializer".to_string());
+        explain_expression_type(initializer, &mut error);
+
+        error
+    }
+
+    pub fn function_body_type_mismatch(function: &Function, body: &Expression) -> CompilationError {
+        let return_type = function.return_type.borrow();
+
+        let mut error = CompilationError::new(
             "E9015",
             format!(
                 "function is expected to return type `{}`, but its body has type `{}`",
-                return_type, body_type,
+                return_type.name,
+                body.type_().borrow().name,
             ),
-            location,
-        )
+            // TODO point at return type exactly, and not at the whole signature.
+            function.definition_site.unwrap(),
+        );
+
+        error.subtitle = Some(format!(
+            "signature specifies return type as `{}`",
+            return_type.name
+        ));
+        explain_expression_type(body, &mut error);
+
+        error
     }
 
-    pub fn while_body_not_void(actual_type: &str, location: InputSpan) -> CompilationError {
+    pub fn while_body_not_void(actual_type: &str, location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9016",
             format!(
@@ -225,7 +405,7 @@ impl CompilationError {
         )
     }
 
-    pub fn if_expression_missing_else(then_type: &str, location: InputSpan) -> CompilationError {
+    pub fn if_expression_missing_else(then_type: &str, location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9017",
             format!(
@@ -239,7 +419,7 @@ impl CompilationError {
     pub fn if_expression_branch_type_mismatch(
         then_type: &str,
         else_type: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9018",
@@ -254,7 +434,7 @@ impl CompilationError {
 
     pub fn write_value_is_not_stringable(
         actual_type: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9019",
@@ -270,7 +450,7 @@ impl CompilationError {
         function_name: &str,
         expected: usize,
         actual: usize,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9020",
@@ -286,7 +466,7 @@ impl CompilationError {
         parameter_name: &str,
         expected_type: &str,
         actual_type: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9021",
@@ -301,7 +481,7 @@ impl CompilationError {
     pub fn array_elements_type_mismatch(
         inferred_type: &str,
         element_type: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9023",
@@ -314,7 +494,7 @@ impl CompilationError {
         )
     }
 
-    pub fn read_target_not_lvalue(location: InputSpan) -> CompilationError {
+    pub fn read_target_not_lvalue(location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9026",
             format!("`read` statement target must be an lvalue"),
@@ -322,7 +502,7 @@ impl CompilationError {
         )
     }
 
-    pub fn array_size_not_int(actual_type: &str, location: InputSpan) -> CompilationError {
+    pub fn array_size_not_int(actual_type: &str, location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9027",
             format!("array size must be of type `int`, not `{}`", actual_type),
@@ -330,7 +510,7 @@ impl CompilationError {
         )
     }
 
-    pub fn cannot_infer_empty_type(location: InputSpan) -> CompilationError {
+    pub fn cannot_infer_empty_type(location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9028",
             format!("empty array type cannot be inferred from context"),
@@ -338,7 +518,7 @@ impl CompilationError {
         )
     }
 
-    pub fn address_of_rvalue(location: InputSpan) -> CompilationError {
+    pub fn address_of_rvalue(location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9029",
             format!("cannot take address of an rvalue"),
@@ -348,7 +528,7 @@ impl CompilationError {
 
     pub fn can_only_dereference_pointer(
         actual_type: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9030",
@@ -357,7 +537,7 @@ impl CompilationError {
         )
     }
 
-    pub fn self_must_be_lvalue(method_name: &str, location: InputSpan) -> CompilationError {
+    pub fn self_must_be_lvalue(method_name: &str, location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9031",
             format!("`self` must be an lvalue for method `{}`", method_name),
@@ -367,7 +547,7 @@ impl CompilationError {
 
     pub fn self_not_in_method_signature(
         function_name: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9032",
@@ -379,7 +559,7 @@ impl CompilationError {
         )
     }
 
-    pub fn self_in_function_body(location: InputSpan) -> CompilationError {
+    pub fn self_in_function_body(location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9033",
             format!("`self` is not defined outside of methods"),
@@ -387,7 +567,7 @@ impl CompilationError {
         )
     }
 
-    pub fn self_is_not_first_parameter(location: InputSpan) -> CompilationError {
+    pub fn self_is_not_first_parameter(location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9034",
             format!("`self` must be the first parameter of the method"),
@@ -395,7 +575,7 @@ impl CompilationError {
         )
     }
 
-    pub fn method_first_parameter_is_not_self(location: InputSpan) -> CompilationError {
+    pub fn method_first_parameter_is_not_self(location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9035",
             format!("first parameter for methods must be `self`"),
@@ -403,7 +583,7 @@ impl CompilationError {
         )
     }
 
-    pub fn literal_not_utf8(location: InputSpan) -> CompilationError {
+    pub fn literal_not_utf8(location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9036",
             format!("literal must be a valid UTF-8 sequence"),
@@ -411,7 +591,7 @@ impl CompilationError {
         )
     }
 
-    pub fn char_literal_bad_length(actual_len: usize, location: InputSpan) -> CompilationError {
+    pub fn char_literal_bad_length(actual_len: usize, location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9037",
             format!(
@@ -422,7 +602,7 @@ impl CompilationError {
         )
     }
 
-    pub fn unknown_escape_sequence(sequence: &str, location: InputSpan) -> CompilationError {
+    pub fn unknown_escape_sequence(sequence: &str, location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9038",
             format!("unknown escape sequence: {}", sequence),
@@ -433,7 +613,7 @@ impl CompilationError {
     pub fn index_method_returns_not_pointer(
         type_name: &str,
         actual_return_type: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9039",
@@ -449,7 +629,7 @@ impl CompilationError {
         operator: &str,
         lhs_type: &str,
         rhs_type: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9040",
@@ -465,7 +645,7 @@ impl CompilationError {
         template_name: &str,
         expected_num: usize,
         actual_num: usize,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9041",
@@ -477,7 +657,7 @@ impl CompilationError {
         )
     }
 
-    pub fn new_expression_void_type(location: InputSpan) -> CompilationError {
+    pub fn new_expression_void_type(location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9042",
             format!("cannot create an instance of type `void`"),
@@ -488,32 +668,42 @@ impl CompilationError {
     pub fn type_infinite_dependency_chain(
         source_type: &Type,
         type_chain: Vec<Rc<RefCell<Type>>>,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
+        let mut result = CompilationError::new(
+            "E9043",
+            format!(
+                "type `{}` causes an infinite type dependency chain through its fields and methods",
+                source_type.name
+            ),
+            location,
+        );
+
         let type_chain: Vec<_> = type_chain
             .iter()
             .map(|type_| type_.borrow().name.clone())
             .collect();
-
         let type_chain: String = type_chain.join(" -> ");
         let type_chain = format!("Type dependency chain: {}", type_chain);
 
-        CompilationError {
-            code: "E9043",
-            message: format!(
-                "type `{}` causes an infinite type dependency chain through its fields and methods",
-                source_type.name
-            ),
-            location: Some(location),
-            free_notes: vec![type_chain],
-        }
+        result.free_notes = vec![type_chain];
+        result
     }
 
     pub fn function_infinite_dependency_chain(
         source_function: &Function,
         function_chain: Vec<Rc<RefCell<Function>>>,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
+        let mut result = CompilationError::new(
+            "E9044",
+            format!(
+                "call to function `{}` causes an infinite function dependency chain",
+                source_function.name
+            ),
+            location,
+        );
+
         let function_chain: Vec<_> = function_chain
             .iter()
             .map(|function| function.borrow().name.clone())
@@ -521,21 +711,14 @@ impl CompilationError {
         let function_chain: String = function_chain.join("\n -> ");
         let function_chain = format!("Function dependency chain:\n    {}", function_chain);
 
-        CompilationError {
-            code: "E9044",
-            message: format!(
-                "call to function `{}` causes an infinite function dependency chain",
-                source_function.name
-            ),
-            location: Some(location),
-            free_notes: vec![function_chain],
-        }
+        result.free_notes = vec![function_chain];
+        result
     }
 
     pub fn logical_operator_operand_wrong_type(
         operator: &str,
         actual_type: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9045",
@@ -547,7 +730,10 @@ impl CompilationError {
         )
     }
 
-    pub fn is_expr_operand_wrong_type(actual_type: &str, location: InputSpan) -> CompilationError {
+    pub fn is_expr_operand_wrong_type(
+        actual_type: &str,
+        location: SourceOrigin,
+    ) -> CompilationError {
         CompilationError::new(
             "E9046",
             format!(
@@ -561,7 +747,7 @@ impl CompilationError {
     pub fn is_expr_type_mismatch(
         lhs_type: &str,
         rhs_type: &str,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9047",
@@ -574,40 +760,66 @@ impl CompilationError {
         )
     }
 
-    pub fn null_expr_type_cannot_be_inferred(location: InputSpan) -> CompilationError {
+    pub fn null_expr_type_cannot_be_inferred(location: SourceOrigin) -> CompilationError {
         CompilationError::new(
             "E9048",
             format!("type of `null` expression cannot be inferred from context"),
             location,
         )
     }
+
+    // Next code: E9050.
 }
 
-/// Words that are commonly used as parameters for generic error types.
-pub enum Word {
-    Variable,
-    Function,
-    Type,
-    TypeTemplate,
-    Field,
-    Method,
+fn explain_expression_type(expression: &Expression, error: &mut CompilationError) {
+    fn explain_root_causes(expression: &Expression, error: &mut CompilationError) {
+        match expression.kind() {
+            ExpressionKind::Block(block) => {
+                if !block.value.is_empty() {
+                    explain_root_causes(&block.value, error);
+                } else if let Some(instruction) = block.instructions.last() {
+                    error.bound_notes.push((
+                        instruction.location().as_plain(),
+                        "block ends with a statement, not an expression, so its type is `void`"
+                            .to_string(),
+                    ));
+                } else {
+                    error.bound_notes.push((
+                        block.location.as_plain(),
+                        "empty block has type `void`, which becomes the type of the overall expression".to_string()));
+                }
+            }
+            // TODO also dig into `if`s.
+            _ => error.bound_notes.push((
+                expression.location().as_plain(),
+                format!(
+                    "has type `{}`, which becomes the type of the overall expression",
+                    expression.type_().borrow().name
+                ),
+            )),
+        }
+    }
+
+    match expression.kind() {
+        ExpressionKind::Block(_) => explain_root_causes(expression, error),
+        _ => (),
+    }
 }
 
-impl Word {
+impl NamedEntityKind {
     fn text(&self) -> &'static str {
-        use Word::*;
         match self {
-            Variable => "variable",
-            Function => "function",
-            Type => "type",
-            TypeTemplate => "type template",
-            Field => "field",
-            Method => "method",
+            NamedEntityKind::Variable => "variable",
+            NamedEntityKind::Function => "function",
+            NamedEntityKind::Type => "type",
+            NamedEntityKind::TypeTemplate => "type template",
+            NamedEntityKind::Field => "field",
+            NamedEntityKind::Method => "method",
         }
     }
 
     fn indefinite_article(&self) -> &'static str {
-        use Word::*;
+        use NamedEntityKind::*;
         match self {
             Variable | Function | Type | TypeTemplate | Field | Method => "a",
         }

@@ -75,7 +75,7 @@ pub trait CodeVisitor {
             New(expression) => self.visit_new_expr(expression),
             Null(expression) => self.visit_null_expr(expression),
             Variable(expression) => self.visit_variable_expr(expression),
-            Empty => (),
+            Empty(_) => (),
             Error(_) => (),
         };
         expression.recalculate(self.types())

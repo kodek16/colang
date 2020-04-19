@@ -68,9 +68,7 @@ pub fn compile_expression(
         let error = CompilationError::type_infinite_dependency_chain(
             &expression.type_().borrow(),
             type_chain,
-            expression
-                .location()
-                .expect("Synthetic expression type could not be fully completed"),
+            expression.location(),
         );
         context.errors.push(error);
     }

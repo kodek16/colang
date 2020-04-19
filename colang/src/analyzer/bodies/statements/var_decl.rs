@@ -38,25 +38,22 @@ fn compile_var_decl_entry(
         None => match initializer {
             Some(ref expr) => Rc::clone(expr.type_()),
             None => {
-                let error = CompilationError::variable_type_omitted(&name.text, declaration.span);
+                let error = CompilationError::variable_no_type_or_initializer(
+                    &name.text,
+                    SourceOrigin::Plain(declaration.span),
+                );
                 context.errors.push(error);
                 Type::error()
             }
         },
     };
 
-    let variable = match Variable::new_variable(
-        name.text,
+    let variable = Rc::new(RefCell::new(Variable::new_variable(
+        name.text.clone(),
         type_,
         Some(declaration.span),
         &mut context.program,
-    ) {
-        Ok(variable) => Rc::new(RefCell::new(variable)),
-        Err(error) => {
-            context.errors.push(error);
-            return;
-        }
-    };
+    )));
 
     if let Err(error) = context.scope.add_variable(Rc::clone(&variable)) {
         context.errors.push(error);
@@ -65,6 +62,12 @@ fn compile_var_decl_entry(
     current_block.add_local_variable(Rc::clone(&variable));
 
     if let Some(initializer) = initializer {
+        if initializer.type_() == context.program.types().void() {
+            let error = CompilationError::variable_initializer_is_void(&name.text, &initializer);
+            context.errors.push(error);
+            return;
+        }
+
         let initialization = program::AssignInstruction::new(
             program::Expression::new(
                 program::ExpressionKind::Variable(program::VariableExpr {
@@ -74,7 +77,7 @@ fn compile_var_decl_entry(
                 context.program.types_mut(),
             ),
             initializer,
-            declaration.span,
+            SourceOrigin::Plain(declaration.span),
         );
 
         match initialization {

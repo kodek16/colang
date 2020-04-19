@@ -1,5 +1,4 @@
 use crate::ast::InputSpan;
-use crate::errors::CompilationError;
 use crate::program::function::ProtoInternalParameter;
 use crate::program::{
     FunctionId, InternalFunctionTag, Program, SymbolId, Type, TypeId, TypeRegistry,
@@ -36,21 +35,14 @@ impl Variable {
         type_: Rc<RefCell<Type>>,
         definition_site: Option<InputSpan>,
         program: &mut Program,
-    ) -> Result<Variable, CompilationError> {
-        if type_ == *program.types().void() {
-            let error = CompilationError::variable_of_type_void(
-                definition_site.expect("Internal variable of type `void` defined."),
-            );
-            return Err(error);
-        }
-
-        Ok(Variable {
+    ) -> Variable {
+        Variable {
             name,
             type_,
             definition_site,
             id: VariableId::LocalVariable(program.symbol_ids_mut().next_id()),
             base_field_id: None,
-        })
+        }
     }
 
     pub fn new_field(
@@ -58,21 +50,14 @@ impl Variable {
         type_: Rc<RefCell<Type>>,
         definition_site: Option<InputSpan>,
         program: &mut Program,
-    ) -> Result<Variable, CompilationError> {
-        if type_ == *program.types().void() {
-            let error = CompilationError::variable_of_type_void(
-                definition_site.expect("Internal field of type `void` defined."),
-            );
-            return Err(error);
-        }
-
-        Ok(Variable {
+    ) -> Variable {
+        Variable {
             name,
             type_,
             definition_site,
             id: VariableId::Field(program.symbol_ids_mut().next_id()),
             base_field_id: None,
-        })
+        }
     }
 
     pub fn new_internal_parameter(

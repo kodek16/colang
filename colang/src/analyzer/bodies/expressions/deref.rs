@@ -17,9 +17,7 @@ pub fn compile_deref_expr(
     if !pointer.type_().borrow().is_pointer() {
         let error = CompilationError::can_only_dereference_pointer(
             &pointer.type_().borrow().name,
-            pointer
-                .location()
-                .expect("Attempt to dereference generated non-pointer expression"),
+            pointer.location(),
         );
         context.errors.push(error);
         return program::Expression::error(expression.span);

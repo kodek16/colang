@@ -33,7 +33,8 @@ impl LiteralExpr {
     ) -> Result<Expression, CompilationError> {
         let literal = unescape(value, span)?;
         if literal.len() != 1 {
-            let error = CompilationError::char_literal_bad_length(literal.len(), span);
+            let error =
+                CompilationError::char_literal_bad_length(literal.len(), SourceOrigin::Plain(span));
             return Err(error);
         };
 
@@ -96,7 +97,7 @@ fn unescape(text: &str, span: InputSpan) -> Result<String, CompilationError> {
                 _ => {
                     let error = CompilationError::unknown_escape_sequence(
                         &format!("\\{}", *next_character as char),
-                        span,
+                        SourceOrigin::Plain(span),
                     );
                     return Err(error);
                 }
@@ -108,5 +109,5 @@ fn unescape(text: &str, span: InputSpan) -> Result<String, CompilationError> {
     }
 
     let result = String::from_utf8(result);
-    result.map_err(|_| CompilationError::literal_not_utf8(span))
+    result.map_err(|_| CompilationError::literal_not_utf8(SourceOrigin::Plain(span)))
 }

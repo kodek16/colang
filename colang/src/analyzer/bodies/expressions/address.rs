@@ -16,11 +16,7 @@ pub fn compile_address_expr(
     let target = compile_expression(*expression.target, hint, context);
 
     if target.value_category() != ValueCategory::Lvalue {
-        let error = CompilationError::address_of_rvalue(
-            target
-                .location()
-                .expect("attempt to take address of generated rvalue expression."),
-        );
+        let error = CompilationError::address_of_rvalue(target.location());
         context.errors.push(error);
         return program::Expression::error(expression.span);
     }

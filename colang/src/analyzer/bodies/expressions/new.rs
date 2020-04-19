@@ -14,7 +14,8 @@ pub fn compile_new_expr(
     }
 
     if target_type == *context.program.types().void() {
-        let error = CompilationError::new_expression_void_type(expression.span);
+        let error =
+            CompilationError::new_expression_void_type(SourceOrigin::Plain(expression.span));
         context.errors.push(error);
         return program::Expression::error(expression.span);
     }

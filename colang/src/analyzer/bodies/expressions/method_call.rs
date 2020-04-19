@@ -56,8 +56,10 @@ pub fn compile_method_call_expr(
                 context.program.types_mut(),
             )
         } else {
-            let error =
-                CompilationError::self_must_be_lvalue(&expression.method.text, receiver_span);
+            let error = CompilationError::self_must_be_lvalue(
+                &expression.method.text,
+                SourceOrigin::Plain(receiver_span),
+            );
             context.errors.push(error);
             return program::Expression::error(expression.span);
         }

@@ -1,6 +1,8 @@
 use crate::analyzer::bodies::expressions::compile_expression;
-use crate::program::BlockBuilder;
+use crate::errors::CompilationError;
+use crate::program::{BlockBuilder, InternalFunctionTag, SourceOrigin, TypeId};
 use crate::{ast, program, CompilerContext};
+use std::rc::Rc;
 
 pub fn compile_write_stmt(
     statement: ast::WriteStmt,
@@ -12,20 +14,50 @@ pub fn compile_write_stmt(
         return;
     }
 
-    let result = program::WriteInstruction::new(expression, &mut context.program);
-    match result {
-        Ok(instruction) => {
-            current_block.append_instruction(instruction);
+    let expr_type = Rc::clone(expression.type_());
+    let expr_location = expression.location();
 
-            if statement.newline {
-                let newline =
-                    program::LiteralExpr::string("\n", context.program.types_mut(), statement.span)
-                        .expect("Couldn't construct '\\n' string literal");
-                let instruction = program::WriteInstruction::new(newline, &mut context.program)
-                    .expect("Couldn't construct `write` instruction for synthetic newline");
-                current_block.append_instruction(instruction)
-            }
+    let stringified_expr = match expr_type.borrow().type_id {
+        TypeId::String => expression,
+        TypeId::Int => {
+            let conversion = context
+                .program
+                .internal_function(InternalFunctionTag::IntToString);
+
+            program::Expression::new(
+                program::ExpressionKind::Call(program::CallExpr {
+                    function: Rc::clone(conversion),
+                    arguments: vec![expression],
+                    location: SourceOrigin::Stringified(expr_location.as_plain()),
+                }),
+                context.program.types_mut(),
+            )
         }
-        Err(error) => context.errors.push(error),
+        _ => {
+            let error = CompilationError::write_value_is_not_stringable(
+                &expr_type.borrow().name,
+                expr_location,
+            );
+            context.errors.push(error);
+            return;
+        }
+    };
+
+    let instruction = program::Instruction::Write(program::WriteInstruction {
+        expression: stringified_expr,
+        location: SourceOrigin::Plain(statement.span),
+    });
+
+    current_block.append_instruction(instruction);
+
+    if statement.newline {
+        let newline =
+            program::LiteralExpr::string("\n", context.program.types_mut(), statement.span)
+                .expect("Couldn't construct '\\n' string literal");
+        let instruction = program::Instruction::Write(program::WriteInstruction {
+            expression: newline,
+            location: SourceOrigin::Plain(statement.span),
+        });
+        current_block.append_instruction(instruction)
     }
 }

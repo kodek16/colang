@@ -1,5 +1,5 @@
 use crate::analyzer::bodies::expressions::compile_expression;
-use crate::program::BlockBuilder;
+use crate::program::{BlockBuilder, SourceOrigin};
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
@@ -14,7 +14,7 @@ pub fn compile_assign_stmt(
         return;
     }
 
-    let result = program::AssignInstruction::new(lhs, rhs, statement.span);
+    let result = program::AssignInstruction::new(lhs, rhs, SourceOrigin::Plain(statement.span));
     match result {
         Ok(statement) => current_block.append_instruction(statement),
         Err(error) => context.errors.push(error),

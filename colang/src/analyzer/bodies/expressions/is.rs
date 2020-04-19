@@ -21,7 +21,7 @@ pub fn compile_is_expr(
         if !operand.type_().borrow().is_pointer() {
             let error = CompilationError::is_expr_operand_wrong_type(
                 &operand.type_().borrow().name,
-                operand.span().unwrap(),
+                operand.location(),
             );
             context.errors.push(error);
             had_errors = true;
@@ -33,7 +33,7 @@ pub fn compile_is_expr(
             let error = CompilationError::is_expr_type_mismatch(
                 &lhs.type_().borrow().name,
                 &rhs.type_().borrow().name,
-                expression.span,
+                SourceOrigin::Plain(expression.span),
             );
             context.errors.push(error);
         }

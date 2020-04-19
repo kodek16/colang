@@ -5,37 +5,64 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::InputSpan;
-use crate::errors::{CompilationError, Word};
-use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::errors::CompilationError;
+use crate::program::{Function, SourceOrigin, Type, TypeTemplate, Variable};
 
-enum NamedEntity {
+pub enum NamedEntity {
     Variable(Rc<RefCell<Variable>>),
     Function(Rc<RefCell<Function>>),
     Type(Rc<RefCell<Type>>),
     TypeTemplate(Rc<RefCell<TypeTemplate>>),
+    Field(Rc<RefCell<Variable>>),
+    Method(Rc<RefCell<Function>>),
 }
 
 impl NamedEntity {
-    fn word(&self, scope: &Scope) -> Word {
+    pub fn kind(&self) -> NamedEntityKind {
         match self {
-            NamedEntity::Variable(_) => {
-                if scope.is_type_scope {
-                    Word::Field
-                } else {
-                    Word::Variable
-                }
-            }
-            NamedEntity::Function(_) => {
-                if scope.is_type_scope {
-                    Word::Method
-                } else {
-                    Word::Function
-                }
-            }
-            NamedEntity::Type(_) => Word::Type,
-            NamedEntity::TypeTemplate(_) => Word::TypeTemplate,
+            NamedEntity::Variable(_) => NamedEntityKind::Variable,
+            NamedEntity::Function(_) => NamedEntityKind::Function,
+            NamedEntity::Type(_) => NamedEntityKind::Type,
+            NamedEntity::TypeTemplate(_) => NamedEntityKind::TypeTemplate,
+            NamedEntity::Field(_) => NamedEntityKind::Field,
+            NamedEntity::Method(_) => NamedEntityKind::Method,
         }
     }
+
+    pub fn name(&self) -> String {
+        match self {
+            NamedEntity::Variable(variable) => variable.borrow().name.to_string(),
+            NamedEntity::Function(function) => function.borrow().name.to_string(),
+            NamedEntity::Type(type_) => type_.borrow().name.to_string(),
+            NamedEntity::TypeTemplate(template) => template.borrow().name.to_string(),
+            NamedEntity::Field(field) => field.borrow().name.to_string(),
+            NamedEntity::Method(method) => method.borrow().name.to_string(),
+        }
+    }
+
+    pub fn definition_site(&self) -> Option<SourceOrigin> {
+        match self {
+            NamedEntity::Variable(variable) => {
+                variable.borrow().definition_site.map(SourceOrigin::Plain)
+            }
+            NamedEntity::Function(function) => function.borrow().definition_site,
+            NamedEntity::Type(type_) => type_.borrow().definition_site.map(SourceOrigin::Plain),
+            NamedEntity::TypeTemplate(template) => {
+                template.borrow().definition_site.map(SourceOrigin::Plain)
+            }
+            NamedEntity::Field(field) => field.borrow().definition_site.map(SourceOrigin::Plain),
+            NamedEntity::Method(method) => method.borrow().definition_site,
+        }
+    }
+}
+
+pub enum NamedEntityKind {
+    Variable,
+    Function,
+    Type,
+    TypeTemplate,
+    Field,
+    Method,
 }
 
 pub struct Scope {
@@ -44,29 +71,14 @@ pub struct Scope {
 
     // `parent` can be None for root scope.
     parent: Option<Box<Scope>>,
-
-    /// Type scopes behave exactly the same as normal scopes, but this flag allows to
-    /// produce different error messages specific to type scopes (e.g. variables are reported
-    /// as fields, functions as methods).
-    is_type_scope: bool,
 }
 
 impl Scope {
-    /// Creates a new, root scope.
+    /// Creates a new scope.
     pub fn new() -> Scope {
         Scope {
             entities: Some(HashMap::new()),
             parent: None,
-            is_type_scope: false,
-        }
-    }
-
-    /// Creates a new type scope.
-    pub fn new_for_type() -> Scope {
-        Scope {
-            entities: Some(HashMap::new()),
-            parent: None,
-            is_type_scope: true,
         }
     }
 
@@ -76,7 +88,6 @@ impl Scope {
         self.parent = Some(Box::new(Scope {
             entities: self.entities.take(),
             parent: self.parent.take(),
-            is_type_scope: self.is_type_scope,
         }));
         self.entities = Some(HashMap::new());
     }
@@ -96,7 +107,7 @@ impl Scope {
         &mut self,
         variable: Rc<RefCell<Variable>>,
     ) -> Result<(), CompilationError> {
-        self.add_entity(variable)
+        self.add_entity(NamedEntity::Variable(variable))
     }
 
     #[must_use]
@@ -104,12 +115,12 @@ impl Scope {
         &mut self,
         function: Rc<RefCell<Function>>,
     ) -> Result<(), CompilationError> {
-        self.add_entity(function)
+        self.add_entity(NamedEntity::Function(function))
     }
 
     #[must_use]
     pub fn add_type(&mut self, type_: Rc<RefCell<Type>>) -> Result<(), CompilationError> {
-        self.add_entity(type_)
+        self.add_entity(NamedEntity::Type(type_))
     }
 
     #[must_use]
@@ -117,7 +128,17 @@ impl Scope {
         &mut self,
         type_template: Rc<RefCell<TypeTemplate>>,
     ) -> Result<(), CompilationError> {
-        self.add_entity(type_template)
+        self.add_entity(NamedEntity::TypeTemplate(type_template))
+    }
+
+    #[must_use]
+    pub fn add_field(&mut self, field: Rc<RefCell<Variable>>) -> Result<(), CompilationError> {
+        self.add_entity(NamedEntity::Field(field))
+    }
+
+    #[must_use]
+    pub fn add_method(&mut self, method: Rc<RefCell<Function>>) -> Result<(), CompilationError> {
+        self.add_entity(NamedEntity::Method(method))
     }
 
     pub fn lookup_variable(
@@ -128,11 +149,7 @@ impl Scope {
         self.lookup_entity_kind(
             name,
             reference_location,
-            if self.is_type_scope {
-                Word::Field
-            } else {
-                Word::Variable
-            },
+            NamedEntityKind::Variable,
             |entity| match entity {
                 NamedEntity::Variable(variable) => Some(variable),
                 _ => None,
@@ -148,11 +165,7 @@ impl Scope {
         self.lookup_entity_kind(
             name,
             reference_location,
-            if self.is_type_scope {
-                Word::Method
-            } else {
-                Word::Function
-            },
+            NamedEntityKind::Function,
             |entity| match entity {
                 NamedEntity::Function(function) => Some(function),
                 _ => None,
@@ -165,15 +178,12 @@ impl Scope {
         name: &str,
         reference_location: InputSpan,
     ) -> Result<&Rc<RefCell<Type>>, CompilationError> {
-        self.lookup_entity_kind(
-            name,
-            reference_location,
-            Word::Type,
-            |entity| match entity {
+        self.lookup_entity_kind(name, reference_location, NamedEntityKind::Type, |entity| {
+            match entity {
                 NamedEntity::Type(type_) => Some(type_),
                 _ => None,
-            },
-        )
+            }
+        })
     }
 
     pub fn lookup_type_template(
@@ -184,9 +194,38 @@ impl Scope {
         self.lookup_entity_kind(
             name,
             reference_location,
-            Word::TypeTemplate,
+            NamedEntityKind::TypeTemplate,
             |entity| match entity {
                 NamedEntity::TypeTemplate(type_template) => Some(type_template),
+                _ => None,
+            },
+        )
+    }
+
+    pub fn lookup_field(
+        &self,
+        name: &str,
+        reference_location: InputSpan,
+    ) -> Result<&Rc<RefCell<Variable>>, CompilationError> {
+        self.lookup_entity_kind(name, reference_location, NamedEntityKind::Field, |entity| {
+            match entity {
+                NamedEntity::Field(field) => Some(field),
+                _ => None,
+            }
+        })
+    }
+
+    pub fn lookup_method(
+        &self,
+        name: &str,
+        reference_location: InputSpan,
+    ) -> Result<&Rc<RefCell<Function>>, CompilationError> {
+        self.lookup_entity_kind(
+            name,
+            reference_location,
+            NamedEntityKind::Method,
+            |entity| match entity {
+                NamedEntity::Method(method) => Some(method),
                 _ => None,
             },
         )
@@ -214,7 +253,7 @@ impl Scope {
         &self,
         name: &str,
         reference_location: InputSpan,
-        word: Word,
+        expected_kind: NamedEntityKind,
         pattern: impl FnOnce(&NamedEntity) -> Option<&Rc<RefCell<T>>>,
     ) -> Result<&Rc<RefCell<T>>, CompilationError> {
         match self.lookup(name) {
@@ -223,111 +262,41 @@ impl Scope {
                 None => {
                     let error = CompilationError::named_entity_kind_mismatch(
                         name,
-                        word,
-                        entity.word(&self),
-                        reference_location,
+                        expected_kind,
+                        entity,
+                        SourceOrigin::Plain(reference_location),
                     );
                     Err(error)
                 }
             },
             None => Err(CompilationError::named_entity_not_found(
                 name,
-                word,
-                reference_location,
+                expected_kind,
+                SourceOrigin::Plain(reference_location),
             )),
         }
     }
 
-    // Generic method for adding various kinds of entities.
     #[must_use]
-    fn add_entity<T: NamedEntityKind>(
-        &mut self,
-        entity: Rc<RefCell<T>>,
-    ) -> Result<(), CompilationError> {
-        let name = entity.borrow().name();
-        let definition_site = entity.borrow().definition_site();
+    fn add_entity(&mut self, entity: NamedEntity) -> Result<(), CompilationError> {
+        let name = entity.name();
+        let definition_site = entity.definition_site();
 
         let existing = self.lookup_self(&name);
         match existing {
             Some(existing) => {
-                let error = CompilationError::named_entity_already_exists(
+                let error = CompilationError::named_entity_already_defined(
                     &name,
-                    existing.word(&self),
-                    definition_site.expect(&format!(
-                        "Name collision for internal entity `{}`",
-                        entity.borrow().name()
-                    )),
+                    existing,
+                    definition_site
+                        .expect(&format!("Name collision for internal entity `{}`", name)),
                 );
                 Err(error)
             }
             None => {
-                self.entities_mut()
-                    .insert(name.to_string(), T::to_named(entity));
+                self.entities_mut().insert(name.to_string(), entity);
                 Ok(())
             }
         }
-    }
-}
-
-/// Common behavior for all named entities that can be added to scopes.
-trait NamedEntityKind {
-    fn name(&self) -> String;
-    fn definition_site(&self) -> Option<InputSpan>;
-    fn to_named(entity: Rc<RefCell<Self>>) -> NamedEntity;
-}
-
-impl NamedEntityKind for Variable {
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn definition_site(&self) -> Option<InputSpan> {
-        self.definition_site
-    }
-
-    fn to_named(variable: Rc<RefCell<Variable>>) -> NamedEntity {
-        NamedEntity::Variable(variable)
-    }
-}
-
-impl NamedEntityKind for Function {
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn definition_site(&self) -> Option<InputSpan> {
-        self.definition_site
-    }
-
-    fn to_named(function: Rc<RefCell<Function>>) -> NamedEntity {
-        NamedEntity::Function(function)
-    }
-}
-
-impl NamedEntityKind for Type {
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn definition_site(&self) -> Option<InputSpan> {
-        self.definition_site
-    }
-
-    fn to_named(type_: Rc<RefCell<Type>>) -> NamedEntity {
-        NamedEntity::Type(type_)
-    }
-}
-
-impl NamedEntityKind for TypeTemplate {
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn definition_site(&self) -> Option<InputSpan> {
-        self.definition_site
-    }
-
-    fn to_named(type_template: Rc<RefCell<TypeTemplate>>) -> NamedEntity {
-        NamedEntity::TypeTemplate(type_template)
     }
 }

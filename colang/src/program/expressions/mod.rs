@@ -39,9 +39,9 @@ impl Expression {
         }
     }
 
-    pub fn empty(types: &TypeRegistry) -> Expression {
+    pub fn empty(location: SourceOrigin, types: &TypeRegistry) -> Expression {
         Expression {
-            kind: ExpressionKind::Empty,
+            kind: ExpressionKind::Empty(location),
             type_: Rc::clone(&types.void()),
             value_category: ValueCategory::Rvalue,
             dirty: false,
@@ -50,7 +50,7 @@ impl Expression {
 
     pub fn error(span: InputSpan) -> Expression {
         Expression {
-            kind: ExpressionKind::Error(span),
+            kind: ExpressionKind::Error(SourceOrigin::Plain(span)),
             type_: Type::error(),
             value_category: ValueCategory::Rvalue,
             dirty: false,
@@ -73,6 +73,13 @@ impl Expression {
         self.type_ = self.kind.calculate_type(types);
         self.value_category = self.kind.calculate_value_category();
         self.dirty = false;
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self.kind {
+            ExpressionKind::Empty(_) => true,
+            _ => false,
+        }
     }
 
     pub fn is_error(&self) -> bool {
@@ -119,10 +126,8 @@ pub enum ExpressionKind {
     If(if_::IfExpr),
     Block(block::BlockExpr),
 
-    /// A no-op expression of type `void`.
-    Empty,
-
-    Error(InputSpan),
+    Empty(SourceOrigin),
+    Error(SourceOrigin),
 }
 
 impl ExpressionKind {
@@ -144,7 +149,7 @@ impl ExpressionKind {
             If(expr) => expr.calculate_type(types),
             Block(expr) => expr.calculate_type(types),
 
-            Empty => Rc::clone(&types.void()),
+            Empty(_) => Rc::clone(types.void()),
             Error(_) => Type::error(),
         }
     }
@@ -167,7 +172,7 @@ impl ExpressionKind {
             If(expr) => expr.calculate_value_category(),
             Block(expr) => expr.calculate_value_category(),
 
-            Empty => ValueCategory::Rvalue,
+            Empty(_) => ValueCategory::Rvalue,
             Error(_) => ValueCategory::Rvalue,
         }
     }
@@ -190,8 +195,8 @@ impl ExpressionKind {
             If(expr) => expr.location(),
             Block(expr) => expr.location(),
 
-            Empty => None,
-            Error(span) => Some(*span),
+            Empty(location) => *location,
+            Error(location) => *location,
         }
     }
 }

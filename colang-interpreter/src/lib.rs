@@ -175,7 +175,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ExpressionKind::FieldAccess(e) => run_field_access_expr(e, state),
         ExpressionKind::If(e) => run_if_expr(e, state),
         ExpressionKind::Block(e) => run_block_expr(e, state),
-        ExpressionKind::Empty => Ok(Value::Rvalue(Rvalue::Void)),
+        ExpressionKind::Empty(_) => Ok(Value::Rvalue(Rvalue::Void)),
         ExpressionKind::Error(_) => panic_error(),
     }
 }

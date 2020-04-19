@@ -2,10 +2,10 @@
 //! function calls in the program, and instantiates the needed functions for these calls.
 
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
-use crate::ast::{FunctionDef, InputSpan};
+use crate::ast::FunctionDef;
 use crate::errors::CompilationError;
 use crate::program::transforms::visitor::CodeVisitor;
-use crate::program::{CallExpr, Function, FunctionBody, Program, Type, TypeRegistry};
+use crate::program::{CallExpr, Function, FunctionBody, Program, SourceOrigin, Type, TypeRegistry};
 use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -57,8 +57,7 @@ fn process_function(function: Rc<RefCell<Function>>, context: &mut CompilerConte
                     let error = CompilationError::function_infinite_dependency_chain(
                         &called_function.borrow(),
                         function_chain,
-                        call_site
-                            .expect("Synthetic function call caused an infinite dependency chain"),
+                        *call_site,
                     );
                     context.errors.push(error);
                 }
@@ -74,7 +73,7 @@ fn process_function(function: Rc<RefCell<Function>>, context: &mut CompilerConte
 
 struct CallVisitor<'a> {
     types: &'a mut TypeRegistry,
-    called_functions: Vec<(Option<InputSpan>, Rc<RefCell<Function>>)>,
+    called_functions: Vec<(SourceOrigin, Rc<RefCell<Function>>)>,
 }
 
 impl<'a> CallVisitor<'a> {

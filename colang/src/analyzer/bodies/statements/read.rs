@@ -26,11 +26,7 @@ fn compile_read_entry(
     }
 
     if target.value_category() != ValueCategory::Lvalue {
-        let error = CompilationError::read_target_not_lvalue(
-            target
-                .location()
-                .expect("Attempt to read generated rvalue."),
-        );
+        let error = CompilationError::read_target_not_lvalue(target.location());
         context.errors.push(error);
         return;
     }
@@ -43,12 +39,7 @@ fn compile_read_entry(
             .program
             .internal_function(InternalFunctionTag::ReadWord),
         _ => {
-            let error = CompilationError::read_unsupported_type(
-                &target.type_().borrow().name,
-                target
-                    .location()
-                    .expect("Attempt to read generated value of unsupported type"),
-            );
+            let error = CompilationError::read_unsupported_type(&target);
             context.errors.push(error);
             return;
         }

@@ -3,7 +3,7 @@
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
 use crate::ast::{self, FieldDef, FunctionDef, InputSpan};
 use crate::errors::CompilationError;
-use crate::program::{Function, Type, Variable};
+use crate::program::{Function, SourceOrigin, Type, Variable};
 use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -89,7 +89,7 @@ fn complete_type(
         let error = CompilationError::type_infinite_dependency_chain(
             &type_.borrow(),
             type_chain,
-            reference_location,
+            SourceOrigin::Plain(reference_location),
         );
         context.errors.push(error);
     }

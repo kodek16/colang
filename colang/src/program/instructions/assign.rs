@@ -1,25 +1,21 @@
-use crate::ast::InputSpan;
 use crate::errors::CompilationError;
 use crate::program::instructions::Instruction;
-use crate::program::{Expression, ValueCategory};
+use crate::program::{Expression, SourceOrigin, ValueCategory};
 
 pub struct AssignInstruction {
     pub target: Box<Expression>,
     pub value: Box<Expression>,
+    pub location: SourceOrigin,
 }
 
 impl AssignInstruction {
     pub fn new(
         target: Expression,
         value: Expression,
-        location: InputSpan,
+        location: SourceOrigin,
     ) -> Result<Instruction, CompilationError> {
         if target.value_category() != ValueCategory::Lvalue {
-            let error = CompilationError::assignment_target_not_lvalue(
-                target
-                    .location()
-                    .expect("Generated rvalue expression used as assignment target"),
-            );
+            let error = CompilationError::assignment_target_not_lvalue(target.location());
             return Err(error);
         }
 
@@ -27,17 +23,14 @@ impl AssignInstruction {
         let value_type = value.type_();
 
         if *target_type != *value_type {
-            let error = CompilationError::assignment_type_mismatch(
-                &target_type.borrow().name,
-                &value_type.borrow().name,
-                location,
-            );
+            let error = CompilationError::assignment_type_mismatch(&target, &value, location);
             return Err(error);
         }
 
         Ok(Instruction::Assign(AssignInstruction {
             target: Box::new(target),
             value: Box::new(value),
+            location,
         }))
     }
 }

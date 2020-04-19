@@ -22,7 +22,7 @@ pub fn compile_array_from_copy_expr(
     if *size_type != *context.program.types().int() {
         let error = CompilationError::array_size_not_int(
             &size_type.borrow().name,
-            size.span().expect("Generated array size is not int"),
+            size.location().expect("Generated array size is not int"),
         );
         context.errors.push(error);
     }
@@ -30,7 +30,7 @@ pub fn compile_array_from_copy_expr(
     let kind = ExpressionKind::ArrayFromCopy(program::ArrayFromCopyExpr {
         element: Box::new(element),
         size: Box::new(size),
-        span: Some(expression.span),
+        location: Some(expression.span),
     });
 
     program::Expression::new(kind, context.program.types_mut())

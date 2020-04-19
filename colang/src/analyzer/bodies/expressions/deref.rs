@@ -1,5 +1,6 @@
 use super::compile_expression;
-use crate::program::Type;
+use crate::errors::CompilationError;
+use crate::program::{SourceOrigin, Type};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -13,13 +14,22 @@ pub fn compile_deref_expr(
 
     let pointer = compile_expression(*expression.pointer, hint, context);
 
-    let result =
-        program::DerefExpr::new(pointer, context.program.types_mut(), Some(expression.span));
-    match result {
-        Ok(expression) => expression,
-        Err(error) => {
-            context.errors.push(error);
-            program::Expression::error(expression.span)
-        }
+    if !pointer.type_().borrow().is_pointer() {
+        let error = CompilationError::can_only_dereference_pointer(
+            &pointer.type_().borrow().name,
+            pointer
+                .location()
+                .expect("Attempt to dereference generated non-pointer expression"),
+        );
+        context.errors.push(error);
+        return program::Expression::error(expression.span);
     }
+
+    program::Expression::new(
+        program::ExpressionKind::Deref(program::DerefExpr {
+            pointer: Box::new(pointer),
+            location: SourceOrigin::Plain(expression.span),
+        }),
+        context.program.types_mut(),
+    )
 }

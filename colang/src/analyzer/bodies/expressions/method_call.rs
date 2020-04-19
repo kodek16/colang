@@ -1,7 +1,7 @@
 use super::compile_expression;
-use crate::analyzer::bodies::{compile_arguments, maybe_deref};
+use crate::analyzer::bodies::{check_argument_types, compile_arguments, maybe_deref};
 use crate::errors::CompilationError;
-use crate::program::{Function, ValueCategory};
+use crate::program::{Function, SourceOrigin, ValueCategory};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -48,11 +48,12 @@ pub fn compile_method_call_expr(
     } else if self_type == context.program.types_mut().pointer_to(receiver.type_()) {
         // self-by-pointer
         if receiver.value_category() == ValueCategory::Lvalue {
-            // TODO handle synthetic span in a special way for errors.
-            program::AddressExpr::new_synthetic(
-                receiver,
+            program::Expression::new(
+                program::ExpressionKind::Address(program::AddressExpr {
+                    target: Box::new(receiver),
+                    location: SourceOrigin::AddressedForMethodCall(receiver_span),
+                }),
                 context.program.types_mut(),
-                receiver_span,
             )
         } else {
             let error =
@@ -75,17 +76,16 @@ pub fn compile_method_call_expr(
         arguments
     };
 
-    let result = program::CallExpr::new(
-        method,
-        arguments,
-        context.program.types_mut(),
-        expression.span,
-    );
-    match result {
-        Ok(expression) => expression,
-        Err(error) => {
-            context.errors.push(error);
-            program::Expression::error(expression.span)
-        }
+    if check_argument_types(&method, &arguments, expression.span, context).is_err() {
+        return program::Expression::error(expression.span);
     }
+
+    program::Expression::new(
+        program::ExpressionKind::Call(program::CallExpr {
+            function: method,
+            arguments,
+            location: SourceOrigin::Plain(expression.span),
+        }),
+        context.program.types_mut(),
+    )
 }

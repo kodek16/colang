@@ -1,5 +1,5 @@
 use crate::ast::InputSpan;
-use crate::program::{Type, TypeRegistry, ValueCategory};
+use crate::program::{SourceOrigin, Type, TypeRegistry, ValueCategory};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -82,8 +82,8 @@ impl Expression {
         }
     }
 
-    pub fn span(&self) -> Option<InputSpan> {
-        self.kind.span()
+    pub fn location(&self) -> SourceOrigin {
+        self.kind.location()
     }
 
     pub fn type_(&self) -> &Rc<RefCell<Type>> {
@@ -172,23 +172,23 @@ impl ExpressionKind {
         }
     }
 
-    pub fn span(&self) -> Option<InputSpan> {
+    pub fn location(&self) -> SourceOrigin {
         use ExpressionKind::*;
         match self {
-            Variable(expr) => expr.span(),
-            Literal(expr) => expr.span(),
-            Address(expr) => expr.span(),
-            Deref(expr) => expr.span(),
-            New(expr) => expr.span(),
-            Is(expr) => expr.span(),
-            Null(expr) => expr.span(),
-            ArrayFromElements(expr) => expr.span(),
-            ArrayFromCopy(expr) => expr.span(),
-            FieldAccess(expr) => expr.span(),
-            Call(expr) => expr.span(),
-            BooleanOp(expr) => expr.span(),
-            If(expr) => expr.span(),
-            Block(expr) => expr.span(),
+            Variable(expr) => expr.location(),
+            Literal(expr) => expr.location(),
+            Address(expr) => expr.location(),
+            Deref(expr) => expr.location(),
+            New(expr) => expr.location(),
+            Is(expr) => expr.location(),
+            Null(expr) => expr.location(),
+            ArrayFromElements(expr) => expr.location(),
+            ArrayFromCopy(expr) => expr.location(),
+            FieldAccess(expr) => expr.location(),
+            Call(expr) => expr.location(),
+            BooleanOp(expr) => expr.location(),
+            If(expr) => expr.location(),
+            Block(expr) => expr.location(),
 
             Empty => None,
             Error(span) => Some(*span),
@@ -199,5 +199,5 @@ impl ExpressionKind {
 trait ExpressionKindImpl {
     fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>>;
     fn calculate_value_category(&self) -> ValueCategory;
-    fn span(&self) -> Option<InputSpan>;
+    fn location(&self) -> SourceOrigin;
 }

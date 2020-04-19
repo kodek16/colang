@@ -1,11 +1,12 @@
 use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
+use crate::program::{Expression, ExpressionKind, SourceOrigin, Type, TypeRegistry, ValueCategory};
 
 use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+// TODO refactor LiteralExpr to be more like the rest of expressions.
 #[derive(Clone, Debug)]
 pub enum LiteralExpr {
     Int(i32, InputSpan),
@@ -66,12 +67,12 @@ impl ExpressionKindImpl for LiteralExpr {
         ValueCategory::Rvalue
     }
 
-    fn span(&self) -> Option<InputSpan> {
+    fn location(&self) -> SourceOrigin {
         match self {
-            LiteralExpr::Int(_, span) => Some(*span),
-            LiteralExpr::Bool(_, span) => Some(*span),
-            LiteralExpr::Char(_, span) => Some(*span),
-            LiteralExpr::String(_, span) => Some(*span),
+            LiteralExpr::Int(_, span) => SourceOrigin::Plain(*span),
+            LiteralExpr::Bool(_, span) => SourceOrigin::Plain(*span),
+            LiteralExpr::Char(_, span) => SourceOrigin::Plain(*span),
+            LiteralExpr::String(_, span) => SourceOrigin::Plain(*span),
         }
     }
 }

@@ -1,5 +1,4 @@
-use crate::ast::InputSpan;
-use crate::program::{Expression, Type, TypeRegistry, ValueCategory};
+use crate::program::{Expression, SourceOrigin, Type, TypeRegistry, ValueCategory};
 
 use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;
@@ -7,7 +6,7 @@ use std::rc::Rc;
 
 pub struct ArrayFromElementsExpr {
     pub elements: Vec<Expression>,
-    pub span: Option<InputSpan>,
+    pub location: SourceOrigin,
 
     // Used for inferring the type of empty arrays.
     pub element_type: Rc<RefCell<Type>>,
@@ -22,7 +21,7 @@ impl ExpressionKindImpl for ArrayFromElementsExpr {
         ValueCategory::Rvalue
     }
 
-    fn span(&self) -> Option<InputSpan> {
-        self.span
+    fn location(&self) -> SourceOrigin {
+        self.location
     }
 }

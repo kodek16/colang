@@ -113,7 +113,7 @@ fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expr
 fn clone_address_expr(expression: &AddressExpr, context: &mut CloneContext) -> AddressExpr {
     AddressExpr {
         target: Box::new(clone_expression(&expression.target, context)),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
@@ -124,7 +124,7 @@ fn clone_array_from_copy_expr(
     ArrayFromCopyExpr {
         element: Box::new(clone_expression(&expression.element, context)),
         size: Box::new(clone_expression(&expression.size, context)),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
@@ -139,7 +139,7 @@ fn clone_array_from_elements_expr(
             .map(|element| clone_expression(element, context))
             .collect(),
         element_type: Rc::clone(&expression.element_type),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
@@ -171,7 +171,7 @@ fn clone_block_expr(block: &BlockExpr, context: &mut CloneContext) -> BlockExpr 
         local_variables,
         instructions,
         value,
-        span: block.span,
+        location: block.location,
     }
 }
 
@@ -190,7 +190,7 @@ fn clone_boolean_op_expr(expression: &BooleanOpExpr, context: &mut CloneContext)
 
     BooleanOpExpr {
         op,
-        span: expression.span,
+        location: expression.location,
     }
 }
 
@@ -202,14 +202,14 @@ fn clone_call_expr(expression: &CallExpr, context: &mut CloneContext) -> CallExp
             .iter()
             .map(|argument| clone_expression(argument, context))
             .collect(),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
 fn clone_deref_expr(expression: &DerefExpr, context: &mut CloneContext) -> DerefExpr {
     DerefExpr {
         pointer: Box::new(clone_expression(&expression.pointer, context)),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
@@ -220,7 +220,7 @@ fn clone_field_access_expr(
     FieldAccessExpr {
         receiver: Box::new(clone_expression(&expression.receiver, context)),
         field: Rc::clone(&expression.field),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
@@ -229,7 +229,7 @@ fn clone_if_expr(expression: &IfExpr, context: &mut CloneContext) -> IfExpr {
         cond: Box::new(clone_expression(&expression.cond, context)),
         then: Box::new(clone_expression(&expression.then, context)),
         else_: Box::new(clone_expression(&expression.else_, context)),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
@@ -241,21 +241,21 @@ fn clone_is_expr(expression: &IsExpr, context: &mut CloneContext) -> IsExpr {
     IsExpr {
         lhs: Box::new(clone_expression(&expression.lhs, context)),
         rhs: Box::new(clone_expression(&expression.rhs, context)),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
 fn clone_new_expr(expression: &NewExpr, _: &mut CloneContext) -> NewExpr {
     NewExpr {
         target_type: Rc::clone(&expression.target_type),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
 fn clone_null_expr(expression: &NullExpr, _: &mut CloneContext) -> NullExpr {
     NullExpr {
         target_type: Rc::clone(&expression.target_type),
-        span: expression.span,
+        location: expression.location,
     }
 }
 
@@ -267,6 +267,6 @@ fn clone_variable_expr(expression: &VariableExpr, context: &mut CloneContext) ->
                 .get(&expression.variable.borrow().id)
                 .expect("Attempt to clone access to non-cloned variable"),
         ),
-        span: expression.span,
+        location: expression.location,
     }
 }

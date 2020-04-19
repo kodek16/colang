@@ -1,5 +1,6 @@
 use super::compile_expression;
 use crate::errors::CompilationError;
+use crate::program::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
@@ -38,9 +39,10 @@ pub fn compile_is_expr(
         }
     }
 
-    let lhs = Box::new(lhs);
-    let rhs = Box::new(rhs);
-    let span = expression.span;
-    let kind = program::ExpressionKind::Is(program::IsExpr { lhs, rhs, span });
+    let kind = program::ExpressionKind::Is(program::IsExpr {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+        location: SourceOrigin::Plain(expression.span),
+    });
     program::Expression::new(kind, context.program.types_mut())
 }

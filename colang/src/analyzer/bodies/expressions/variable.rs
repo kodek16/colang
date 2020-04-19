@@ -1,4 +1,6 @@
+use crate::program::SourceOrigin;
 use crate::{ast, program, CompilerContext};
+use std::rc::Rc;
 
 pub fn compile_variable_expr(
     expression: ast::VariableExpr,
@@ -11,9 +13,13 @@ pub fn compile_variable_expr(
         Ok(variable) if variable.borrow().type_.borrow().is_error() => {
             program::Expression::error(expression.span)
         }
-        Ok(variable) => {
-            program::VariableExpr::new(variable, context.program.types_mut(), expression.span)
-        }
+        Ok(variable) => program::Expression::new(
+            program::ExpressionKind::Variable(program::VariableExpr {
+                variable: Rc::clone(&variable),
+                location: SourceOrigin::Plain(expression.span),
+            }),
+            context.program.types_mut(),
+        ),
         Err(error) => {
             context.errors.push(error);
             program::Expression::error(expression.span)

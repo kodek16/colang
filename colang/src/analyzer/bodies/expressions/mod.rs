@@ -69,7 +69,7 @@ pub fn compile_expression(
             &expression.type_().borrow(),
             type_chain,
             expression
-                .span()
+                .location()
                 .expect("Synthetic expression type could not be fully completed"),
         );
         context.errors.push(error);

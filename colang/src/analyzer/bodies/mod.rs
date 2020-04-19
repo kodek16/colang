@@ -5,9 +5,9 @@ mod statements;
 
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
-use crate::ast::FunctionDef;
+use crate::ast::{FunctionDef, InputSpan};
 use crate::errors::CompilationError;
-use crate::program::{Function, FunctionBody, Type, Variable};
+use crate::program::{Function, FunctionBody, SourceOrigin, Type, Variable};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::iter;
@@ -128,11 +128,77 @@ fn maybe_deref(
     expression: program::Expression,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let span = expression.span();
     if expression.type_().borrow().is_pointer() {
-        program::DerefExpr::new(expression, context.program.types_mut(), span).unwrap()
+        program::Expression::new(
+            program::ExpressionKind::Deref(program::DerefExpr {
+                pointer: Box::new(expression),
+                location: SourceOrigin::AutoDeref(expression.location().as_plain()),
+            }),
+            context.program.types_mut(),
+        )
     } else {
         expression
+    }
+}
+
+/// Checks that a condition expression has type `bool`.
+fn check_condition_is_bool(condition: &program::Expression, context: &mut CompilerContext) {
+    let cond_type = condition.type_();
+    if cond_type != context.program.types().bool() {
+        let error = CompilationError::condition_is_not_bool(
+            &cond_type.borrow().name,
+            condition
+                .location()
+                .expect("Generated condition expression is not bool"),
+        );
+        context.errors.push(error);
+    }
+}
+
+/// Checks that argument number and types conform to function signature.
+fn check_argument_types(
+    function: &Rc<RefCell<Function>>,
+    arguments: &[program::Expression],
+    span: InputSpan,
+    context: &mut CompilerContext,
+) -> Result<(), ()> {
+    let function = function.borrow();
+    let function_name = &function.name;
+    let parameters = function.parameters.iter();
+
+    if parameters.len() != arguments.len() {
+        let error = CompilationError::call_wrong_number_of_arguments(
+            function_name,
+            parameters.len(),
+            arguments.len(),
+            span,
+        );
+        context.errors.push(error);
+        return Err(());
+    }
+
+    let mut had_errors = false;
+    for (argument, parameter) in arguments.iter().zip(parameters) {
+        let argument_type = argument.type_();
+        let parameter_name = &parameter.borrow().name;
+        let parameter_type = &parameter.borrow().type_;
+
+        if *argument_type != *parameter_type {
+            let error = CompilationError::call_argument_type_mismatch(
+                parameter_name,
+                &parameter_type.borrow().name,
+                &argument_type.borrow().name,
+                span,
+            );
+            context.errors.push(error);
+            had_errors = true;
+        }
+    }
+
+    if !had_errors {
+        Ok(())
+    } else {
+        Err(())
     }
 }
 

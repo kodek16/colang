@@ -17,7 +17,7 @@ impl AssignInstruction {
         if target.value_category() != ValueCategory::Lvalue {
             let error = CompilationError::assignment_target_not_lvalue(
                 target
-                    .span()
+                    .location()
                     .expect("Generated rvalue expression used as assignment target"),
             );
             return Err(error);

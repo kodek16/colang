@@ -1,7 +1,7 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::type_exprs;
 use crate::errors::CompilationError;
-use crate::program::{BlockBuilder, Type, Variable};
+use crate::program::{BlockBuilder, SourceOrigin, Type, Variable};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -66,7 +66,13 @@ fn compile_var_decl_entry(
 
     if let Some(initializer) = initializer {
         let initialization = program::AssignInstruction::new(
-            program::VariableExpr::new(&variable, context.program.types_mut(), name.span),
+            program::Expression::new(
+                program::ExpressionKind::Variable(program::VariableExpr {
+                    variable,
+                    location: SourceOrigin::Plain(name.span),
+                }),
+                context.program.types_mut(),
+            ),
             initializer,
             declaration.span,
         );

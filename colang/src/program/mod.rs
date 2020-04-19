@@ -2,12 +2,12 @@
 //! This is the interface between the front-end and various
 //! backends.
 
-mod checks;
 mod display;
 mod expressions;
 mod function;
 mod instructions;
 pub(crate) mod internal;
+mod origin;
 pub mod transforms;
 mod typing;
 mod variable;
@@ -122,6 +122,8 @@ pub enum ValueCategory {
     Lvalue,
     Rvalue,
 }
+
+pub use origin::SourceOrigin;
 
 pub use expressions::address::AddressExpr;
 pub use expressions::array_from_copy::ArrayFromCopyExpr;

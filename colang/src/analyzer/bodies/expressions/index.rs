@@ -1,5 +1,7 @@
 use super::compile_expression;
+use crate::analyzer::bodies::check_argument_types;
 use crate::errors::CompilationError;
+use crate::program::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
@@ -27,34 +29,36 @@ pub fn compile_index_expr(
             return program::Expression::error(expression.span);
         }
     };
+    let arguments = vec![collection, index];
 
-    let pointer = program::CallExpr::new(
-        method,
-        vec![collection, index],
+    if check_argument_types(&method, &arguments, expression.span, context).is_err() {
+        return program::Expression::error(expression.span);
+    }
+
+    let pointer = program::Expression::new(
+        program::ExpressionKind::Call(program::CallExpr {
+            function: method,
+            arguments,
+            location: SourceOrigin::Plain(expression.span),
+        }),
         context.program.types_mut(),
-        expression.span,
     );
-    let pointer = match pointer {
-        Ok(pointer) => pointer,
-        Err(error) => {
-            context.errors.push(error);
-            return program::Expression::error(expression.span);
-        }
-    };
-    let pointer_type = Rc::clone(pointer.type_());
 
-    let result =
-        program::DerefExpr::new(pointer, context.program.types_mut(), Some(expression.span));
-    match result {
-        Ok(result) => result,
-        Err(_) => {
-            let error = CompilationError::index_method_returns_not_pointer(
-                &collection_type.borrow().name,
-                &pointer_type.borrow().name,
-                expression.span,
-            );
-            context.errors.push(error);
-            program::Expression::error(expression.span)
-        }
+    if pointer.type_().borrow().is_pointer() {
+        program::Expression::new(
+            program::ExpressionKind::Deref(program::DerefExpr {
+                pointer: Box::new(pointer),
+                location: SourceOrigin::DereferencedIndex(expression.span),
+            }),
+            context.program.types_mut(),
+        )
+    } else {
+        let error = CompilationError::index_method_returns_not_pointer(
+            &collection_type.borrow().name,
+            &pointer.type_().borrow().name,
+            expression.span,
+        );
+        context.errors.push(error);
+        program::Expression::error(expression.span)
     }
 }

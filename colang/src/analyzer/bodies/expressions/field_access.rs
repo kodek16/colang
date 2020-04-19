@@ -1,5 +1,6 @@
 use super::compile_expression;
 use crate::analyzer::bodies::maybe_deref;
+use crate::program::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
@@ -30,10 +31,12 @@ pub fn compile_field_access_expr(
         }
     };
 
-    program::FieldAccessExpr::new(
-        receiver,
-        Rc::clone(&field),
+    program::Expression::new(
+        program::ExpressionKind::FieldAccess(program::FieldAccessExpr {
+            receiver: Box::new(receiver),
+            field,
+            location: SourceOrigin::Plain(expression.span),
+        }),
         context.program.types_mut(),
-        expression.span,
     )
 }

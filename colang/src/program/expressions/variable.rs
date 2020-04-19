@@ -1,27 +1,11 @@
-use crate::ast::InputSpan;
 use crate::program::expressions::ExpressionKindImpl;
-use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory, Variable};
-
+use crate::program::{SourceOrigin, Type, TypeRegistry, ValueCategory, Variable};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct VariableExpr {
     pub variable: Rc<RefCell<Variable>>,
-    pub span: Option<InputSpan>,
-}
-
-impl VariableExpr {
-    pub fn new(
-        variable: &Rc<RefCell<Variable>>,
-        types: &mut TypeRegistry,
-        span: InputSpan,
-    ) -> Expression {
-        let kind = ExpressionKind::Variable(VariableExpr {
-            variable: Rc::clone(variable),
-            span: Some(span),
-        });
-        Expression::new(kind, types)
-    }
+    pub location: SourceOrigin,
 }
 
 impl ExpressionKindImpl for VariableExpr {
@@ -33,7 +17,7 @@ impl ExpressionKindImpl for VariableExpr {
         ValueCategory::Lvalue
     }
 
-    fn span(&self) -> Option<InputSpan> {
-        self.span
+    fn location(&self) -> SourceOrigin {
+        self.location
     }
 }

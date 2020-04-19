@@ -1,5 +1,5 @@
-use crate::analyzer::bodies::compile_arguments;
-use crate::program::Function;
+use crate::analyzer::bodies::{check_argument_types, compile_arguments};
+use crate::program::{Function, SourceOrigin};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -30,17 +30,16 @@ pub fn compile_call_expr(
         context,
     );
 
-    let result = program::CallExpr::new(
-        function,
-        arguments,
-        context.program.types_mut(),
-        expression.span,
-    );
-    match result {
-        Ok(expression) => expression,
-        Err(error) => {
-            context.errors.push(error);
-            program::Expression::error(expression.span)
-        }
+    if check_argument_types(&function, &arguments, expression.span, context).is_err() {
+        return program::Expression::error(expression.span);
     }
+
+    program::Expression::new(
+        program::ExpressionKind::Call(program::CallExpr {
+            function,
+            arguments,
+            location: SourceOrigin::Plain(expression.span),
+        }),
+        context.program.types_mut(),
+    )
 }

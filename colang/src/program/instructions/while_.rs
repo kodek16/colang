@@ -1,23 +1,7 @@
-use crate::errors::CompilationError;
-use crate::program::instructions::Instruction;
-use crate::program::{checks, Expression, TypeRegistry};
+use crate::program::Expression;
+use crate::program::Instruction;
 
 pub struct WhileInstruction {
     pub cond: Box<Expression>,
     pub body: Box<Instruction>,
-}
-
-impl WhileInstruction {
-    pub fn new(
-        cond: Expression,
-        body: Instruction,
-        types: &TypeRegistry,
-    ) -> Result<Instruction, CompilationError> {
-        checks::check_condition_is_bool(&cond, types)?;
-
-        Ok(Instruction::While(WhileInstruction {
-            cond: Box::new(cond),
-            body: Box::new(body),
-        }))
-    }
 }

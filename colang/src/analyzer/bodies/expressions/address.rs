@@ -1,5 +1,6 @@
 use super::compile_expression;
-use crate::program::Type;
+use crate::errors::CompilationError;
+use crate::program::{SourceOrigin, Type, ValueCategory};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -14,12 +15,21 @@ pub fn compile_address_expr(
 
     let target = compile_expression(*expression.target, hint, context);
 
-    let result = program::AddressExpr::new(target, context.program.types_mut(), expression.span);
-    match result {
-        Ok(expression) => expression,
-        Err(error) => {
-            context.errors.push(error);
-            program::Expression::error(expression.span)
-        }
+    if target.value_category() != ValueCategory::Lvalue {
+        let error = CompilationError::address_of_rvalue(
+            target
+                .location()
+                .expect("attempt to take address of generated rvalue expression."),
+        );
+        context.errors.push(error);
+        return program::Expression::error(expression.span);
     }
+
+    program::Expression::new(
+        program::ExpressionKind::Address(program::AddressExpr {
+            target: Box::new(target),
+            location: SourceOrigin::Plain(expression.span),
+        }),
+        context.program.types_mut(),
+    )
 }

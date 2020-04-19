@@ -1,6 +1,7 @@
 use crate::ast::InputSpan;
 use crate::program::{
-    Expression, ExpressionKind, Instruction, Type, TypeRegistry, ValueCategory, Variable,
+    Expression, ExpressionKind, Instruction, SourceOrigin, Type, TypeRegistry, ValueCategory,
+    Variable,
 };
 
 use crate::program::expressions::ExpressionKindImpl;
@@ -11,7 +12,7 @@ pub struct BlockExpr {
     pub local_variables: Vec<Rc<RefCell<Variable>>>,
     pub instructions: Vec<Instruction>,
     pub value: Box<Expression>,
-    pub span: Option<InputSpan>,
+    pub location: SourceOrigin,
 }
 
 impl ExpressionKindImpl for BlockExpr {
@@ -23,8 +24,8 @@ impl ExpressionKindImpl for BlockExpr {
         ValueCategory::Rvalue
     }
 
-    fn span(&self) -> Option<InputSpan> {
-        self.span
+    fn location(&self) -> SourceOrigin {
+        self.location
     }
 }
 
@@ -62,7 +63,7 @@ impl BlockBuilder {
             local_variables: self.local_variables,
             instructions: self.instructions,
             value,
-            span: Some(span),
+            location: SourceOrigin::Plain(span),
         });
         Expression::new(kind, types)
     }

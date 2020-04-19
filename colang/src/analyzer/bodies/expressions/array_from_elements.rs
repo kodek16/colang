@@ -40,7 +40,7 @@ pub fn compile_array_from_elements_expr(
                     &inferred_type.borrow().name,
                     &element_type.borrow().name,
                     element
-                        .span()
+                        .location()
                         .expect("Implicit array element type mismatch"),
                 ))
             } else {
@@ -57,7 +57,7 @@ pub fn compile_array_from_elements_expr(
     let kind = ExpressionKind::ArrayFromElements(program::ArrayFromElementsExpr {
         elements,
         element_type: inferred_type,
-        span: Some(expression.span),
+        location: Some(expression.span),
     });
 
     program::Expression::new(kind, types)

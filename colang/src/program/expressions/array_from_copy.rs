@@ -1,13 +1,12 @@
-use crate::ast::InputSpan;
 use crate::program::expressions::ExpressionKindImpl;
-use crate::program::{Expression, Type, TypeRegistry, ValueCategory};
+use crate::program::{Expression, SourceOrigin, Type, TypeRegistry, ValueCategory};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct ArrayFromCopyExpr {
     pub element: Box<Expression>,
     pub size: Box<Expression>,
-    pub span: Option<InputSpan>,
+    pub location: SourceOrigin,
 }
 
 impl ExpressionKindImpl for ArrayFromCopyExpr {
@@ -19,7 +18,7 @@ impl ExpressionKindImpl for ArrayFromCopyExpr {
         ValueCategory::Rvalue
     }
 
-    fn span(&self) -> Option<InputSpan> {
-        self.span
+    fn location(&self) -> SourceOrigin {
+        self.location
     }
 }

@@ -1,3 +1,4 @@
+use crate::analyzer::bodies::check_condition_is_bool;
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::errors::CompilationError;
 use crate::program::BlockBuilder;
@@ -28,9 +29,11 @@ pub fn compile_while_stmt(
         return;
     }
 
-    let result = program::WhileInstruction::new(cond, body, context.program.types());
-    match result {
-        Ok(statement) => current_block.append_instruction(statement),
-        Err(error) => context.errors.push(error),
-    }
+    check_condition_is_bool(&cond, context);
+
+    let instruction = program::Instruction::While(program::WhileInstruction {
+        cond: Box::new(cond),
+        body: Box::new(body),
+    });
+    current_block.append_instruction(instruction);
 }

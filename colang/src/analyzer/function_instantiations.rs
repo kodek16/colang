@@ -94,7 +94,7 @@ impl<'a> CodeVisitor for CallVisitor<'a> {
     fn visit_call_expr(&mut self, expression: &mut CallExpr) {
         self.walk_call_expr(expression);
         self.called_functions
-            .push((expression.span, Rc::clone(&expression.function)));
+            .push((expression.location, Rc::clone(&expression.function)));
     }
 }
 

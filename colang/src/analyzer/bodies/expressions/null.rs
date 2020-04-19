@@ -1,5 +1,5 @@
 use crate::errors::CompilationError;
-use crate::program::Type;
+use crate::program::{SourceOrigin, Type};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,7 +17,10 @@ pub fn compile_null_expr(
 
     match target_type_hint {
         Some(target_type) => {
-            let kind = program::ExpressionKind::Null(program::NullExpr { target_type, span });
+            let kind = program::ExpressionKind::Null(program::NullExpr {
+                target_type,
+                location: SourceOrigin::Plain(expression.span),
+            });
             program::Expression::new(kind, context.program.types_mut())
         }
         None => {

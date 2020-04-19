@@ -1,12 +1,11 @@
-use crate::ast::InputSpan;
 use crate::program::expressions::ExpressionKindImpl;
-use crate::program::{Expression, Type, TypeRegistry, ValueCategory};
+use crate::program::{Expression, SourceOrigin, Type, TypeRegistry, ValueCategory};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct BooleanOpExpr {
     pub op: BooleanOp,
-    pub span: InputSpan,
+    pub location: SourceOrigin,
 }
 
 pub enum BooleanOp {
@@ -24,7 +23,7 @@ impl ExpressionKindImpl for BooleanOpExpr {
         ValueCategory::Rvalue
     }
 
-    fn span(&self) -> Option<InputSpan> {
-        Some(self.span)
+    fn location(&self) -> SourceOrigin {
+        self.location
     }
 }

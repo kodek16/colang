@@ -157,7 +157,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
         let return_type = compile_return_type(function_def.return_type.as_ref(), context);
 
         let function = Rc::new(RefCell::new(Function::new(
-            name.clone(),
+            name,
             Rc::clone(&return_type),
             function_def.signature_span,
             context.program.symbol_ids_mut(),
@@ -179,7 +179,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             .flat_map(|parameter| match parameter {
                 ast::Parameter::Self_(parameter) => {
                     let error = CompilationError::self_not_in_method_signature(
-                        &name,
+                        &function.borrow(),
                         SourceOrigin::Plain(parameter.span),
                     );
                     context.errors.push(error);

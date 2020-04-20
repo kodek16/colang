@@ -14,12 +14,11 @@ pub fn compile_write_stmt(
         return;
     }
 
-    let expr_type = Rc::clone(expression.type_());
-    let expr_location = expression.location();
-
-    let stringified_expr = match expr_type.borrow().type_id {
+    let expression_type_id = expression.type_().borrow().type_id.clone();
+    let stringified_expr = match expression_type_id {
         TypeId::String => expression,
         TypeId::Int => {
+            let location = expression.location();
             let conversion = context
                 .program
                 .internal_function(InternalFunctionTag::IntToString);
@@ -28,16 +27,13 @@ pub fn compile_write_stmt(
                 program::ExpressionKind::Call(program::CallExpr {
                     function: Rc::clone(conversion),
                     arguments: vec![expression],
-                    location: SourceOrigin::Stringified(expr_location.as_plain()),
+                    location: SourceOrigin::Stringified(location.as_plain()),
                 }),
                 context.program.types_mut(),
             )
         }
         _ => {
-            let error = CompilationError::write_value_is_not_stringable(
-                &expr_type.borrow().name,
-                expr_location,
-            );
+            let error = CompilationError::write_value_is_not_stringable(&expression);
             context.errors.push(error);
             return;
         }

@@ -15,10 +15,7 @@ pub fn compile_deref_expr(
     let pointer = compile_expression(*expression.pointer, hint, context);
 
     if !pointer.type_().borrow().is_pointer() {
-        let error = CompilationError::can_only_dereference_pointer(
-            &pointer.type_().borrow().name,
-            pointer.location(),
-        );
+        let error = CompilationError::can_only_dereference_pointer(&pointer);
         context.errors.push(error);
         return program::Expression::error(expression.span);
     }

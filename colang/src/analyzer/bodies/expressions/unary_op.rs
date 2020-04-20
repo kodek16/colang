@@ -17,8 +17,7 @@ pub fn compile_unary_op_expression(
             if operand.type_() != context.program.types().bool() {
                 let error = CompilationError::logical_operator_operand_wrong_type(
                     &expression.operator.to_string(),
-                    &operand.type_().borrow().name,
-                    operand.location(),
+                    &operand,
                 );
                 context.errors.push(error);
             }

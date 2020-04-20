@@ -49,7 +49,7 @@ fn compile_scalar_type_expr(
             let error =
                 CompilationError::explicit_reference_to_void(SourceOrigin::Plain(type_expr.span));
             context.errors.push(error);
-            Rc::clone(type_)
+            Type::error()
         }
         Ok(type_) => Rc::clone(type_),
         Err(error) => {

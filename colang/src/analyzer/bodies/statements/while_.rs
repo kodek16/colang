@@ -10,7 +10,6 @@ pub fn compile_while_stmt(
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
-    let body_span = statement.body.span();
     let cond = compile_expression(
         *statement.cond,
         Some(Rc::clone(context.program.types().bool())),
@@ -18,12 +17,8 @@ pub fn compile_while_stmt(
     );
     let body = compile_expression(*statement.body, None, context);
 
-    let body_type = body.type_();
-    if *body_type != *context.program.types().void() {
-        let error = CompilationError::while_body_not_void(
-            &body_type.borrow().name,
-            SourceOrigin::Plain(body_span),
-        );
+    if *body.type_() != *context.program.types().void() {
+        let error = CompilationError::while_body_not_void(&body);
         context.errors.push(error)
     }
     let body = program::EvalInstruction::new(body);

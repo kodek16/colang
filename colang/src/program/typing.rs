@@ -591,13 +591,13 @@ pub struct TypeTemplate {
     pub name: String,
     pub definition_site: Option<InputSpan>,
 
+    /// The placeholder types that will be substituted with type arguments in fields and methods
+    /// during instantiation.
+    pub type_parameters: Vec<Rc<RefCell<Type>>>,
+
     /// If the template has a quirky naming pattern (like arrays or pointers),
     /// this field allows to specify it.
     name_template: Box<dyn Fn(Vec<&Rc<RefCell<Type>>>) -> String>,
-
-    /// The placeholder types that will be substituted with type arguments in fields and methods
-    /// during instantiation.
-    type_parameters: Vec<Rc<RefCell<Type>>>,
 
     /// This is a full-fledged type that will be used as the source of copying during instantiation.
     base_type: Rc<RefCell<Type>>,
@@ -710,10 +710,6 @@ impl TypeTemplate {
         type_template
     }
 
-    pub fn type_parameters(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
-        self.type_parameters.iter()
-    }
-
     pub fn base_type(&self) -> &Rc<RefCell<Type>> {
         &self.base_type
     }
@@ -726,8 +722,7 @@ impl TypeTemplate {
     ) -> Result<Rc<RefCell<Type>>, CompilationError> {
         if type_arguments.len() != self.type_parameters.len() {
             return Err(CompilationError::wrong_number_of_type_template_arguments(
-                &self.name,
-                self.type_parameters.len(),
+                &self,
                 type_arguments.len(),
                 SourceOrigin::Plain(location.expect(
                     "Synthetic instantiation of type template with wrong number of type arguments",

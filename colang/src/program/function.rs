@@ -358,4 +358,18 @@ impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
         expression.target_type =
             Type::substitute(&expression.target_type, self.type_arguments, self.types);
     }
+
+    fn visit_local_variable(&mut self, variable: &mut Variable) {
+        // The base variable type and the type arguments are assumed to be fully complete at this
+        // point, so we can assume no errors will occur.
+        // We do it here and not in `instantiate_local_variable` because running this code
+        // for method parameters is likely to cause a stack overflow by infinite loop.
+        Type::ensure_is_fully_complete(Rc::clone(&variable.type_), self.types)
+            .map_err(|_| ())
+            .expect(&format!(
+                "Infinite type chain encountered while instantiating variable `{}` of type `{}",
+                variable.name,
+                variable.type_.borrow().name
+            ));
+    }
 }

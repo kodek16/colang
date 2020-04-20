@@ -35,8 +35,8 @@ pub fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> progr
 
     if then_type != else_type {
         let error = CompilationError::if_expression_branch_type_mismatch(
-            &then_type.borrow().name,
-            &else_type.borrow().name,
+            &then,
+            &else_,
             SourceOrigin::Plain(span),
         );
         context.errors.push(error);

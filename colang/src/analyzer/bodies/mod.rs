@@ -106,7 +106,10 @@ fn fill_function_body(
         let body_type = body.type_();
         let return_type = &function.borrow().return_type;
 
-        if body_type != return_type {
+        if !body_type.borrow().is_error()
+            && !return_type.borrow().is_error()
+            && body_type != return_type
+        {
             let error = CompilationError::function_body_type_mismatch(&function.borrow(), &body);
             context.errors.push(error);
         }
@@ -154,13 +157,9 @@ fn check_argument_types(
     context: &mut CompilerContext,
 ) -> Result<(), ()> {
     let function = function.borrow();
-    let function_name = &function.name;
-    let parameters = function.parameters.iter();
-
-    if parameters.len() != arguments.len() {
+    if function.parameters.len() != arguments.len() {
         let error = CompilationError::call_wrong_number_of_arguments(
-            function_name,
-            parameters.len(),
+            &function,
             arguments.len(),
             SourceOrigin::Plain(span),
         );
@@ -168,19 +167,13 @@ fn check_argument_types(
         return Err(());
     }
 
+    let parameters = function.parameters.iter();
+
     let mut had_errors = false;
     for (argument, parameter) in arguments.iter().zip(parameters) {
-        let argument_type = argument.type_();
-        let parameter_name = &parameter.borrow().name;
-        let parameter_type = &parameter.borrow().type_;
-
-        if *argument_type != *parameter_type {
-            let error = CompilationError::call_argument_type_mismatch(
-                parameter_name,
-                &parameter_type.borrow().name,
-                &argument_type.borrow().name,
-                SourceOrigin::Plain(span),
-            );
+        if *argument.type_() != parameter.borrow().type_ {
+            let error =
+                CompilationError::call_argument_type_mismatch(&argument, &parameter.borrow());
             context.errors.push(error);
             had_errors = true;
         }

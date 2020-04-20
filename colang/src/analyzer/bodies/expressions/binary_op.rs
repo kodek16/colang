@@ -70,8 +70,8 @@ fn compile_method_backed_binary_op_expr(
         None => {
             let error = CompilationError::binary_operator_unsupported_types(
                 &operator.to_string(),
-                &lhs.type_().borrow().name,
-                &rhs.type_().borrow().name,
+                &lhs,
+                &rhs,
                 SourceOrigin::Plain(span),
             );
             context.errors.push(error);
@@ -107,8 +107,7 @@ fn compile_logical_binary_op_expr(
         if operand.type_() != context.program.types().bool() {
             let error = CompilationError::logical_operator_operand_wrong_type(
                 &operator.to_string(),
-                &operand.type_().borrow().name,
-                operand.location(),
+                operand,
             );
             context.errors.push(error);
         }

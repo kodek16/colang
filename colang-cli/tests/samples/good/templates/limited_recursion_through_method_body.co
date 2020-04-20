@@ -1,0 +1,14 @@
+struct Foo<T> {
+  y: int;
+
+  fun meth(&self): int {
+    var x: Foo<Foo<T>>;
+    x.y = 42;
+    x.y
+  }
+}
+
+fun main() {
+  var f: Foo<int>;
+  assert(f.meth() == 42);
+}

@@ -38,7 +38,7 @@ impl LiteralExpr {
             return Err(error);
         };
 
-        let result = literal.as_bytes()[0];
+        let result = literal[0];
         let kind = ExpressionKind::Literal(LiteralExpr::Char(result, span));
         Ok(Expression::new(kind, types))
     }
@@ -49,7 +49,10 @@ impl LiteralExpr {
         span: InputSpan,
     ) -> Result<Expression, CompilationError> {
         let literal = unescape(value, span)?;
+        let literal = String::from_utf8(literal)
+            .map_err(|_| CompilationError::literal_not_utf8(SourceOrigin::Plain(span)))?;
         let kind = ExpressionKind::Literal(LiteralExpr::String(literal, span));
+
         Ok(Expression::new(kind, types))
     }
 }
@@ -78,7 +81,7 @@ impl ExpressionKindImpl for LiteralExpr {
     }
 }
 
-fn unescape(text: &str, span: InputSpan) -> Result<String, CompilationError> {
+fn unescape(text: &str, span: InputSpan) -> Result<Vec<u8>, CompilationError> {
     let mut result: Vec<u8> = Vec::new();
 
     let mut text_iter = text.as_bytes().iter();
@@ -108,6 +111,5 @@ fn unescape(text: &str, span: InputSpan) -> Result<String, CompilationError> {
         }
     }
 
-    let result = String::from_utf8(result);
-    result.map_err(|_| CompilationError::literal_not_utf8(SourceOrigin::Plain(span)))
+    Ok(result)
 }

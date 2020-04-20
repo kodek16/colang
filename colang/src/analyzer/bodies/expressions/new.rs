@@ -1,5 +1,4 @@
 use crate::analyzer::type_exprs;
-use crate::errors::CompilationError;
 use crate::program::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 
@@ -13,12 +12,8 @@ pub fn compile_new_expr(
         return program::Expression::error(expression.span);
     }
 
-    if target_type == *context.program.types().void() {
-        let error =
-            CompilationError::new_expression_void_type(SourceOrigin::Plain(expression.span));
-        context.errors.push(error);
-        return program::Expression::error(expression.span);
-    }
+    // `void` cannot be referred to, so an error would have been already reported.
+    assert!(target_type != *context.program.types().void());
 
     program::Expression::new(
         program::ExpressionKind::New(program::NewExpr {

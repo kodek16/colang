@@ -83,7 +83,7 @@ pub trait GlobalVisitor {
         // Type parameter scope.
         context.scope.push();
 
-        for type_parameter in template.borrow().type_parameters() {
+        for type_parameter in template.borrow().type_parameters.iter() {
             let result = context.scope.add_type(Rc::clone(&type_parameter));
             if let Err(error) = result {
                 context.errors.push(error);

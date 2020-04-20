@@ -19,10 +19,7 @@ pub fn compile_is_expr(
     let mut had_errors = false;
     for operand in &[&lhs, &rhs] {
         if !operand.type_().borrow().is_pointer() {
-            let error = CompilationError::is_expr_operand_wrong_type(
-                &operand.type_().borrow().name,
-                operand.location(),
-            );
+            let error = CompilationError::is_expr_operand_wrong_type(operand);
             context.errors.push(error);
             had_errors = true;
         }
@@ -31,8 +28,8 @@ pub fn compile_is_expr(
     if !had_errors {
         if lhs.type_() != rhs.type_() {
             let error = CompilationError::is_expr_type_mismatch(
-                &lhs.type_().borrow().name,
-                &rhs.type_().borrow().name,
+                &lhs,
+                &rhs,
                 SourceOrigin::Plain(expression.span),
             );
             context.errors.push(error);

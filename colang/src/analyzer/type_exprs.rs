@@ -1,7 +1,8 @@
 //! Utilities for analysing type expressions. Used in multiple passes.
 
 use crate::errors::CompilationError;
-use crate::program::{SourceOrigin, Type};
+use crate::program::Type;
+use crate::source::SourceOrigin;
 use crate::{ast, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -87,7 +87,10 @@ pub fn run(config: Config) -> RunResult {
         }
     };
 
-    match config.backend.run(program) {
+    match config
+        .backend
+        .run(&config.source_path, &source_code, program)
+    {
         Ok(()) => RunResult::Ok,
         Err(()) => RunResult::RuntimeError,
     }

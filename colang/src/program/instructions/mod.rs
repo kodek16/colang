@@ -1,4 +1,4 @@
-use crate::program::SourceOrigin;
+use crate::source::SourceOrigin;
 
 pub mod assign;
 pub mod eval;

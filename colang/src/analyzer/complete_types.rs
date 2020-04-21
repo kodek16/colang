@@ -1,9 +1,10 @@
 //! In this pass, all globally referenced types are ensured to be fully complete.
 
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
-use crate::ast::{self, FieldDef, FunctionDef, InputSpan};
+use crate::ast::{self, FieldDef, FunctionDef};
 use crate::errors::CompilationError;
-use crate::program::{Function, SourceOrigin, Type, Variable};
+use crate::program::{Function, Type, Variable};
+use crate::source::{InputSpan, SourceOrigin};
 use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;

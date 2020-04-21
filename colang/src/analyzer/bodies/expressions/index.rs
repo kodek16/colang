@@ -1,7 +1,7 @@
 use super::compile_expression;
 use crate::analyzer::bodies::check_argument_types;
 use crate::errors::CompilationError;
-use crate::program::SourceOrigin;
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 

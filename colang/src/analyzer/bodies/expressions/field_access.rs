@@ -1,6 +1,6 @@
 use super::compile_expression;
 use crate::analyzer::bodies::maybe_deref;
-use crate::program::SourceOrigin;
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 

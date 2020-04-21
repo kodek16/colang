@@ -4,9 +4,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Function, SourceOrigin, Type, TypeTemplate, Variable};
+use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::source::{InputSpan, SourceOrigin};
 
 pub enum NamedEntity {
     Variable(Rc<RefCell<Variable>>),

@@ -1,10 +1,10 @@
-use crate::ast::InputSpan;
 use crate::program::internal::InternalFunctionTag;
 use crate::program::transforms::visitor::CodeVisitor;
 use crate::program::{
     transforms, ArrayFromElementsExpr, CallExpr, Expression, FieldAccessExpr, NewExpr, NullExpr,
-    SourceOrigin, SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
+    SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
 };
+use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

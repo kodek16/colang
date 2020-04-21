@@ -1,4 +1,5 @@
-use crate::program::{Expression, SourceOrigin};
+use crate::program::Expression;
+use crate::source::SourceOrigin;
 
 pub struct WriteInstruction {
     pub expression: Expression,

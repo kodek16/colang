@@ -1,7 +1,8 @@
 use super::compile_expression;
 use crate::analyzer::bodies::{check_argument_types, compile_arguments, maybe_deref};
 use crate::errors::CompilationError;
-use crate::program::{Function, SourceOrigin, ValueCategory};
+use crate::program::{Function, ValueCategory};
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;

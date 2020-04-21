@@ -1,8 +1,7 @@
-use crate::ast::InputSpan;
 use crate::program::{
-    Expression, ExpressionKind, Instruction, SourceOrigin, Type, TypeRegistry, ValueCategory,
-    Variable,
+    Expression, ExpressionKind, Instruction, Type, TypeRegistry, ValueCategory, Variable,
 };
+use crate::source::{InputSpan, SourceOrigin};
 
 use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;

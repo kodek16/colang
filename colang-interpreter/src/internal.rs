@@ -1,6 +1,7 @@
 //! Internal symbols implementation.
 
-use crate::{Lvalue, RunResult, Rvalue, State, Value};
+use crate::errors::{RunResult, RuntimeError};
+use crate::{Lvalue, Rvalue, State, Value};
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::rc::Rc;
@@ -10,8 +11,7 @@ pub fn assert(mut arguments: Vec<Value>) -> RunResult<Value> {
 
     let value = value.into_rvalue().as_bool();
     if !value {
-        let error = "Assertion failed";
-        return Err(error.into());
+        return Err(RuntimeError::new("Assertion failed", None));
     }
     Ok(Value::Rvalue(Rvalue::Void))
 }
@@ -26,7 +26,10 @@ pub fn ascii_char(mut arguments: Vec<Value>) -> RunResult<Value> {
     let result = u8::try_from(code);
     match result {
         Ok(char) => Ok(Value::Rvalue(Rvalue::Char(char))),
-        Err(_) => Err(format!("`{}` is not a valid ASCII code", code).into()),
+        Err(_) => Err(RuntimeError::new(
+            format!("\"{}\" is not a valid ASCII code", code),
+            None,
+        )),
     }
 }
 
@@ -89,12 +92,15 @@ pub fn read_int(mut arguments: Vec<Value>, state: &mut State) -> RunResult<Value
         .pop()
         .unwrap()
         .into_rvalue()
-        .into_pointer_unwrap()?;
+        .into_pointer_unwrap(None)?;
 
-    let word = state.cin.read_word()?;
-    let new_value: i32 = word
-        .parse()
-        .map_err(|_| format!("Could not parse `{}` to an integer.", word))?;
+    let word = state
+        .cin
+        .read_word()
+        .map_err(|error| RuntimeError::new(error, None))?;
+    let new_value: i32 = word.parse().map_err(|_| {
+        RuntimeError::new(format!("Could not parse \"{}\" to an integer", word), None)
+    })?;
     *target.borrow_mut() = Rvalue::Int(new_value);
     Ok(Value::Rvalue(Rvalue::Void))
 }
@@ -110,9 +116,12 @@ pub fn read_word(mut arguments: Vec<Value>, state: &mut State) -> RunResult<Valu
         .pop()
         .unwrap()
         .into_rvalue()
-        .into_pointer_unwrap()?;
+        .into_pointer_unwrap(None)?;
 
-    let word = state.cin.read_word()?;
+    let word = state
+        .cin
+        .read_word()
+        .map_err(|error| RuntimeError::new(error, None))?;
 
     let result = word
         .as_bytes()
@@ -171,7 +180,7 @@ pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {
         .pop()
         .unwrap()
         .into_rvalue()
-        .into_pointer_to_self()?;
+        .into_pointer_to_self(None)?;
 
     array_pointer
         .detach()
@@ -186,17 +195,14 @@ pub fn array_pop(mut arguments: Vec<Value>) -> RunResult<Value> {
         .pop()
         .unwrap()
         .into_rvalue()
-        .into_pointer_to_self()?;
+        .into_pointer_to_self(None)?;
     let result = array_pointer.detach().into_array().borrow_mut().pop();
     match result {
         Some(result) => {
             let rvalue = result.detach();
             Ok(Value::Rvalue(rvalue))
         }
-        None => {
-            let error = "Cannot pop from empty array";
-            Err(error.into())
-        }
+        None => Err(RuntimeError::new("Cannot pop from empty array", None)),
     }
 }
 
@@ -213,11 +219,11 @@ pub fn array_index(mut arguments: Vec<Value>) -> RunResult<Value> {
 
     if index < 0 || index >= array.len() as i32 {
         let error = format!(
-            "array index out of bounds: array size is {}, index is {}",
+            "Array index out of bounds: array size is {}, index is {}",
             array.len(),
             index
         );
-        return Err(error.into());
+        return Err(RuntimeError::new(error, None));
     }
 
     Ok(Value::Rvalue(Rvalue::Pointer(Some(

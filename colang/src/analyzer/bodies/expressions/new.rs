@@ -1,5 +1,5 @@
 use crate::analyzer::type_exprs;
-use crate::program::SourceOrigin;
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 
 pub fn compile_new_expr(

@@ -1,6 +1,7 @@
 use crate::errors::CompilationError;
 use crate::program::instructions::Instruction;
-use crate::program::{Expression, SourceOrigin, ValueCategory};
+use crate::program::{Expression, ValueCategory};
+use crate::source::SourceOrigin;
 
 pub struct AssignInstruction {
     pub target: Box<Expression>,

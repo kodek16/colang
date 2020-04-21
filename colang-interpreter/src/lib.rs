@@ -1,34 +1,31 @@
 //! Interpreter backend for CO can run the code right after it is compiled.
 
 mod cin;
+mod errors;
 mod internal;
 mod values;
 
+use crate::errors::{RunResult, RuntimeError};
 use crate::values::{Lvalue, Rvalue, Value};
 use cin::Cin;
 use colang::backends::Backend;
 use colang::program::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::error::Error;
-use std::ops::Deref;
 use std::rc::Rc;
 
 pub struct InterpreterBackend;
 
 impl Backend for InterpreterBackend {
-    fn run(&self, program: Program) -> Result<(), ()> {
+    fn run(&self, file_name: &str, source: &str, program: Program) -> Result<(), ()> {
         let mut state = State::new();
 
         let main = program.main_function();
-        let result = run_user_function(main, &mut state);
+        let result = run_user_function(&main.borrow(), &mut state);
         match result {
             Ok(_) => Ok(()),
             Err(error) => {
-                eprintln!(
-                    "Error occurred while running the program:\n{}",
-                    error.to_string()
-                );
+                error.print_backtrace(file_name, source, main);
                 Err(())
             }
         }
@@ -75,12 +72,7 @@ impl State {
     }
 }
 
-type RunResult<T> = Result<T, Box<dyn Error>>;
-
-fn run_user_function(
-    function: impl Deref<Target = Function>,
-    state: &mut State,
-) -> RunResult<Value> {
+fn run_user_function(function: &Function, state: &mut State) -> RunResult<Value> {
     let body = function.body();
     let body = body.borrow();
     run_expression(&body, state)
@@ -130,7 +122,7 @@ fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()
 
 fn run_write(instruction: &WriteInstruction, state: &mut State) -> RunResult<()> {
     let value = run_expression(&instruction.expression, state)?.into_rvalue();
-    print!("{}", value.as_utf8_string()?);
+    print!("{}", value.as_utf8_string());
     Ok(())
 }
 
@@ -204,7 +196,7 @@ fn run_address_expr(expression: &AddressExpr, state: &mut State) -> RunResult<Va
 fn run_deref_expr(expression: &DerefExpr, state: &mut State) -> RunResult<Value> {
     let lvalue = run_expression(&expression.pointer, state)?
         .into_rvalue()
-        .into_pointer_unwrap()?;
+        .into_pointer_unwrap(Some(expression.pointer.location()))?;
     Ok(Value::Lvalue(lvalue))
 }
 
@@ -259,8 +251,10 @@ fn run_array_from_copy_expr(expression: &ArrayFromCopyExpr, state: &mut State) -
         .as_int();
 
     if size <= 0 {
-        let error = format!("attempted to create array of non-positive size: {}", size);
-        return Err(error.into());
+        return Err(RuntimeError::new(
+            format!("Attempted to create array of non-positive size: {}", size),
+            Some(expression.size.location()),
+        ));
     }
     let size = size as usize;
 
@@ -297,7 +291,12 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
         .collect();
     let arguments = arguments?;
 
-    match function.id {
+    // Currently we make a copy of all arguments for every call, so that they could be later
+    // used for error reporting in case an error occurs. Need to benchmark how big of an impact
+    // this makes on performance, and consider switching to a faster unwinding model like GDB.
+    let arguments_for_backtrace = arguments.clone();
+
+    let result = match function.id {
         FunctionId::Internal(ref tag) => run_internal_function(tag, arguments, state),
         _ => {
             let parameters = function.parameters.iter();
@@ -307,7 +306,7 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
                 state.push(variable_id, value.into_rvalue())
             }
 
-            let function_result = run_user_function(expression.function.borrow(), state);
+            let function_result = run_user_function(&expression.function.borrow(), state);
 
             for parameter in function.parameters.iter() {
                 let variable_id = parameter.borrow().id.clone();
@@ -316,7 +315,9 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
 
             function_result
         }
-    }
+    };
+
+    result.map_err(|error| error.annotate_stack_frame(expression, arguments_for_backtrace))
 }
 
 fn run_field_access_expr(expression: &FieldAccessExpr, state: &mut State) -> RunResult<Value> {

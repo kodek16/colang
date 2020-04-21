@@ -1,5 +1,6 @@
 use crate::analyzer::bodies::expressions::compile_expression;
-use crate::program::{BlockBuilder, SourceOrigin};
+use crate::program::BlockBuilder;
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 

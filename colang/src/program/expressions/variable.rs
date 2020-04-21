@@ -1,5 +1,6 @@
 use crate::program::expressions::ExpressionKindImpl;
-use crate::program::{SourceOrigin, Type, TypeRegistry, ValueCategory, Variable};
+use crate::program::{Type, TypeRegistry, ValueCategory, Variable};
+use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 

@@ -4,9 +4,9 @@
 use crate::analyzer::type_exprs;
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
 use crate::ast;
-use crate::ast::{InputSpan, StructDef};
 use crate::errors::CompilationError;
-use crate::program::{Function, SourceOrigin, Type, TypeTemplate, Variable};
+use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::source::{InputSpan, SourceOrigin};
 use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -22,7 +22,7 @@ impl GlobalStructureAnalyzerPass {
 impl GlobalVisitor for GlobalStructureAnalyzerPass {
     fn revisit_non_template_struct_def(
         &mut self,
-        _: &mut StructDef,
+        _: &mut ast::StructDef,
         type_: Rc<RefCell<Type>>,
         context: &mut CompilerContext,
     ) {
@@ -34,7 +34,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
 
     fn revisit_template_struct_def(
         &mut self,
-        _: &mut StructDef,
+        _: &mut ast::StructDef,
         _: Rc<RefCell<TypeTemplate>>,
         base_type: Rc<RefCell<Type>>,
         context: &mut CompilerContext,

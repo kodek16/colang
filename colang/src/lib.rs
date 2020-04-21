@@ -10,15 +10,16 @@ mod scope;
 pub mod backends;
 pub mod errors;
 pub mod program;
+pub mod source;
 pub mod stdlib;
 lalrpop_mod!(pub grammar);
 
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
-use crate::ast::{InputSpan, InputSpanFile};
 use crate::errors::CompilationError;
 use crate::program::transforms::valid::ValidityChecker;
 use crate::program::{Function, Type, TypeTemplate, Variable};
 use crate::scope::Scope;
+use crate::source::{InputSpan, InputSpanFile};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

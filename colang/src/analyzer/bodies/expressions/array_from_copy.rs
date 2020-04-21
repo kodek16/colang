@@ -1,6 +1,7 @@
 use super::compile_expression;
 use crate::errors::CompilationError;
-use crate::program::{ExpressionKind, SourceOrigin};
+use crate::program::ExpressionKind;
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 

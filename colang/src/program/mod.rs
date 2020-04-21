@@ -7,14 +7,12 @@ mod expressions;
 mod function;
 mod instructions;
 pub(crate) mod internal;
-mod origin;
 pub mod transforms;
 mod typing;
 mod variable;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::rc::Rc;
 
 /// Every distinct named entity in the program receives a unique ID.
@@ -109,11 +107,12 @@ impl Program {
         self.user_functions.iter()
     }
 
-    pub fn main_function(&self) -> impl Deref<Target = Function> + '_ {
-        self.main_function
-            .as_ref()
-            .expect("`main` function has not been specified")
-            .borrow()
+    pub fn main_function(&self) -> Rc<RefCell<Function>> {
+        Rc::clone(
+            self.main_function
+                .as_ref()
+                .expect("`main` function has not been specified"),
+        )
     }
 }
 
@@ -122,8 +121,6 @@ pub enum ValueCategory {
     Lvalue,
     Rvalue,
 }
-
-pub use origin::SourceOrigin;
 
 pub use expressions::address::AddressExpr;
 pub use expressions::array_from_copy::ArrayFromCopyExpr;

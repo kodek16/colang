@@ -1,9 +1,33 @@
-use crate::ast::InputSpan;
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+pub struct InputSpan {
+    pub file: InputSpanFile,
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+pub enum InputSpanFile {
+    UserProgram,
+    Std,
+}
+
+impl InputSpan {
+    /// Returns a span for the first character of the file.
+    /// Can be useful as a placeholder, when the caller is sure that the span is not going
+    /// to be displayed to the end user.
+    pub fn top_of_file() -> InputSpan {
+        InputSpan {
+            file: InputSpanFile::UserProgram,
+            start: 0,
+            end: 1,
+        }
+    }
+}
 
 /// Represents the original location in source code of some target language expression or statement.
 /// If an expression was synthesised (e.g. through auto-deref), this information is also contained
 /// in its `SourceOrigin`.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum SourceOrigin {
     /// Object is directly backed by source code.
     Plain(InputSpan),

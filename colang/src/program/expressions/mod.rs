@@ -1,5 +1,5 @@
-use crate::ast::InputSpan;
-use crate::program::{SourceOrigin, Type, TypeRegistry, ValueCategory};
+use crate::program::{Type, TypeRegistry, ValueCategory};
+use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;
 use std::rc::Rc;
 

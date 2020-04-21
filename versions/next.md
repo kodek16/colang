@@ -5,3 +5,5 @@
 - Added more context in error messages: auxiliary source code locations
   are now highlighted, for example for name conflicts the previous definition
   is shown, for argument type mismatch - the parameter definition, etc.
+- Added call stack traces for runtime errors: when an error occurs, the
+  function call stack that led to it is dumped to console.

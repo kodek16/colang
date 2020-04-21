@@ -5,9 +5,9 @@ mod statements;
 
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
-use crate::ast::{FunctionDef, InputSpan};
 use crate::errors::CompilationError;
-use crate::program::{Function, FunctionBody, SourceOrigin, Type, Variable};
+use crate::program::{Function, FunctionBody, Type, Variable};
+use crate::source::{InputSpan, SourceOrigin};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::iter;
@@ -24,7 +24,7 @@ impl BodiesAnalyzerPass {
 impl GlobalVisitor for BodiesAnalyzerPass {
     fn revisit_method_def(
         &mut self,
-        method_def: &mut FunctionDef,
+        method_def: &mut ast::FunctionDef,
         current_type: &Rc<RefCell<Type>>,
         method: Rc<RefCell<Function>>,
         context: &mut CompilerContext,
@@ -65,7 +65,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
 
     fn revisit_function_def(
         &mut self,
-        function_def: &mut FunctionDef,
+        function_def: &mut ast::FunctionDef,
         function: Rc<RefCell<Function>>,
         context: &mut CompilerContext,
     ) {

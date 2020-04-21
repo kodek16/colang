@@ -1,6 +1,7 @@
 use super::compile_expression;
 use crate::errors::CompilationError;
-use crate::program::{SourceOrigin, Type};
+use crate::program::Type;
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -13,6 +14,10 @@ pub fn compile_deref_expr(
     let hint = type_hint.map(|hint| context.program.types_mut().pointer_to(&hint));
 
     let pointer = compile_expression(*expression.pointer, hint, context);
+
+    if pointer.type_().borrow().is_error() {
+        return program::Expression::error(expression.span);
+    }
 
     if !pointer.type_().borrow().is_pointer() {
         let error = CompilationError::can_only_dereference_pointer(&pointer);

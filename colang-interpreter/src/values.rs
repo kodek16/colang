@@ -1,5 +1,7 @@
-use crate::{panic_wrong_type, RunResult};
+use crate::errors::{RunResult, RuntimeError};
+use crate::panic_wrong_type;
 use colang::program::VariableId;
+use colang::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
@@ -106,7 +108,7 @@ impl Rvalue {
         }
     }
 
-    pub fn as_utf8_string(&self) -> RunResult<String> {
+    pub fn as_utf8_string(&self) -> String {
         match self {
             Rvalue::Array(v) => {
                 let chars = v
@@ -117,7 +119,7 @@ impl Rvalue {
                         _ => panic_wrong_type("char", ch.detach().type_()),
                     })
                     .collect();
-                String::from_utf8(chars).map_err(|_| "string is not a valid UTF-8 sequence".into())
+                String::from_utf8(chars).expect("string is not a valid UTF-8 sequence")
             }
             _ => panic_wrong_type("array", self.type_()),
         }
@@ -130,23 +132,20 @@ impl Rvalue {
         }
     }
 
-    pub fn into_pointer_unwrap(self) -> RunResult<Lvalue> {
+    pub fn into_pointer_unwrap(self, location: Option<SourceOrigin>) -> RunResult<Lvalue> {
         match self.into_pointer() {
             Some(pointer) => Ok(pointer),
-            None => {
-                let error = "attempt to dereference null pointer";
-                return Err(error.into());
-            }
+            None => Err(RuntimeError::new(
+                "Attempt to dereference null pointer",
+                location,
+            )),
         }
     }
 
-    pub fn into_pointer_to_self(self) -> RunResult<Lvalue> {
+    pub fn into_pointer_to_self(self, location: Option<SourceOrigin>) -> RunResult<Lvalue> {
         match self.into_pointer() {
             Some(pointer) => Ok(pointer),
-            None => {
-                let error = "`self` is null in method";
-                return Err(error.into());
-            }
+            None => Err(RuntimeError::new("`self` is null in method", location)),
         }
     }
 

@@ -1,9 +1,9 @@
 //! CO types and their properties are defined in this module.
 
-use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Function, Program, SourceOrigin, SymbolId, Variable};
+use crate::program::{Function, Program, SymbolId, Variable};
 use crate::scope::Scope;
+use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

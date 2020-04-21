@@ -1,5 +1,5 @@
-use crate::program::Instruction;
-use crate::program::{Expression, SourceOrigin};
+use crate::program::{Expression, Instruction};
+use crate::source::SourceOrigin;
 
 pub struct WhileInstruction {
     pub cond: Box<Expression>,

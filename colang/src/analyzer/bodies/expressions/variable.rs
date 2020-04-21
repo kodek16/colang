@@ -1,4 +1,4 @@
-use crate::program::SourceOrigin;
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 

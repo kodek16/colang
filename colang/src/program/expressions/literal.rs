@@ -1,6 +1,6 @@
-use crate::ast::InputSpan;
 use crate::errors::CompilationError;
-use crate::program::{Expression, ExpressionKind, SourceOrigin, Type, TypeRegistry, ValueCategory};
+use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
+use crate::source::{InputSpan, SourceOrigin};
 
 use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;

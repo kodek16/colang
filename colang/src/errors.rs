@@ -3,12 +3,9 @@
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::ast;
-use crate::ast::InputSpanFile;
-use crate::program::{
-    Expression, ExpressionKind, Function, SourceOrigin, Type, TypeTemplate, Variable,
-};
+use crate::program::{Expression, ExpressionKind, Function, Type, TypeTemplate, Variable};
 use crate::scope::{NamedEntity, NamedEntityKind};
-use ast::InputSpan;
+use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
 use ast::ParseError;
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -1,5 +1,6 @@
 use crate::analyzer::bodies::{check_argument_types, compile_arguments};
-use crate::program::{Function, SourceOrigin};
+use crate::program::Function;
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;

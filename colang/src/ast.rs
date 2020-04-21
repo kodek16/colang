@@ -1,6 +1,7 @@
 //! Abstract syntax tree representation. This is the interface
 //! between the parser (LALRPOP) and the rest of the front-end.
 
+use crate::source::InputSpan;
 use std::fmt::{self, Display, Formatter};
 
 pub type ParseError<'a> =
@@ -596,30 +597,4 @@ pub struct Identifier {
     pub text: String,
 
     pub span: InputSpan,
-}
-
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-pub struct InputSpan {
-    pub file: InputSpanFile,
-    pub start: usize,
-    pub end: usize,
-}
-
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-pub enum InputSpanFile {
-    UserProgram,
-    Std,
-}
-
-impl InputSpan {
-    /// Returns a span for the first character of the file.
-    /// Can be useful as a placeholder, when the caller is sure that the span is not going
-    /// to be displayed to the end user.
-    pub fn top_of_file() -> InputSpan {
-        InputSpan {
-            file: InputSpanFile::UserProgram,
-            start: 0,
-            end: 1,
-        }
-    }
 }

@@ -1,7 +1,8 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::type_exprs;
 use crate::errors::CompilationError;
-use crate::program::{BlockBuilder, SourceOrigin, Type, Variable};
+use crate::program::{BlockBuilder, Type, Variable};
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;

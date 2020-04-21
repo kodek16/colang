@@ -1,6 +1,7 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::errors::CompilationError;
-use crate::program::{BlockBuilder, InternalFunctionTag, SourceOrigin, TypeId};
+use crate::program::{BlockBuilder, InternalFunctionTag, TypeId};
+use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 

@@ -1,8 +1,8 @@
-use crate::ast::InputSpan;
 use crate::program::function::ProtoInternalParameter;
 use crate::program::{
     FunctionId, InternalFunctionTag, Program, SymbolId, Type, TypeId, TypeRegistry,
 };
+use crate::source::InputSpan;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

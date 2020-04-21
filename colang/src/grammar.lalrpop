@@ -340,6 +340,8 @@ Expr3Op: BinaryOperator = {
 Expr2 = LeftAssocBinaryOpExprTier<Expr2Op, Expr1>;
 Expr2Op: BinaryOperator = {
     "*" => BinaryOperator::Mul,
+    "/" => BinaryOperator::Div,
+    "%" => BinaryOperator::Mod,
 }
 
 Expr1: Expression = {

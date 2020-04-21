@@ -7,3 +7,5 @@
   is shown, for argument type mismatch - the parameter definition, etc.
 - Added call stack traces for runtime errors: when an error occurs, the
   function call stack that led to it is dumped to console.
+- Added division and modulo - `/` and `%` operators for type `int`.
+  Division by zero causes a runtime error.

@@ -17,6 +17,8 @@ pub enum InternalFunctionTag {
     AddInt,
     SubInt,
     MulInt,
+    DivInt,
+    ModInt,
     LessInt,
     GreaterInt,
     LessEqInt,
@@ -49,6 +51,8 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
         create_add_int_function(program.types()),
         create_sub_int_function(program.types()),
         create_mul_int_function(program.types()),
+        create_div_int_function(program.types()),
+        create_mod_int_function(program.types()),
         create_less_int_function(program.types()),
         create_greater_int_function(program.types()),
         create_less_eq_int_function(program.types()),
@@ -168,6 +172,30 @@ fn create_mul_int_function(types: &TypeRegistry) -> Function {
     Function::new_internal(
         "(*)".to_string(),
         InternalFunctionTag::MulInt,
+        vec![
+            internal_param("lhs", types.int()),
+            internal_param("rhs", types.int()),
+        ],
+        Rc::clone(types.int()),
+    )
+}
+
+fn create_div_int_function(types: &TypeRegistry) -> Function {
+    Function::new_internal(
+        "(/)".to_string(),
+        InternalFunctionTag::DivInt,
+        vec![
+            internal_param("lhs", types.int()),
+            internal_param("rhs", types.int()),
+        ],
+        Rc::clone(types.int()),
+    )
+}
+
+fn create_mod_int_function(types: &TypeRegistry) -> Function {
+    Function::new_internal(
+        "(%)".to_string(),
+        InternalFunctionTag::ModInt,
         vec![
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),

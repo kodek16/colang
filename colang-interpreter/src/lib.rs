@@ -91,6 +91,8 @@ fn run_internal_function(
         AddInt => internal::add_int(arguments),
         SubInt => internal::sub_int(arguments),
         MulInt => internal::mul_int(arguments),
+        DivInt => internal::div_int(arguments),
+        ModInt => internal::mod_int(arguments),
         LessInt => internal::less_int(arguments),
         GreaterInt => internal::greater_int(arguments),
         LessEqInt => internal::less_eq_int(arguments),

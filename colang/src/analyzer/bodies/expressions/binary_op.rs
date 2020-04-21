@@ -46,6 +46,8 @@ fn compile_method_backed_binary_op_expr(
         },
         ast::BinaryOperator::Sub => Some(InternalFunctionTag::SubInt),
         ast::BinaryOperator::Mul => Some(InternalFunctionTag::MulInt),
+        ast::BinaryOperator::Div => Some(InternalFunctionTag::DivInt),
+        ast::BinaryOperator::Mod => Some(InternalFunctionTag::ModInt),
         ast::BinaryOperator::Less => Some(InternalFunctionTag::LessInt),
         ast::BinaryOperator::Greater => Some(InternalFunctionTag::GreaterInt),
         ast::BinaryOperator::LessEq => Some(InternalFunctionTag::LessEqInt),

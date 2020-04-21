@@ -51,6 +51,26 @@ pub fn mul_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     Ok(Value::Rvalue(Rvalue::Int(lhs * rhs)))
 }
 
+pub fn div_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let rhs = arguments.pop().unwrap().into_rvalue().as_int();
+    let lhs = arguments.pop().unwrap().into_rvalue().as_int();
+    if rhs != 0 {
+        Ok(Value::Rvalue(Rvalue::Int(lhs / rhs)))
+    } else {
+        Err(RuntimeError::new("Division by zero", None))
+    }
+}
+
+pub fn mod_int(mut arguments: Vec<Value>) -> RunResult<Value> {
+    let rhs = arguments.pop().unwrap().into_rvalue().as_int();
+    let lhs = arguments.pop().unwrap().into_rvalue().as_int();
+    if rhs != 0 {
+        Ok(Value::Rvalue(Rvalue::Int(lhs % rhs)))
+    } else {
+        Err(RuntimeError::new("Division by zero", None))
+    }
+}
+
 pub fn less_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     let rhs = arguments.pop().unwrap().into_rvalue().as_int();
     let lhs = arguments.pop().unwrap().into_rvalue().as_int();

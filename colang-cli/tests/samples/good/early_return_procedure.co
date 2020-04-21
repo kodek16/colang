@@ -1,0 +1,11 @@
+fun foo(x: int) {
+  if (x == 4) {
+    return;
+  }
+
+  assert(false);
+}
+
+fun main() {
+  foo(4);
+}

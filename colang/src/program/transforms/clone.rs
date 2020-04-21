@@ -41,6 +41,7 @@ fn clone_instruction(instruction: &Instruction, context: &mut CloneContext) -> I
     match instruction {
         Assign(instruction) => Assign(clone_assign_instruction(instruction, context)),
         Eval(instruction) => Eval(clone_eval_instruction(instruction, context)),
+        Return(instruction) => Return(clone_return_instruction(instruction, context)),
         While(instruction) => While(clone_while_instruction(instruction, context)),
         Write(instruction) => Write(clone_write_instruction(instruction, context)),
     }
@@ -63,6 +64,16 @@ fn clone_eval_instruction(
 ) -> EvalInstruction {
     EvalInstruction {
         expression: Box::new(clone_expression(&instruction.expression, context)),
+    }
+}
+
+fn clone_return_instruction(
+    instruction: &ReturnInstruction,
+    context: &mut CloneContext,
+) -> ReturnInstruction {
+    ReturnInstruction {
+        expression: clone_expression(&instruction.expression, context),
+        location: instruction.location,
     }
 }
 

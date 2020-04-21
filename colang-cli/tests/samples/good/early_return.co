@@ -1,0 +1,12 @@
+fun foo(x: int): string {
+  if (x == 4) {
+    return "four";
+  }
+
+  "not four"
+}
+
+fun main() {
+  assert(foo(4) == "four");
+  assert(foo(3) == "not four");
+}

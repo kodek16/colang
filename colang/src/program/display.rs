@@ -124,6 +124,7 @@ impl ToSexp for Instruction {
             Instruction::While(instruction) => instruction.to_sexp(),
             Instruction::Assign(instruction) => instruction.to_sexp(),
             Instruction::Eval(instruction) => instruction.to_sexp(),
+            Instruction::Return(instruction) => instruction.to_sexp(),
         }
     }
 }
@@ -153,6 +154,12 @@ impl ToSexp for AssignInstruction {
 impl ToSexp for EvalInstruction {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(sexp_str!("eval"), self.expression.to_sexp())
+    }
+}
+
+impl ToSexp for ReturnInstruction {
+    fn to_sexp(&self) -> Sexp {
+        sexp_list!(sexp_str!("return"), self.expression.to_sexp())
     }
 }
 

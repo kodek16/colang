@@ -1,7 +1,7 @@
 //! Internal symbols implementation.
 
-use crate::errors::{RunResult, RuntimeError};
-use crate::{Lvalue, Rvalue, State, Value};
+use crate::errors::RuntimeError;
+use crate::{Lvalue, RunResult, Rvalue, State, Value};
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::rc::Rc;

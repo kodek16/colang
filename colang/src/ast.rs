@@ -126,6 +126,7 @@ pub enum Statement {
     Write(WriteStmt),
     While(WhileStmt),
     Assign(AssignStmt),
+    Return(ReturnStmt),
     Expr(ExprStmt),
 }
 
@@ -179,6 +180,13 @@ pub struct WhileStmt {
 pub struct AssignStmt {
     pub lhs: Box<Expression>,
     pub rhs: Box<Expression>,
+
+    pub span: InputSpan,
+}
+
+#[derive(Debug)]
+pub struct ReturnStmt {
+    pub expression: Option<Expression>,
 
     pub span: InputSpan,
 }

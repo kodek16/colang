@@ -1,5 +1,6 @@
-use crate::errors::{RunResult, RuntimeError};
+use crate::errors::RuntimeError;
 use crate::panic_wrong_type;
+use crate::RunResult;
 use colang::program::VariableId;
 use colang::source::SourceOrigin;
 use std::cell::RefCell;

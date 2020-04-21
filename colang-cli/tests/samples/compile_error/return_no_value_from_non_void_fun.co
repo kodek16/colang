@@ -1,0 +1,11 @@
+fun foo(x: int): string {
+  if (x == 4) {
+    return;
+  }
+
+  "not four"
+}
+
+fun main() {
+  foo(4);
+}

@@ -1,6 +1,7 @@
 mod assign;
 mod expr;
 mod read;
+mod return_;
 mod var_decl;
 mod while_;
 mod write;
@@ -19,6 +20,7 @@ pub fn compile_statement(
         ast::Statement::Write(s) => write::compile_write_stmt(s, current_block, context),
         ast::Statement::While(s) => while_::compile_while_stmt(s, current_block, context),
         ast::Statement::Assign(s) => assign::compile_assign_stmt(s, current_block, context),
+        ast::Statement::Return(s) => return_::compile_return_stmt(s, current_block, context),
         ast::Statement::Expr(s) => expr::compile_expr_stmt(s, current_block, context),
     }
 }

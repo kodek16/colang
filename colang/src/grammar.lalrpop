@@ -142,6 +142,13 @@ StmtNotExpr: Statement = {
         })
     },
 
+    <start:@L> KwReturn <expression:Expr?> ";" <end:@R> => {
+        Statement::Return(ReturnStmt {
+            expression,
+            span: InputSpan { file, start, end },
+        })
+    },
+
     <start: @L> <lhs:Expr> "=" <rhs:Expr> ";" <end: @R> => {
         Statement::Assign(AssignStmt {
             lhs: Box::new(lhs),
@@ -639,6 +646,7 @@ KwSelf: () = { "self" }
 KwNew: () = { "new" }
 KwIs: () = { "is" }
 KwNull: () = { "null" }
+KwReturn: () = { "return" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {

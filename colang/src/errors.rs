@@ -76,6 +76,7 @@ impl CompilationError {
                 span,
                 Some("block has type `void` because it is does not contain a finishing expression"),
             ),
+            SourceOrigin::MissingReturnValue(span) => (span, Some("return value is not specified")),
         };
 
         let location_note = location_note.map(|note| (location, note.to_string()));
@@ -398,6 +399,49 @@ impl CompilationError {
         .maybe_with_type_explanation(initializer)
     }
 
+    pub fn return_stmt_with_value_in_void_function(
+        function: &Function,
+        expression: &Expression,
+    ) -> CompilationError {
+        CompilationError::new(
+            "E9043",
+            format!(
+                "cannot return a value from function `{}` with no return type",
+                function.name
+            ),
+        )
+        .with_location(expression.location())
+        .with_subtitle("unexpected value in `return`")
+        .with_bound_note(
+            function.definition_site.unwrap(),
+            format!("function `{}` defined with no return type", function.name),
+        )
+    }
+
+    pub fn return_stmt_without_value_in_non_void_function(
+        function: &Function,
+        location: SourceOrigin,
+    ) -> CompilationError {
+        let return_type = function.return_type.borrow();
+
+        CompilationError::new(
+            "E9044",
+            format!(
+                "`return` must specify a return value of type `{}` in function `{}`",
+                return_type.name, function.name
+            ),
+        )
+        .with_location(location)
+        .with_subtitle(format!("expected a value of type `{}`", return_type.name))
+        .with_bound_note(
+            function.definition_site.unwrap(),
+            format!(
+                "function `{}` defined with return type `{}`",
+                function.name, return_type.name
+            ),
+        )
+    }
+
     // TODO: remove after void-sanity is achieved
     pub fn if_expression_missing_else(then_type: &str, location: SourceOrigin) -> CompilationError {
         CompilationError::new(
@@ -458,6 +502,33 @@ impl CompilationError {
             return_type.name
         ))
         .maybe_with_type_explanation(body)
+    }
+
+    pub fn return_statement_type_mismatch(
+        function: &Function,
+        expression: &Expression,
+    ) -> CompilationError {
+        let expression_type = expression.type_().borrow();
+        let return_type = function.return_type.borrow();
+
+        CompilationError::new(
+            "E9042",
+            format!(
+                "cannot return a value of type `{}` from a function that returns `{}`",
+                expression_type.name, return_type.name
+            ),
+        )
+        .with_location(expression.location())
+        .with_subtitle(format!("has type `{}`", expression_type.name))
+        .maybe_with_type_explanation(expression)
+        .with_bound_note(
+            // TODO point at return type exactly, and not at the whole signature.
+            function.definition_site.unwrap(),
+            format!(
+                "function is defined with return type `{}`",
+                return_type.name
+            ),
+        )
     }
 
     pub fn if_expression_branch_type_mismatch(
@@ -897,7 +968,7 @@ impl CompilationError {
         CompilationError::new("E9041", "`main` function not found: you must define one")
     }
 
-    // Next code: E9042.
+    // Next code: E9045.
 }
 
 fn maybe_explain_expression_type(expression: &Expression, error: &mut CompilationError) {

@@ -5,7 +5,7 @@ mod errors;
 mod internal;
 mod values;
 
-use crate::errors::{RunResult, RuntimeError};
+use crate::errors::RuntimeError;
 use crate::values::{Lvalue, Rvalue, Value};
 use cin::Cin;
 use colang::backends::Backend;
@@ -24,12 +24,20 @@ impl Backend for InterpreterBackend {
         let result = run_user_function(&main.borrow(), &mut state);
         match result {
             Ok(_) => Ok(()),
-            Err(error) => {
+            Err(EarlyExit::EarlyReturn(_)) => Ok(()),
+            Err(EarlyExit::Error(error)) => {
                 error.print_backtrace(file_name, source, main);
                 Err(())
             }
         }
     }
+}
+
+type RunResult<T> = Result<T, EarlyExit>;
+
+pub enum EarlyExit {
+    EarlyReturn(Value),
+    Error(RuntimeError),
 }
 
 pub struct State {
@@ -119,6 +127,7 @@ fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()
         Instruction::While(ref s) => run_while(s, state),
         Instruction::Assign(ref s) => run_assign(s, state),
         Instruction::Eval(ref s) => run_eval(s, state),
+        Instruction::Return(ref s) => run_return(s, state),
     }
 }
 
@@ -151,6 +160,11 @@ fn run_assign(instruction: &AssignInstruction, state: &mut State) -> RunResult<(
 fn run_eval(instruction: &EvalInstruction, state: &mut State) -> RunResult<()> {
     let _ = run_expression(&instruction.expression, state)?;
     Ok(())
+}
+
+fn run_return(instruction: &ReturnInstruction, state: &mut State) -> RunResult<()> {
+    let value = run_expression(&instruction.expression, state)?;
+    Err(EarlyExit::EarlyReturn(value))
 }
 
 fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value> {
@@ -319,7 +333,13 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
         }
     };
 
-    result.map_err(|error| error.annotate_stack_frame(expression, arguments_for_backtrace))
+    match result {
+        Ok(value) => Ok(value),
+        Err(EarlyExit::EarlyReturn(value)) => Ok(value),
+        Err(EarlyExit::Error(error)) => Err(EarlyExit::Error(
+            error.annotate_stack_frame(expression, arguments_for_backtrace),
+        )),
+    }
 }
 
 fn run_field_access_expr(expression: &FieldAccessExpr, state: &mut State) -> RunResult<Value> {

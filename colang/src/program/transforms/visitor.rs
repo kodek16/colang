@@ -17,6 +17,7 @@ pub trait CodeVisitor {
             Instruction::While(instruction) => self.visit_while(instruction),
             Instruction::Assign(instruction) => self.visit_assign(instruction),
             Instruction::Eval(instruction) => self.visit_eval(instruction),
+            Instruction::Return(instruction) => self.visit_return(instruction),
         }
     }
 
@@ -51,6 +52,14 @@ pub trait CodeVisitor {
     }
 
     fn walk_eval(&mut self, instruction: &mut EvalInstruction) {
+        self.visit_expression(&mut instruction.expression);
+    }
+
+    fn visit_return(&mut self, instruction: &mut ReturnInstruction) {
+        self.walk_return(instruction);
+    }
+
+    fn walk_return(&mut self, instruction: &mut ReturnInstruction) {
         self.visit_expression(&mut instruction.expression);
     }
 

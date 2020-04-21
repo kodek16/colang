@@ -1,10 +1,9 @@
 use crate::values::{Rvalue, Value};
+use crate::EarlyExit;
 use colang::program::{CallExpr, Function};
 use colang::source::{InputSpanFile, SourceOrigin};
 use std::cell::RefCell;
 use std::rc::Rc;
-
-pub type RunResult<T> = Result<T, RuntimeError>;
 
 pub struct RuntimeError {
     message: String,
@@ -16,12 +15,12 @@ pub struct RuntimeError {
 }
 
 impl RuntimeError {
-    pub fn new(message: impl Into<String>, location: Option<SourceOrigin>) -> RuntimeError {
-        RuntimeError {
+    pub fn new(message: impl Into<String>, location: Option<SourceOrigin>) -> EarlyExit {
+        EarlyExit::Error(RuntimeError {
             message: message.into(),
             bottom_location: location,
             call_stack: Vec::new(),
-        }
+        })
     }
 
     pub fn annotate_stack_frame(mut self, call: &CallExpr, arguments: Vec<Value>) -> RuntimeError {

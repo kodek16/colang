@@ -29,6 +29,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
         method: Rc<RefCell<Function>>,
         context: &mut CompilerContext,
     ) {
+        context.function = Some(Rc::clone(&method));
         // Parameters have their own scope.
         context.scope.push();
         context.self_ = Some(Rc::clone(&method.borrow().parameters.get(0).expect(
@@ -59,6 +60,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
 
         context.self_ = None;
         context.scope.pop();
+        context.function = None;
 
         fill_function_body(method, body, context);
     }
@@ -69,6 +71,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
         function: Rc<RefCell<Function>>,
         context: &mut CompilerContext,
     ) {
+        context.function = Some(Rc::clone(&function));
         // Parameters have their own scope.
         context.scope.push();
 
@@ -92,6 +95,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
         );
 
         context.scope.pop();
+        context.function = None;
 
         fill_function_body(function, body, context);
     }

@@ -3,6 +3,7 @@ use crate::source::SourceOrigin;
 pub mod assign;
 pub mod eval;
 pub mod while_;
+pub mod return_;
 pub mod write;
 
 pub enum Instruction {
@@ -10,6 +11,7 @@ pub enum Instruction {
     While(while_::WhileInstruction),
     Assign(assign::AssignInstruction),
     Eval(eval::EvalInstruction),
+    Return(return_::ReturnInstruction),
 }
 
 impl Instruction {
@@ -19,6 +21,7 @@ impl Instruction {
             Instruction::While(instruction) => instruction.location,
             Instruction::Assign(instruction) => instruction.location,
             Instruction::Eval(instruction) => instruction.expression.location(),
+            Instruction::Return(instruction) => instruction.location,
         }
     }
 }

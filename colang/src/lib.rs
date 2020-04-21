@@ -81,6 +81,11 @@ pub struct CompilerContext {
     program: program::Program,
     scope: Scope,
 
+    // TODO we should have a separate BodyCompilerContext type that has the fields only relevant
+    // in function bodies.
+    /// Function currently being analyzed.
+    function: Option<Rc<RefCell<Function>>>,
+
     /// In methods, this is the variable bound to `self`.
     self_: Option<Rc<RefCell<Variable>>>,
 
@@ -109,6 +114,7 @@ impl CompilerContext {
         CompilerContext {
             program,
             scope,
+            function: None,
             self_: None,
             defined_types: HashMap::new(),
             defined_type_templates: HashMap::new(),

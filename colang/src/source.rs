@@ -58,6 +58,9 @@ pub enum SourceOrigin {
     /// Object is an empty expression created as a value of a block not terminated with an
     /// expression.
     MissingBlockValue(InputSpan),
+
+    /// Object is an empty expression created as a value of a `void` return statement.
+    MissingReturnValue(InputSpan),
 }
 
 impl SourceOrigin {
@@ -72,6 +75,7 @@ impl SourceOrigin {
             SourceOrigin::AddressedForMethodCall(span) => *span,
             SourceOrigin::MissingElse(span) => *span,
             SourceOrigin::MissingBlockValue(span) => *span,
+            SourceOrigin::MissingReturnValue(span) => *span,
         }
     }
 }

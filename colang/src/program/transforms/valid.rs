@@ -164,4 +164,5 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     // TODO also check VariableExpr, so that it only accesses local variables that are in scope.
+    // TODO also check ReturnInstruction, so that expression type is the same as function type.
 }

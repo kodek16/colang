@@ -145,7 +145,8 @@ pub use variable::{Variable, VariableId};
 
 pub use instructions::assign::AssignInstruction;
 pub use instructions::eval::EvalInstruction;
+pub use instructions::read::ReadInstruction;
+pub use instructions::return_::ReturnInstruction;
 pub use instructions::while_::WhileInstruction;
 pub use instructions::write::WriteInstruction;
-pub use instructions::return_::ReturnInstruction;
 pub use instructions::Instruction;

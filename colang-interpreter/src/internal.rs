@@ -1,7 +1,7 @@
 //! Internal symbols implementation.
 
 use crate::errors::RuntimeError;
-use crate::{Lvalue, RunResult, Rvalue, State, Value};
+use crate::{Lvalue, RunResult, Rvalue, Value};
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::rc::Rc;
@@ -107,50 +107,10 @@ pub fn not_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
     Ok(Value::Rvalue(Rvalue::Bool(lhs != rhs)))
 }
 
-pub fn read_int(mut arguments: Vec<Value>, state: &mut State) -> RunResult<Value> {
-    let target = arguments
-        .pop()
-        .unwrap()
-        .into_rvalue()
-        .into_pointer_unwrap(None)?;
-
-    let word = state
-        .cin
-        .read_word()
-        .map_err(|error| RuntimeError::new(error, None))?;
-    let new_value: i32 = word.parse().map_err(|_| {
-        RuntimeError::new(format!("Could not parse \"{}\" to an integer", word), None)
-    })?;
-    *target.borrow_mut() = Rvalue::Int(new_value);
-    Ok(Value::Rvalue(Rvalue::Void))
-}
-
 pub fn int_to_string(mut arguments: Vec<Value>) -> RunResult<Value> {
     let value = arguments.pop().unwrap().into_rvalue().as_int();
     let result = format!("{}", value);
     Ok(Value::Rvalue(Rvalue::new_string(&result)))
-}
-
-pub fn read_word(mut arguments: Vec<Value>, state: &mut State) -> RunResult<Value> {
-    let target = arguments
-        .pop()
-        .unwrap()
-        .into_rvalue()
-        .into_pointer_unwrap(None)?;
-
-    let word = state
-        .cin
-        .read_word()
-        .map_err(|error| RuntimeError::new(error, None))?;
-
-    let result = word
-        .as_bytes()
-        .iter()
-        .map(|char| Lvalue::store(Rvalue::Char(*char)))
-        .collect();
-
-    *target.borrow_mut() = Rvalue::Array(Rc::new(RefCell::new(result)));
-    Ok(Value::Rvalue(Rvalue::Void))
 }
 
 pub fn array_concat(mut arguments: Vec<Value>) -> RunResult<Value> {

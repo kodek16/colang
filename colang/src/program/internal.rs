@@ -25,10 +25,8 @@ pub enum InternalFunctionTag {
     GreaterEqInt,
     EqInt,
     NotEqInt,
-    ReadInt,
     IntToString,
 
-    ReadWord,
     StringAdd,
     StringIndex,
     StringEq,
@@ -59,9 +57,7 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
         create_greater_eq_int_function(program.types()),
         create_eq_int_function(program.types()),
         create_not_eq_int_function(program.types()),
-        create_read_int_function(program.types_mut()),
         create_int_to_string_function(program.types()),
-        create_read_word_function(program.types_mut()),
         /// TODO convert all internal operators to methods. This would involve changing the
         /// lookup logic.
         create_string_add_method(program.types()),
@@ -276,36 +272,12 @@ fn create_not_eq_int_function(types: &TypeRegistry) -> Function {
     )
 }
 
-fn create_read_int_function(types: &mut TypeRegistry) -> Function {
-    let int = Rc::clone(types.int());
-    let pointer_to_int = types.pointer_to(&int);
-
-    Function::new_internal(
-        "<read>".to_string(),
-        InternalFunctionTag::ReadInt,
-        vec![internal_param("target", &pointer_to_int)],
-        Rc::clone(types.void()),
-    )
-}
-
 fn create_int_to_string_function(types: &TypeRegistry) -> Function {
     Function::new_internal(
         "<int as string>".to_string(),
         InternalFunctionTag::IntToString,
         vec![internal_param("value", types.int())],
         Rc::clone(types.string()),
-    )
-}
-
-fn create_read_word_function(types: &mut TypeRegistry) -> Function {
-    let string = Rc::clone(types.string());
-    let pointer_to_string = types.pointer_to(&string);
-
-    Function::new_internal(
-        "<read-word>".to_string(),
-        InternalFunctionTag::ReadWord,
-        vec![internal_param("target", &pointer_to_string)],
-        Rc::clone(types.void()),
     )
 }
 

@@ -89,7 +89,7 @@ fn run_user_function(function: &Function, state: &mut State) -> RunResult<Value>
 fn run_internal_function(
     function_tag: &InternalFunctionTag,
     arguments: Vec<Value>,
-    state: &mut State,
+    _state: &mut State,
 ) -> RunResult<Value> {
     use InternalFunctionTag::*;
     match function_tag {
@@ -107,9 +107,7 @@ fn run_internal_function(
         GreaterEqInt => internal::greater_eq_int(arguments),
         EqInt => internal::eq_int(arguments),
         NotEqInt => internal::not_eq_int(arguments),
-        ReadInt => internal::read_int(arguments, state),
         IntToString => internal::int_to_string(arguments),
-        ReadWord => internal::read_word(arguments, state),
         StringAdd => internal::array_concat(arguments),
         StringIndex => internal::array_index(arguments),
         StringEq => internal::string_eq(arguments),
@@ -123,12 +121,42 @@ fn run_internal_function(
 
 fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()> {
     match instruction {
+        Instruction::Read(ref s) => run_read(s, state),
         Instruction::Write(ref s) => run_write(s, state),
         Instruction::While(ref s) => run_while(s, state),
         Instruction::Assign(ref s) => run_assign(s, state),
         Instruction::Eval(ref s) => run_eval(s, state),
         Instruction::Return(ref s) => run_return(s, state),
     }
+}
+
+fn run_read(instruction: &ReadInstruction, state: &mut State) -> RunResult<()> {
+    let target = run_expression(&instruction.target, state)?.into_lvalue();
+
+    let word = state
+        .cin
+        .read_word()
+        .map_err(|error| RuntimeError::new(error, None))?;
+
+    match instruction.target.type_().borrow().type_id.clone() {
+        TypeId::Int => {
+            let new_value: i32 = word.parse().map_err(|_| {
+                RuntimeError::new(format!("Could not parse \"{}\" to an integer", word), None)
+            })?;
+            *target.borrow_mut() = Rvalue::Int(new_value);
+        }
+        TypeId::String => {
+            let result = word
+                .as_bytes()
+                .iter()
+                .map(|char| Lvalue::store(Rvalue::Char(*char)))
+                .collect();
+            *target.borrow_mut() = Rvalue::Array(Rc::new(RefCell::new(result)));
+        }
+        _ => panic!("Unexpected target type for `read`"),
+    }
+
+    Ok(())
 }
 
 fn run_write(instruction: &WriteInstruction, state: &mut State) -> RunResult<()> {

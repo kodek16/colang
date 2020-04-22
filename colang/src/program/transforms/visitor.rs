@@ -13,12 +13,21 @@ pub trait CodeVisitor {
 
     fn walk_instruction(&mut self, instruction: &mut Instruction) {
         match instruction {
+            Instruction::Read(instruction) => self.visit_read(instruction),
             Instruction::Write(instruction) => self.visit_write(instruction),
             Instruction::While(instruction) => self.visit_while(instruction),
             Instruction::Assign(instruction) => self.visit_assign(instruction),
             Instruction::Eval(instruction) => self.visit_eval(instruction),
             Instruction::Return(instruction) => self.visit_return(instruction),
         }
+    }
+
+    fn visit_read(&mut self, instruction: &mut ReadInstruction) {
+        self.walk_read(instruction);
+    }
+
+    fn walk_read(&mut self, instruction: &mut ReadInstruction) {
+        self.visit_expression(&mut instruction.target);
     }
 
     fn visit_write(&mut self, instruction: &mut WriteInstruction) {

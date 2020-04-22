@@ -167,6 +167,20 @@ impl Type {
             _ => false,
         }
     }
+    
+    pub fn is_int(&self) -> bool {
+        match self.type_id {
+            TypeId::Int => true,
+            _ => false,
+        }
+    }
+    
+    pub fn is_string(&self) -> bool {
+        match self.type_id {
+            TypeId::String => true,
+            _ => false,
+        }
+    }
 
     pub fn is_error(&self) -> bool {
         match self.type_id {

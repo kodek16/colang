@@ -120,12 +120,25 @@ impl ToSexp for Type {
 impl ToSexp for Instruction {
     fn to_sexp(&self) -> Sexp {
         match self {
+            Instruction::Read(instruction) => instruction.to_sexp(),
             Instruction::Write(instruction) => instruction.to_sexp(),
             Instruction::While(instruction) => instruction.to_sexp(),
             Instruction::Assign(instruction) => instruction.to_sexp(),
             Instruction::Eval(instruction) => instruction.to_sexp(),
             Instruction::Return(instruction) => instruction.to_sexp(),
         }
+    }
+}
+
+impl ToSexp for ReadInstruction {
+    fn to_sexp(&self) -> Sexp {
+        let mut list = Vec::new();
+        list.push(sexp_str!("read"));
+        if self.whole_line {
+            list.push(sexp_str!("whole-line"));
+        }
+        list.push(self.target.to_sexp());
+        Sexp::List(list)
     }
 }
 

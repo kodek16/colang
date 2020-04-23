@@ -133,20 +133,26 @@ fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()
 fn run_read(instruction: &ReadInstruction, state: &mut State) -> RunResult<()> {
     let target = run_expression(&instruction.target, state)?.into_lvalue();
 
-    let word = state
-        .cin
-        .read_word()
-        .map_err(|error| RuntimeError::new(error, None))?;
+    let string = if instruction.whole_line {
+        state.cin.read_line()
+    } else {
+        state.cin.read_word()
+    };
+    let string =
+        string.map_err(|error| RuntimeError::new(error.to_string(), Some(instruction.location)))?;
 
     match instruction.target.type_().borrow().type_id.clone() {
         TypeId::Int => {
-            let new_value: i32 = word.parse().map_err(|_| {
-                RuntimeError::new(format!("Could not parse \"{}\" to an integer", word), None)
+            let new_value: i32 = string.parse().map_err(|_| {
+                RuntimeError::new(
+                    format!("Could not parse \"{}\" to an integer", string),
+                    None,
+                )
             })?;
             *target.borrow_mut() = Rvalue::Int(new_value);
         }
         TypeId::String => {
-            let result = word
+            let result = string
                 .as_bytes()
                 .iter()
                 .map(|char| Lvalue::store(Rvalue::Char(*char)))

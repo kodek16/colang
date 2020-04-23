@@ -114,6 +114,15 @@ StmtNotExpr: Statement = {
     <start: @L> KwRead <entries:CommaSeparatedNotEmpty<ReadEntry>> ";" <end: @R> => {
         Statement::Read(ReadStmt {
             entries,
+            whole_line: false,
+            span: InputSpan { file, start, end },
+        })
+    },
+
+    <start: @L> KwReadLn <entries:CommaSeparatedNotEmpty<ReadEntry>> ";" <end: @R> => {
+        Statement::Read(ReadStmt {
+            entries,
+            whole_line: true,
             span: InputSpan { file, start, end },
         })
     },
@@ -633,6 +642,7 @@ StringLiteral: String = {
 // Keywords:
 KwVar: () = { "var" }
 KwRead: () = { "read" }
+KwReadLn: () = { "readln" }
 KwWrite: () = { "write" }
 KwWriteLn: () = { "writeln" }
 KwIf: () = { "if" }

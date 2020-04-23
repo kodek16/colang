@@ -149,6 +149,7 @@ pub struct VarDeclEntry {
 #[derive(Debug)]
 pub struct ReadStmt {
     pub entries: Vec<ReadEntry>,
+    pub whole_line: bool,
 
     pub span: InputSpan,
 }

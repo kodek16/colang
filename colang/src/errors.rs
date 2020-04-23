@@ -323,8 +323,8 @@ impl CompilationError {
         .maybe_with_type_explanation(expression)
     }
 
-    pub fn read_unsupported_type(expression: &Expression) -> CompilationError {
-        let actual_type = expression.type_().borrow();
+    pub fn read_unsupported_type(target: &Expression) -> CompilationError {
+        let actual_type = target.type_().borrow();
 
         CompilationError::new(
             "E9008",
@@ -333,11 +333,30 @@ impl CompilationError {
                 actual_type.name
             ),
         )
-        .with_location(expression.location())
+        .with_location(target.location())
         .with_subtitle(format!(
-            "value has type `{}` that does not support reading",
+            "target has type `{}` that does not support reading",
             actual_type.name
         ))
+        .maybe_with_type_explanation(target)
+    }
+
+    pub fn readln_unsupported_type(target: &Expression) -> CompilationError {
+        let actual_type = target.type_().borrow();
+
+        CompilationError::new(
+            "E9045",
+            format!(
+                "`readln` can be only used with strings, not `{}`",
+                actual_type.name
+            ),
+        )
+        .with_location(target.location())
+        .with_subtitle(format!(
+            "target has type `{}` that does not support reading by line",
+            actual_type.name
+        ))
+        .maybe_with_type_explanation(target)
     }
 
     pub fn write_value_is_not_stringable(value: &Expression) -> CompilationError {
@@ -968,7 +987,7 @@ impl CompilationError {
         CompilationError::new("E9041", "`main` function not found: you must define one")
     }
 
-    // Next code: E9045.
+    // Next code: E9046.
 }
 
 fn maybe_explain_expression_type(expression: &Expression, error: &mut CompilationError) {

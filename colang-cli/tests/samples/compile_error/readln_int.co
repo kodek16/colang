@@ -1,0 +1,4 @@
+fun main() {
+  var x: int;
+  readln x;
+}

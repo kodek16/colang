@@ -10,12 +10,13 @@ pub fn compile_read_stmt(
     context: &mut CompilerContext,
 ) {
     for entry in statement.entries {
-        compile_read_entry(entry, current_block, context);
+        compile_read_entry(entry, statement.whole_line, current_block, context);
     }
 }
 
 fn compile_read_entry(
     entry: ast::ReadEntry,
+    whole_line: bool,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
@@ -32,16 +33,25 @@ fn compile_read_entry(
 
     {
         let target_type = target.type_().borrow();
-        if !target_type.is_int() && !target_type.is_string() {
-            let error = CompilationError::read_unsupported_type(&target);
-            context.errors.push(error);
-            return;
+
+        if whole_line {
+            if !target_type.is_string() {
+                let error = CompilationError::readln_unsupported_type(&target);
+                context.errors.push(error);
+                return;
+            }
+        } else {
+            if !target_type.is_int() && !target_type.is_string() {
+                let error = CompilationError::read_unsupported_type(&target);
+                context.errors.push(error);
+                return;
+            }
         }
     }
 
     let instruction = program::Instruction::Read(program::ReadInstruction {
-        target: target,
-        whole_line: false,
+        target,
+        whole_line,
         location: SourceOrigin::Plain(entry.span),
     });
 

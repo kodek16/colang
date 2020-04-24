@@ -161,11 +161,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "colang-c-target"
+version = "0.1.0-rc1"
+dependencies = [
+ "colang",
+]
+
+[[package]]
 name = "colang-cli"
 version = "0.1.0-rc1"
 dependencies = [
  "codespan-reporting",
  "colang",
+ "colang-c-target",
  "colang-interpreter",
  "test-generator",
 ]

@@ -17,10 +17,7 @@ impl ExpressionKindImpl for IfExpr {
     }
 
     fn calculate_value_category(&self) -> ValueCategory {
-        match (self.then.value_category(), self.else_.value_category()) {
-            (ValueCategory::Lvalue, ValueCategory::Lvalue) => ValueCategory::Lvalue,
-            _ => ValueCategory::Rvalue,
-        }
+        ValueCategory::Rvalue
     }
 
     fn location(&self) -> SourceOrigin {

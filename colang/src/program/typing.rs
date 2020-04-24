@@ -168,13 +168,20 @@ impl Type {
         }
     }
     
+    pub fn is_void(&self) -> bool {
+        match self.type_id {
+            TypeId::Void => true,
+            _ => false,
+        }
+    }
+
     pub fn is_int(&self) -> bool {
         match self.type_id {
             TypeId::Int => true,
             _ => false,
         }
     }
-    
+
     pub fn is_string(&self) -> bool {
         match self.type_id {
             TypeId::String => true,
@@ -585,8 +592,10 @@ impl TypeRegistry {
         ]
     }
 
-    pub fn all_types(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
-        self.types.values()
+    pub fn all_user_defined(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
+        self.types
+            .values()
+            .filter(|type_| type_.borrow().is_user_defined())
     }
 
     /// Marks a previously incomplete type as complete (but with possibly incomplete dependencies).

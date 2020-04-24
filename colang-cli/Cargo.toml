@@ -9,6 +9,7 @@ edition = "2018"
 codespan-reporting = "0.9.1"
 colang = { path = "../colang" }
 colang-interpreter = { path = "../colang-interpreter" }
+colang-c-target = { path = "../colang-c-target" }
 
 
 [dev-dependencies]

@@ -5,6 +5,7 @@ use std::fs;
 
 use colang::backends::Backend;
 use colang::errors::CompilationError;
+use colang_c_target::CBackend;
 use colang_interpreter::InterpreterBackend;
 
 pub struct Config {
@@ -26,6 +27,7 @@ impl Config {
         let mut args: Vec<String> = args.skip(1).collect();
 
         let debug = args.iter().any(|a| a == "--debug");
+        let compile = args.iter().any(|a| a == "--compile");
 
         // Drop flags.
         args.retain(|f| !f.starts_with("--"));
@@ -34,7 +36,11 @@ impl Config {
             let source_path = args[0].to_owned();
             Ok(Config {
                 source_path,
-                backend: Box::new(InterpreterBackend),
+                backend: if compile {
+                    Box::new(CBackend)
+                } else {
+                    Box::new(InterpreterBackend)
+                },
                 debug,
                 plaintext_compilation_errors: false,
             })

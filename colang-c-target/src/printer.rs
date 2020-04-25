@@ -151,15 +151,84 @@ impl CCodePrinter {
     ) -> ExprWriteResult {
         let type_ = expression.type_().borrow();
         match expression.kind() {
+            ExpressionKind::Address(ref expr) => self.write_address_expr(names, expr),
+            ExpressionKind::ArrayFromCopy(ref expr) => self.write_array_from_copy_expr(names, expr),
+            ExpressionKind::ArrayFromElements(ref expr) => {
+                self.write_array_from_elements_expr(names, expr)
+            }
             ExpressionKind::Block(ref block) => self.write_block_expr(names, block, &type_),
-            ExpressionKind::Call(ref expression) => self.write_call_expr(names, expression),
-            ExpressionKind::If(ref expression) => self.write_if_expr(names, expression, &type_),
-            ExpressionKind::Literal(ref expression) => self.write_literal_expr(names, expression),
-            ExpressionKind::Variable(ref expression) => self.write_variable_expr(names, expression),
+            ExpressionKind::BooleanOp(ref expr) => self.write_boolean_op_expr(names, expr),
+            ExpressionKind::Call(ref expr) => self.write_call_expr(names, expr),
+            ExpressionKind::Deref(ref expr) => self.write_deref_expr(names, expr),
+            ExpressionKind::FieldAccess(ref expr) => self.write_field_access_expr(names, expr),
+            ExpressionKind::If(ref expr) => self.write_if_expr(names, expr, &type_),
+            ExpressionKind::Is(ref expr) => self.write_is_expr(names, expr),
+            ExpressionKind::Literal(ref expr) => self.write_literal_expr(names, expr),
+            ExpressionKind::New(ref expr) => self.write_new_expr(names, expr),
+            ExpressionKind::Null(ref expr) => self.write_null_expr(names, expr),
+            ExpressionKind::Variable(ref expr) => self.write_variable_expr(names, expr),
 
             ExpressionKind::Empty(_) => Ok(None),
-            _ => unimplemented!(),
+            ExpressionKind::Error(_) => panic!("Error expression encountered"),
         }
+    }
+
+    fn write_address_expr(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        expression: &AddressExpr,
+    ) -> ExprWriteResult {
+        let target = self.write_expression(names, &expression.target)?.unwrap();
+        Ok(Some(format!("&{}", target)))
+    }
+
+    fn write_array_from_copy_expr(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        expression: &ArrayFromCopyExpr,
+    ) -> ExprWriteResult {
+        let expression_name = names.expression_name();
+        let element_type = expression.element.type_().borrow();
+
+        let element = self.write_expression(names, &expression.element)?.unwrap();
+        let size = self.write_expression(names, &expression.size)?.unwrap();
+
+        write!(self, "vec<")?;
+        self.write_type_name(names, &element_type.type_id)?;
+        write!(self, ">* {} = new vec<", expression_name)?;
+        self.write_type_name(names, &element_type.type_id)?;
+        write!(self, ">({}, {});\n", size, element)?;
+
+        Ok(Some(expression_name))
+    }
+
+    fn write_array_from_elements_expr(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        expression: &ArrayFromElementsExpr,
+    ) -> ExprWriteResult {
+        let expression_name = names.expression_name();
+
+        let elements: Result<Vec<_>, _> = expression
+            .elements
+            .iter()
+            .map(|element| self.write_expression(names, element))
+            .collect();
+
+        let elements: Vec<_> = elements?
+            .into_iter()
+            .map(|element| element.unwrap())
+            .collect();
+
+        let element_type = expression.element_type.borrow();
+
+        write!(self, "vec<")?;
+        self.write_type_name(names, &element_type.type_id)?;
+        write!(self, ">* {} = new vec<", expression_name)?;
+        self.write_type_name(names, &element_type.type_id)?;
+        write!(self, "> {{ {} }};\n", elements.join(", "))?;
+
+        Ok(Some(expression_name))
     }
 
     fn write_block_expr(
@@ -180,7 +249,11 @@ impl CCodePrinter {
             self.write_type_name(names, &variable.type_.borrow().type_id)?;
             write!(self, " {};\n", names.variable_name(&variable))?;
 
-            // TODO default-init
+            if variable.type_.borrow().is_array() || variable.type_.borrow().is_string() {
+                write!(self, "init_vec(&{});\n", names.variable_name(&variable))?;
+            } else {
+                write!(self, "init0({});\n", names.variable_name(&variable))?;
+            }
         }
 
         for instruction in &block.instructions {
@@ -196,6 +269,48 @@ impl CCodePrinter {
         write!(self, "}}\n")?;
 
         Ok(expression_name)
+    }
+
+    fn write_boolean_op_expr(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        expression: &BooleanOpExpr,
+    ) -> ExprWriteResult {
+        let expression_name = names.expression_name();
+        match &expression.op {
+            BooleanOp::And(lhs, rhs) => {
+                let lhs = self.write_expression(names, &lhs)?.unwrap();
+                write!(self, "char {} = {};\n", expression_name, lhs)?;
+                write!(self, "if ({}) {{\n", expression_name)?;
+                self.indent();
+
+                let rhs = self.write_expression(names, &rhs)?.unwrap();
+                write!(self, "{} &= {};\n", expression_name, rhs)?;
+
+                self.dedent();
+                write!(self, "}}\n")?;
+
+                Ok(Some(expression_name))
+            }
+            BooleanOp::Or(lhs, rhs) => {
+                let lhs = self.write_expression(names, &lhs)?.unwrap();
+                write!(self, "char {} = {};\n", expression_name, lhs)?;
+                write!(self, "if (!{}) {{\n", expression_name)?;
+                self.indent();
+
+                let rhs = self.write_expression(names, &rhs)?.unwrap();
+                write!(self, "{} |= {};\n", expression_name, rhs)?;
+
+                self.dedent();
+                write!(self, "}}\n")?;
+
+                Ok(Some(expression_name))
+            }
+            BooleanOp::Not(operand) => {
+                let operand = self.write_expression(names, operand)?.unwrap();
+                Ok(Some(format!("(!{})", operand)))
+            }
+        }
     }
 
     fn write_call_expr(
@@ -230,6 +345,29 @@ impl CCodePrinter {
         }
     }
 
+    fn write_deref_expr(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        expression: &DerefExpr,
+    ) -> ExprWriteResult {
+        let pointer = self.write_expression(names, &expression.pointer)?.unwrap();
+        Ok(Some(format!("*{}", pointer)))
+    }
+
+    fn write_field_access_expr(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        expression: &FieldAccessExpr,
+    ) -> ExprWriteResult {
+        let receiver = self.write_expression(names, &expression.receiver)?.unwrap();
+        let field = expression.field.borrow();
+        Ok(Some(format!(
+            "({}.{})",
+            receiver,
+            names.variable_name(&field)
+        )))
+    }
+
     fn write_if_expr(
         &mut self,
         names: &mut impl CNameRegistry,
@@ -262,25 +400,88 @@ impl CCodePrinter {
         Ok(expression_name)
     }
 
+    fn write_is_expr(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        expression: &IsExpr,
+    ) -> ExprWriteResult {
+        let expression_name = names.expression_name();
+        let lhs = self.write_expression(names, &expression.lhs)?.unwrap();
+        let rhs = self.write_expression(names, &expression.rhs)?.unwrap();
+        write!(self, "char {} = {} == {};\n", expression_name, lhs, rhs)?;
+        Ok(Some(expression_name))
+    }
+
     fn write_literal_expr(
         &mut self,
         names: &mut impl CNameRegistry,
         expression: &LiteralExpr,
     ) -> ExprWriteResult {
-        let expression_name = names.expression_name();
-
         match expression {
-            LiteralExpr::Int(x, _) => write!(self, "i32 {} = {};\n", expression_name, x),
-            LiteralExpr::Char(c, _) => write!(self, "char {} = '\\x{}';\n", expression_name, c),
-            LiteralExpr::Bool(b, _) => write!(
-                self,
-                "char {} = {};\n",
-                expression_name,
-                if *b { "1" } else { "0" }
-            ),
-            LiteralExpr::String(_s, _) => unimplemented!(),
+            LiteralExpr::Int(x, _) => Ok(Some(format!("{}", x))),
+            LiteralExpr::Char(c, _) => Ok(Some(format!("'\\x{}'", c))),
+            LiteralExpr::Bool(b, _) => Ok(Some(String::from(if *b { "1" } else { "0" }))),
+            LiteralExpr::String(s, _) => {
+                let literal_name = names.expression_name();
+                let expression_name = names.expression_name();
+                write!(
+                    self,
+                    "static_str {} = {};\n",
+                    literal_name,
+                    create_c_literal(s)
+                )?;
+                write!(
+                    self,
+                    "str {} = new vec<char>({}, {} + {});\n",
+                    expression_name,
+                    literal_name,
+                    literal_name,
+                    s.len()
+                )?;
+                Ok(Some(expression_name))
+            }
         }
-        .map(|_| Some(expression_name))
+    }
+
+    fn write_new_expr(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        expression: &NewExpr,
+    ) -> ExprWriteResult {
+        let expression_name = names.expression_name();
+        let target_type = expression.target_type.borrow();
+
+        self.write_type_name(names, &target_type.type_id)?;
+        write!(self, "* {} = (", expression_name)?;
+        self.write_type_name(names, &target_type.type_id)?;
+        write!(self, "*) calloc(1, sizeof(")?;
+        self.write_type_name(names, &target_type.type_id)?;
+        write!(self, "));\n")?;
+
+        if target_type.is_array() || target_type.is_string() {
+            // We could use malloc or `new` instead of calloc in this case, but the whole
+            // "auto-constructor" mechanism needs a refactor which would probably also fix
+            // this issue.
+            write!(self, "init_vec({});\n", expression_name)?;
+        }
+
+        Ok(Some(expression_name))
+    }
+
+    fn write_null_expr(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        expression: &NullExpr,
+    ) -> ExprWriteResult {
+        let expression_name = names.expression_name();
+        let target_type = expression.target_type.borrow();
+
+        self.write_type_name(names, &target_type.type_id)?;
+        write!(self, "* {} = ((", expression_name)?;
+        self.write_type_name(names, &target_type.type_id)?;
+        write!(self, "*) NULL);\n")?;
+
+        Ok(Some(expression_name))
     }
 
     fn write_variable_expr(
@@ -299,7 +500,11 @@ impl CCodePrinter {
     ) -> fmt::Result {
         match instruction {
             Instruction::Assign(ref instruction) => self.write_assign(names, instruction),
-            _ => unimplemented!(),
+            Instruction::Eval(ref instruction) => self.write_eval(names, instruction),
+            Instruction::Read(ref instruction) => self.write_read(names, instruction),
+            Instruction::Return(ref instruction) => self.write_return(names, instruction),
+            Instruction::While(ref instruction) => self.write_while(names, instruction),
+            Instruction::Write(ref instruction) => self.write_write(names, instruction),
         }
     }
 
@@ -311,6 +516,84 @@ impl CCodePrinter {
         let target = self.write_expression(names, &instruction.target)?.unwrap();
         let value = self.write_expression(names, &instruction.value)?.unwrap();
         write!(self, "{} = {};\n", target, value)
+    }
+
+    fn write_eval(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        instruction: &EvalInstruction,
+    ) -> fmt::Result {
+        let _ = self.write_expression(names, &instruction.expression)?;
+        Ok(())
+    }
+
+    fn write_read(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        instruction: &ReadInstruction,
+    ) -> fmt::Result {
+        let target = self.write_expression(names, &instruction.target)?.unwrap();
+
+        if instruction.whole_line {
+            write!(self, "readln(&{});\n", target)
+        } else {
+            let target_type = instruction.target.type_().borrow();
+            if target_type.is_string() {
+                write!(self, "readword_str(&{});\n", target)
+            } else if target_type.is_int() {
+                write!(self, "readword_int(&{});\n", target)
+            } else {
+                panic!("Invalid type in read instruction: `{}`", target_type.name)
+            }
+        }
+    }
+
+    fn write_return(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        instruction: &ReturnInstruction,
+    ) -> fmt::Result {
+        let value = self.write_expression(names, &instruction.expression)?;
+        if let Some(value) = value {
+            write!(self, "return {};\n", value)
+        } else {
+            write!(self, "return;\n")
+        }
+    }
+
+    fn write_while(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        instruction: &WhileInstruction,
+    ) -> fmt::Result {
+        let cond_name = names.expression_name();
+
+        let cond = self.write_expression(names, &instruction.cond)?.unwrap();
+        write!(self, "char {} = {};\n", cond_name, cond)?;
+
+        write!(self, "while ({}) {{\n", cond_name)?;
+        self.indent();
+
+        self.write_instruction(names, &instruction.body)?;
+        let next_cond = self.write_expression(names, &instruction.cond)?.unwrap();
+        write!(self, "{} = {};\n", cond_name, next_cond)?;
+
+        self.dedent();
+        write!(self, "}}\n")?;
+
+        Ok(())
+    }
+
+    fn write_write(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        instruction: &WriteInstruction,
+    ) -> fmt::Result {
+        // TODO optimize the case where expression is a string literal.
+        let value = self
+            .write_expression(names, &instruction.expression)?
+            .unwrap();
+        write!(self, "write_str({});\n", value)
     }
 
     fn write_expr_value_placeholder(
@@ -369,14 +652,25 @@ impl CCodePrinter {
             FunctionId::Internal(InternalFunctionTag::DivInt) => write!(self, "div"),
             FunctionId::Internal(InternalFunctionTag::ModInt) => write!(self, "mod"),
 
-            FunctionId::Internal(InternalFunctionTag::LessInt) => write!(self, "less"),
-            FunctionId::Internal(InternalFunctionTag::GreaterInt) => write!(self, "greater"),
-            FunctionId::Internal(InternalFunctionTag::LessEqInt) => write!(self, "less_eq"),
-            FunctionId::Internal(InternalFunctionTag::GreaterEqInt) => write!(self, "greater_eq"),
+            FunctionId::Internal(InternalFunctionTag::LessInt) => write!(self, "lt"),
+            FunctionId::Internal(InternalFunctionTag::GreaterInt) => write!(self, "gt"),
+            FunctionId::Internal(InternalFunctionTag::LessEqInt) => write!(self, "lte"),
+            FunctionId::Internal(InternalFunctionTag::GreaterEqInt) => write!(self, "gte"),
             FunctionId::Internal(InternalFunctionTag::EqInt) => write!(self, "eq"),
             FunctionId::Internal(InternalFunctionTag::NotEqInt) => write!(self, "neq"),
 
-            FunctionId::Internal(_) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::Assert) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::AsciiCode) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::AsciiChar) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::IntToString) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::StringAdd) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::StringIndex) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::StringEq) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::StringNotEq) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::ArrayPush(_)) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::ArrayPop(_)) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::ArrayLen(_)) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::ArrayIndex(_)) => unimplemented!(),
 
             FunctionId::UserDefined(_) => write!(self, "{}", names.function_name(function)),
             FunctionId::InstantiatedMethod(_, _) => {
@@ -422,4 +716,30 @@ impl fmt::Display for CCodePrinter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.code)
     }
+}
+
+/// Creates a valid C string literal (potentially using concatenation) that represents the same
+/// byte sequence as `s` in UTF-8.
+///
+/// Hex escape sequences are used to encode any problematic characters.
+fn create_c_literal(s: &str) -> String {
+    let mut parts = Vec::new();
+    let mut current = String::from("\"");
+
+    for b in s.bytes() {
+        let c = b as char;
+        if c.is_ascii_alphanumeric() || c == ' ' {
+            current.push(c);
+        } else {
+            write!(&mut current, "\\x{:x}\"", b).unwrap();
+            parts.push(current);
+            current = String::from("\"");
+        }
+    }
+
+    current.push('"');
+    if &current != "\"\"" {
+        parts.push(current);
+    }
+    parts.join(" ")
 }

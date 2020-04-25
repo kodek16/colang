@@ -167,7 +167,7 @@ impl Type {
             _ => false,
         }
     }
-    
+
     pub fn is_void(&self) -> bool {
         match self.type_id {
             TypeId::Void => true,
@@ -192,6 +192,13 @@ impl Type {
     pub fn is_error(&self) -> bool {
         match self.type_id {
             TypeId::Error => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_array(&self) -> bool {
+        match self.type_id {
+            TypeId::TemplateInstance(TypeTemplateId::Array, _) => true,
             _ => false,
         }
     }

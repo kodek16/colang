@@ -44,6 +44,12 @@ impl CCodePrinter {
             write!(self, "\n")?;
         }
 
+        write!(
+            self,
+            "int main() {{\n  {}();\n}}\n",
+            names.function_name(&program.main_function().borrow())
+        )?;
+
         Ok(())
     }
 
@@ -659,18 +665,19 @@ impl CCodePrinter {
             FunctionId::Internal(InternalFunctionTag::EqInt) => write!(self, "eq"),
             FunctionId::Internal(InternalFunctionTag::NotEqInt) => write!(self, "neq"),
 
-            FunctionId::Internal(InternalFunctionTag::Assert) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::AsciiCode) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::AsciiChar) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::IntToString) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::StringAdd) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::StringIndex) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::StringEq) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::StringNotEq) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::ArrayPush(_)) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::ArrayPop(_)) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::ArrayLen(_)) => unimplemented!(),
-            FunctionId::Internal(InternalFunctionTag::ArrayIndex(_)) => unimplemented!(),
+            FunctionId::Internal(InternalFunctionTag::Assert) => write!(self, "co_assert"),
+            FunctionId::Internal(InternalFunctionTag::AsciiCode) => write!(self, "ascii_code"),
+            FunctionId::Internal(InternalFunctionTag::AsciiChar) => write!(self, "ascii_char"),
+            FunctionId::Internal(InternalFunctionTag::IntToString) => write!(self, "co_itos"),
+            FunctionId::Internal(InternalFunctionTag::StringAdd) => write!(self, "str_add"),
+            FunctionId::Internal(InternalFunctionTag::StringIndex) => write!(self, "str_index"),
+            FunctionId::Internal(InternalFunctionTag::StringEq) => write!(self, "str_eq"),
+            FunctionId::Internal(InternalFunctionTag::StringNotEq) => write!(self, "str_neq"),
+
+            FunctionId::Internal(InternalFunctionTag::ArrayPush(_)) => write!(self, "vec_push"),
+            FunctionId::Internal(InternalFunctionTag::ArrayPop(_)) => write!(self, "vec_pop"),
+            FunctionId::Internal(InternalFunctionTag::ArrayLen(_)) => write!(self, "vec_len"),
+            FunctionId::Internal(InternalFunctionTag::ArrayIndex(_)) => write!(self, "vec_index"),
 
             FunctionId::UserDefined(_) => write!(self, "{}", names.function_name(function)),
             FunctionId::InstantiatedMethod(_, _) => {

@@ -3,7 +3,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+
+#include <algorithm>
 #include <vector>
+
+#if _POSIX_C_SOURCE >= 200809L || _XOPEN_SOURCE >= 7000
+#else
+// TODO get rid of getline() calls and support non-POSIX.
+#error "C/C++ target for CO only supports POSIX platforms, it seems you are not using one"
+#endif
 
 #define static_str static const char *
 #define vec std::vector
@@ -26,11 +35,96 @@ typedef std::vector<char> *str;
 template <typename T>
 void init_vec(vec<T> **v) { *v = new vec<T>; }
 
-#if _POSIX_C_SOURCE >= 200809L || _XOPEN_SOURCE >= 7000
-#else
-// TODO get rid of getline() calls and support non-POSIX.
-#error "C/C++ target for CO only supports POSIX platforms, it seems you are not using one"
-#endif
+void co_assert(char cond) {
+    if (!cond) {
+        fprintf(stderr, "Runtime error: Assertion failed\n");
+        exit(1);
+    }
+}
+
+i32 ascii_code(char c) {
+    return (i32) c;
+}
+
+char ascii_char(i32 code) {
+    if (code < 0 || 0xFF < code) {
+        fprintf(stderr, "Runtime error: %d is not a valid ASCII code.\n", code);
+        exit(1);
+    }
+
+    return (char) code;
+}
+
+str co_itos(i32 x) {
+    if (x == INT_MIN) {
+        return new vec<char> {'-','2','1','4','7','4','8','3','6','4','8'};
+    }
+    if (x == 0) {
+        return new vec<char> {'0'};
+    }
+
+    str s = new vec<char>;
+    char neg = 0;
+    if (x < 0) {
+        neg = 1;
+        x = -x;
+    }
+    while (x) {
+        s->push_back('0' + (x % 10));
+        x /= 10;
+    }
+    if (neg) {
+        s->push_back('-');
+    }
+
+    for (size_t l = 0, r = s->size() - 1; l < r; ++l, --r) {
+        char t = (*s)[l];
+        (*s)[l] = (*s)[r];
+        (*s)[r] = t;
+    }
+    return s;
+}
+
+str str_add(str a, str b) {
+    str result = new vec<char>(a->size() + b->size());
+    std::copy(a->begin(), a->end(), result->begin());
+    std::copy(b->begin(), b->end(), result->begin() + a->size());
+    return result;
+}
+
+char *str_index(str s, i32 i) {
+    return &(*s)[i];
+}
+
+char str_eq(str a, str b) {
+    return (a->size() == b->size()) && std::equal(a->begin(), a->end(), b->begin());
+}
+
+char str_neq(str a, str b) {
+    return !str_eq(a, b);
+}
+
+template <typename T>
+void vec_push(vec<T> **v, T elem) {
+    (**v).push_back(elem);
+}
+
+template <typename T>
+T vec_pop(vec<T> **v) {
+    T elem = (**v).last();
+    (**v).pop_back();
+    return elem;
+}
+
+template <typename T>
+i32 vec_len(vec<T> *v) {
+    return v->size();
+}
+
+template <typename T>
+T *vec_index(vec<T> *v, i32 i) {
+    return &(*v)[i];
+}
 
 size_t raw_readln(char **buf) {
     *buf = NULL;
@@ -39,6 +133,10 @@ size_t raw_readln(char **buf) {
     if (ret < 0) {
         perror("Runtime error when reading line from stdin: ");
         exit(1);
+    }
+    if ((*buf)[ret - 1] == '\n') {
+        (*buf)[ret - 1] = '\0';
+        --ret;
     }
     return (size_t) ret;
 }

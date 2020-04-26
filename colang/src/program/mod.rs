@@ -42,12 +42,11 @@ impl SymbolIdRegistry {
 pub struct Program {
     symbol_ids: SymbolIdRegistry,
 
-    // All user-defined functions and methods in the program.
+    /// All user-defined functions and methods in the program.
     user_functions: Vec<Rc<RefCell<Function>>>,
     types: TypeRegistry,
 
-    // This collection only contains functions, not methods. Internal methods
-    // should be accessed through the type scope mechanism.
+    /// All internal functions and internal template method instantiations in the program.
     internal_functions: HashMap<InternalFunctionTag, Rc<RefCell<Function>>>,
 
     main_function: Option<Rc<RefCell<Function>>>,
@@ -65,14 +64,38 @@ impl Program {
         }
     }
 
-    /// Adds a new function to the program.
-    pub(crate) fn add_function(&mut self, function: Rc<RefCell<Function>>) {
+    /// Adds (registers) a new function to the program. This method is idempotent: calling it
+    /// for an already registered function is guaranteed to produce no effect.
+    pub fn add_function(&mut self, function: Rc<RefCell<Function>>) {
         match function.borrow().id.clone() {
             FunctionId::Internal(tag) => {
                 self.internal_functions
                     .insert(tag.clone(), Rc::clone(&function));
             }
-            _ => self.user_functions.push(Rc::clone(&function)),
+            _ => {
+                // TODO convert 'user_functions` to a HashMap to improve performance of this check.
+                if !self.user_functions.contains(&function) {
+                    self.user_functions.push(Rc::clone(&function))
+                }
+            }
+        }
+    }
+
+    /// Unregisters (hides) a previously registered function. By doing this, the
+    /// function will not appear in a call to `all_user_functions`, but there may still be
+    /// references to it in the bodies of other functions. If any such references exist in the
+    /// preserved functions, the program should be considered invalid.
+    ///
+    /// If `function` was not previously registers, this operation has no effect.
+    pub fn remove_function(&mut self, function: &Function) {
+        // TODO convert `user_functions` to a HashMap to enable efficient removals.
+        match function.id {
+            FunctionId::Internal(ref tag) => {
+                self.internal_functions.remove(tag);
+            }
+            _ => {
+                self.user_functions.retain(|f| *f.borrow() != *function);
+            }
         }
     }
 

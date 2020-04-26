@@ -151,6 +151,11 @@ fn compile(
     analyzer::function_instantiations::FunctionInstantiationsAnalyzerPass::new()
         .run(sources.iter_mut().collect(), &mut context);
 
+    // 6th pass: now that all required template instances are created, remove all template base
+    // types and functions, so that the resulting program does not contain type parameter
+    // placeholders.
+    remove_template_base_types_and_functions(&mut context.program);
+
     let main_function = context
         .scope
         .lookup_function("main", InputSpan::top_of_file());
@@ -165,5 +170,28 @@ fn compile(
         Ok(context.program)
     } else {
         Err((context.program, context.errors))
+    }
+}
+
+/// Removes all template base types and their methods from the program.
+fn remove_template_base_types_and_functions(program: &mut program::Program) {
+    let mut functions_to_remove = Vec::new();
+    let mut types_to_remove = Vec::new();
+
+    for type_ in program.types().all_types() {
+        if type_.borrow().depends_on_type_parameter_placeholders() {
+            types_to_remove.push(Rc::clone(type_));
+            for method in type_.borrow().methods() {
+                functions_to_remove.push(Rc::clone(&method));
+            }
+        }
+    }
+
+    for function in functions_to_remove {
+        program.remove_function(&function.borrow());
+    }
+
+    for type_ in types_to_remove {
+        program.types_mut().remove_type(&type_.borrow());
     }
 }

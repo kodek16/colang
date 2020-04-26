@@ -230,6 +230,20 @@ impl Type {
         }
     }
 
+    /// Checks if any of the transitive type arguments of this type are unfilled type parameter
+    /// placeholders.
+    pub fn depends_on_type_parameter_placeholders(&self) -> bool {
+        fn check(type_id: &TypeId) -> bool {
+            match type_id {
+                TypeId::TemplateInstance(_, ref type_arguments) => type_arguments.iter().any(check),
+                TypeId::TypeParameter(_, _) => true,
+                _ => false,
+            }
+        }
+
+        check(&self.type_id)
+    }
+
     /// Substitutes a set of types in the "signature" of `type_` with other types. "Signature"
     /// here is defined as the type itself and the signatures of all type arguments, if `type_`
     /// is a template instance.
@@ -599,10 +613,25 @@ impl TypeRegistry {
         ]
     }
 
-    pub fn all_user_defined(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
+    pub fn all_types(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
+        self.types.values()
+    }
+
+    pub fn all_user_defined_types(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
         self.types
             .values()
             .filter(|type_| type_.borrow().is_user_defined())
+    }
+
+    /// Unregisters (hides) a previously registered type from the registry.
+    /// This type will not appear in calls to `all_user_defined`, but there still might remain
+    /// references to it from other types. If such references from types that have not been removed
+    /// exist in a program, it should be considered invalid.
+    pub fn remove_type(&mut self, type_: &Type) {
+        self.types.remove(&type_.type_id).expect(&format!(
+            "Cannot remove type `{}` from the program: it is not registered",
+            type_.name,
+        ));
     }
 
     /// Marks a previously incomplete type as complete (but with possibly incomplete dependencies).

@@ -4,7 +4,7 @@ use colang_cli::{Config, RunResult};
 use colang_interpreter::InterpreterBackend;
 
 #[test_resources("colang-cli/tests/samples/good/**/*.co")]
-fn check_good_program(path: &str) {
+fn good_interpret(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
         backend: Box::new(InterpreterBackend),
@@ -17,7 +17,7 @@ fn check_good_program(path: &str) {
 }
 
 #[test_resources("colang-cli/tests/samples/compile_error/**/*.co")]
-fn check_compile_error_program(path: &str) {
+fn compile_error(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
         backend: Box::new(InterpreterBackend),
@@ -30,7 +30,7 @@ fn check_compile_error_program(path: &str) {
 }
 
 #[test_resources("colang-cli/tests/samples/runtime_error/**/*.co")]
-fn check_runtime_error_program(path: &str) {
+fn runtime_error_interpret(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
         backend: Box::new(InterpreterBackend),

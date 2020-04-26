@@ -71,6 +71,18 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
         }
     }
 
+    fn visit_expression(&mut self, expression: &mut Expression) {
+        self.walk_expression(expression);
+
+        let expression_type = expression.type_().borrow();
+        if expression_type.depends_on_type_parameter_placeholders() {
+            self.errors.push(format!(
+                "expression has type `{}` which depends on unfilled type parameter placeholders",
+                expression_type.name
+            ))
+        }
+    }
+
     fn visit_address_expr(&mut self, expression: &mut AddressExpr) {
         self.walk_address_expr(expression);
         if expression.target.value_category() != ValueCategory::Lvalue {
@@ -165,4 +177,5 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
 
     // TODO also check VariableExpr, so that it only accesses local variables that are in scope.
     // TODO also check ReturnInstruction, so that expression type is the same as function type.
+    // TODO also check type and function references so that only registered entities are referenced.
 }

@@ -7,6 +7,7 @@ edition = "2018"
 
 [dependencies]
 codespan-reporting = "0.9.1"
+clap = "2.33.0"
 colang = { path = "../colang" }
 colang-interpreter = { path = "../colang-interpreter" }
 colang-c-target = { path = "../colang-c-target" }
@@ -14,3 +15,4 @@ colang-c-target = { path = "../colang-c-target" }
 
 [dev-dependencies]
 test-generator = "0.3.0"
+tempfile = "3.1.0"

@@ -19,7 +19,7 @@ impl ToSexp for Program {
                 sexp_str!("types"),
                 Sexp::List(
                     self.types
-                        .all_user_defined()
+                        .all_user_defined_types()
                         .map(|type_| type_.borrow().to_full_sexp())
                         .collect()
                 ),

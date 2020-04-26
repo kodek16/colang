@@ -113,9 +113,13 @@ fn instantiate_functions_transitively(
             return Err(());
         }
 
+        // By calling `add_function` here we make sure that all instantiated functions (including
+        // internal method instances) are registered with the program. This makes use of idempotency
+        // of `add_function`.
+        program.add_function(Rc::clone(&function));
+
         if function.borrow().body_needs_instantiation() {
             let body = Function::instantiate_body(Rc::clone(&function), program.types_mut());
-            program.add_function(Rc::clone(&function));
 
             let mut call_visitor = CallVisitor::new(program.types_mut());
             call_visitor.visit_expression(&mut body.borrow_mut());

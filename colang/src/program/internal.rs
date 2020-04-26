@@ -58,8 +58,8 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
         create_eq_int_function(program.types()),
         create_not_eq_int_function(program.types()),
         create_int_to_string_function(program.types()),
-        /// TODO convert all internal operators to methods. This would involve changing the
-        /// lookup logic.
+        // TODO convert all internal operators to methods. This would involve changing the
+        // lookup logic.
         create_string_add_method(program.types()),
         create_string_eq_method(program.types()),
         create_string_not_eq_method(program.types()),
@@ -91,6 +91,7 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
     {
         let mut array = array.borrow_mut();
         for method in array_methods.iter() {
+            program.add_function(Rc::clone(&method));
             array
                 .add_method(Rc::clone(&method))
                 .expect("Internal method name collision.");

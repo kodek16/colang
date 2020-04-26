@@ -111,7 +111,7 @@ void vec_push(vec<T> **v, T elem) {
 
 template <typename T>
 T vec_pop(vec<T> **v) {
-    T elem = (**v).last();
+    T elem = (**v).back();
     (**v).pop_back();
     return elem;
 }

@@ -24,12 +24,12 @@ impl CCodePrinter {
     ) -> fmt::Result {
         write!(self, "{}\n", crate::prelude::PRELUDE_SOURCE)?;
 
-        for type_ in program.types().all_user_defined() {
+        for type_ in program.types().all_user_defined_types() {
             self.write_type_forward_decl(names, &type_.borrow())?;
         }
         write!(self, "\n")?;
 
-        for type_ in program.types().all_user_defined() {
+        for type_ in program.types().all_user_defined_types() {
             self.write_type_def(names, &type_.borrow())?;
             write!(self, "\n")?;
         }
@@ -357,7 +357,7 @@ impl CCodePrinter {
         expression: &DerefExpr,
     ) -> ExprWriteResult {
         let pointer = self.write_expression(names, &expression.pointer)?.unwrap();
-        Ok(Some(format!("*{}", pointer)))
+        Ok(Some(format!("(*{})", pointer)))
     }
 
     fn write_field_access_expr(
@@ -425,7 +425,7 @@ impl CCodePrinter {
     ) -> ExprWriteResult {
         match expression {
             LiteralExpr::Int(x, _) => Ok(Some(format!("{}", x))),
-            LiteralExpr::Char(c, _) => Ok(Some(format!("'\\x{}'", c))),
+            LiteralExpr::Char(c, _) => Ok(Some(format!("'\\x{:x}'", c))),
             LiteralExpr::Bool(b, _) => Ok(Some(String::from(if *b { "1" } else { "0" }))),
             LiteralExpr::String(s, _) => {
                 let literal_name = names.expression_name();

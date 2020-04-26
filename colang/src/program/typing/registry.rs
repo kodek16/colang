@@ -1,5 +1,9 @@
 use crate::program::typing::templates::{ProtoTypeParameter, TypeTemplate, TypeTemplateId};
 use crate::program::typing::types::{Type, TypeCompleteness, TypeId};
+use crate::program::Variable;
+use crate::utils::graphs;
+use petgraph::algo::toposort;
+use petgraph::Graph;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -158,6 +162,81 @@ impl TypeRegistry {
     pub fn mark_fully_complete(&mut self, type_: &Rc<RefCell<Type>>) {
         type_.borrow_mut().completeness = TypeCompleteness::FullyComplete;
     }
+
+    /// Performs a reverse topological sort of the type graph containing all types where edges
+    /// are fields.
+    ///
+    /// If there is no cycles in types through their fields, this method succeeds and returns
+    /// an ordering of types where every type is encountered after all of its' fields' types.
+    ///
+    /// If there is a cycle, the fields causing it are returned as `Err`.
+    pub fn all_types_sorted(&self) -> Result<Vec<Rc<RefCell<Type>>>, TypeCycleThroughFields> {
+        let mut type_graph = Graph::<Rc<RefCell<Type>>, Rc<RefCell<Variable>>>::new();
+
+        // Indices are stable as long as no nodes are removed.
+        let mut node_indices = HashMap::new();
+        for (type_id, type_) in self.types.iter() {
+            let index = type_graph.add_node(Rc::clone(&type_));
+            node_indices.insert(type_id.clone(), index);
+        }
+
+        for type_ in self.types.values() {
+            let type_ = type_.borrow();
+            for field in type_.fields() {
+                type_graph.add_edge(
+                    node_indices[&type_.type_id],
+                    node_indices[&field.borrow().type_.borrow().type_id],
+                    Rc::clone(&field),
+                );
+            }
+        }
+
+        toposort(&type_graph, None)
+            .map(|types| {
+                types
+                    .into_iter()
+                    .rev()
+                    .map(|node_index| Rc::clone(&type_graph[node_index]))
+                    .collect()
+            })
+            .map_err(|cycle| {
+                let node_index = cycle.node_id();
+                let mut cycle = graphs::find_any_cycle(&type_graph, node_index);
+
+                // Shift `cycle` so that the first type is user-defined.
+                let first_user_defined = cycle
+                    .iter()
+                    .position(|node_index| type_graph[*node_index].borrow().is_user_defined())
+                    .expect("Type cycle of internal types only");
+                let mut shifted_cycle: Vec<_> = cycle.drain(first_user_defined..).collect();
+                shifted_cycle.append(&mut cycle);
+                let cycle = shifted_cycle;
+
+                let anchor_type = Rc::clone(&type_graph[cycle[0]]);
+                let fields = cycle
+                    .iter()
+                    .zip(cycle.iter().skip(1).chain(cycle.iter().take(1)))
+                    .map(|(u, v)| {
+                        Rc::clone(type_graph.edges_connecting(*u, *v).next().unwrap().weight())
+                    })
+                    .collect();
+
+                TypeCycleThroughFields {
+                    anchor_type,
+                    fields,
+                }
+            })
+    }
+}
+
+/// A type cycle encountered when traversing their fields.
+pub struct TypeCycleThroughFields {
+    /// Arbitrary type in the cycle.
+    pub anchor_type: Rc<RefCell<Type>>,
+
+    /// Field path causing a cycle. The first field belongs to `anchor_type`, the last field has
+    /// type `anchor_type`.
+    pub fields: Vec<Rc<RefCell<Variable>>>,
 }
 
 fn create_array_template(registry: &mut TypeRegistry) -> Rc<RefCell<TypeTemplate>> {

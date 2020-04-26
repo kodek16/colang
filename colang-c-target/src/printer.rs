@@ -24,13 +24,17 @@ impl CCodePrinter {
     ) -> fmt::Result {
         write!(self, "{}\n", crate::prelude::PRELUDE_SOURCE)?;
 
-        for type_ in program.types().all_user_defined_types() {
-            self.write_type_forward_decl(names, &type_.borrow())?;
+        for type_ in program.sorted_types() {
+            if type_.borrow().is_user_defined() {
+                self.write_type_forward_decl(names, &type_.borrow())?;
+            }
         }
         write!(self, "\n")?;
 
-        for type_ in program.types().all_user_defined_types() {
-            self.write_type_def(names, &type_.borrow())?;
+        for type_ in program.sorted_types() {
+            if type_.borrow().is_user_defined() {
+                self.write_type_def(names, &type_.borrow())?;
+            }
             write!(self, "\n")?;
         }
 

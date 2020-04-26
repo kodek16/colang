@@ -6,6 +6,7 @@ use lalrpop_util::lalrpop_mod;
 mod analyzer;
 mod ast;
 mod scope;
+mod utils;
 
 pub mod backends;
 pub mod errors;
@@ -151,10 +152,11 @@ fn compile(
     analyzer::function_instantiations::FunctionInstantiationsAnalyzerPass::new()
         .run(sources.iter_mut().collect(), &mut context);
 
-    // 6th pass: now that all required template instances are created, remove all template base
-    // types and functions, so that the resulting program does not contain type parameter
-    // placeholders.
+    // 6th pass: remove all template base types and their methods from the program.
     remove_template_base_types_and_functions(&mut context.program);
+
+    // 7th pass: sort types topologically according to fields links.
+    sort_types(&mut context);
 
     let main_function = context
         .scope
@@ -173,7 +175,9 @@ fn compile(
     }
 }
 
-/// Removes all template base types and their methods from the program.
+// Removes all template base types and functions, so that the resulting program does not contain
+// type parameter placeholders.
+// This is safe to do only when all required template instances are created.
 fn remove_template_base_types_and_functions(program: &mut program::Program) {
     let mut functions_to_remove = Vec::new();
     let mut types_to_remove = Vec::new();
@@ -193,5 +197,17 @@ fn remove_template_base_types_and_functions(program: &mut program::Program) {
 
     for type_ in types_to_remove {
         program.types_mut().remove_type(&type_.borrow());
+    }
+}
+
+/// Performs topological sorting for all types and reports any found type cycles as errors.
+fn sort_types(context: &mut CompilerContext) {
+    let result = context.program.types().all_types_sorted();
+    match result {
+        Ok(types) => context.program.sorted_types = Some(types),
+        Err(cycle) => {
+            let error = CompilationError::type_cycle_through_fields(cycle);
+            context.errors.push(error);
+        }
     }
 }

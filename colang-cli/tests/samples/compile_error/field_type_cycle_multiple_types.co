@@ -1,0 +1,9 @@
+struct Foo {
+  next: Bar;
+}
+
+struct Bar {
+  prev: Foo;
+}
+
+fun main() { }

@@ -3,7 +3,9 @@
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::ast;
-use crate::program::{Expression, ExpressionKind, Function, Type, TypeTemplate, Variable};
+use crate::program::{
+    Expression, ExpressionKind, Function, Type, TypeCycleThroughFields, TypeTemplate, Variable,
+};
 use crate::scope::{NamedEntity, NamedEntityKind};
 use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
 use ast::ParseError;
@@ -981,13 +983,47 @@ impl CompilationError {
         })
     }
 
+    pub fn type_cycle_through_fields(cycle: TypeCycleThroughFields) -> CompilationError {
+        let anchor_type = cycle.anchor_type.borrow();
+        let anchor_field = cycle.fields[0].borrow();
+
+        CompilationError::new(
+            "E9046",
+            format!(
+                "type `{}` is a part of a type cycle through fields",
+                anchor_type.name,
+            ),
+        )
+        .with_location(SourceOrigin::Plain(anchor_field.definition_site.unwrap()))
+        .with_subtitle("field type starts a type cycle")
+        .with_free_note({
+            let type_cycle: Vec<_> = cycle
+                .fields
+                .iter()
+                .map(|field| {
+                    let field = field.borrow();
+                    format!(
+                        "`{}` (through field `{}`)",
+                        field.type_.borrow().name,
+                        field.name
+                    )
+                })
+                .collect();
+            let type_cycle = type_cycle.join("\n -> ");
+            format!(
+                "Type dependency cycle:\n    `{}`\n -> {}",
+                anchor_type.name, type_cycle
+            )
+        })
+    }
+
     // Missing `main`:
 
     pub fn main_function_not_found() -> CompilationError {
         CompilationError::new("E9041", "`main` function not found: you must define one")
     }
 
-    // Next code: E9046.
+    // Next code: E9047.
 }
 
 fn maybe_explain_expression_type(expression: &Expression, error: &mut CompilationError) {

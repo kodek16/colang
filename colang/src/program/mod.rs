@@ -42,14 +42,21 @@ impl SymbolIdRegistry {
 pub struct Program {
     symbol_ids: SymbolIdRegistry,
 
+    types: TypeRegistry,
+
     /// All user-defined functions and methods in the program.
     user_functions: Vec<Rc<RefCell<Function>>>,
-    types: TypeRegistry,
 
     /// All internal functions and internal template method instantiations in the program.
     internal_functions: HashMap<InternalFunctionTag, Rc<RefCell<Function>>>,
 
-    main_function: Option<Rc<RefCell<Function>>>,
+    /// All types in the program in the reverse topological order according to their fields.
+    /// See `TypeRegistry::all_types_sorted`.
+    /// This field is filled in one of the last passes of the analyzer.
+    pub(crate) sorted_types: Option<Vec<Rc<RefCell<Type>>>>,
+
+    /// The `main` function that is the entrypoint of the program.
+    pub(crate) main_function: Option<Rc<RefCell<Function>>>,
 }
 
 impl Program {
@@ -59,6 +66,7 @@ impl Program {
             symbol_ids: SymbolIdRegistry::new(),
             user_functions: vec![],
             types: TypeRegistry::new(),
+            sorted_types: None,
             internal_functions: HashMap::new(),
             main_function: None,
         }
@@ -130,6 +138,13 @@ impl Program {
         self.user_functions.iter()
     }
 
+    pub fn sorted_types(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {
+        self.sorted_types
+            .as_ref()
+            .expect("types have not been sorted")
+            .iter()
+    }
+
     pub fn main_function(&self) -> Rc<RefCell<Function>> {
         Rc::clone(
             self.main_function
@@ -163,7 +178,10 @@ pub use expressions::{Expression, ExpressionKind};
 
 pub use function::{Function, FunctionBody, FunctionId};
 pub use internal::InternalFunctionTag;
-pub use typing::{ProtoTypeParameter, Type, TypeId, TypeRegistry, TypeTemplate, TypeTemplateId};
+pub use typing::{
+    ProtoTypeParameter, Type, TypeCycleThroughFields, TypeId, TypeRegistry, TypeTemplate,
+    TypeTemplateId,
+};
 pub use variable::{Variable, VariableId};
 
 pub use instructions::assign::AssignInstruction;

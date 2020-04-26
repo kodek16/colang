@@ -59,13 +59,11 @@ impl CCodePrinter {
         type_: &Type,
     ) -> fmt::Result {
         names.add_type(&type_.type_id);
+        let name = names.type_name(&type_.type_id);
 
-        write!(
-            self,
-            "struct /* {} */ {};\n",
-            type_.name,
-            names.type_name(&type_.type_id)
-        )
+        write!(self, "struct /* {} */ {};\n", type_.name, name)?;
+        write!(self, "void init_{}({}*);\n", name, name)?;
+        Ok(())
     }
 
     fn write_type_def(&mut self, names: &mut impl CNameRegistry, type_: &Type) -> fmt::Result {
@@ -73,16 +71,33 @@ impl CCodePrinter {
             self,
             "struct /* {} */ {} {{\n",
             type_.name,
-            names.type_name(&type_.type_id)
+            names.type_name(&type_.type_id),
         )?;
-
         self.indent();
+
         for field in type_.fields() {
             self.write_field_def(names, &field.borrow())?;
         }
-        self.dedent();
 
-        write!(self, "}};\n")
+        self.dedent();
+        write!(self, "}};\n")?;
+
+        write!(
+            self,
+            "void init_{0}({0}* p) {{\n",
+            names.type_name(&type_.type_id)
+        )?;
+        self.indent();
+
+        for field in type_.fields() {
+            self.write_init_function_name(names, &field.borrow().type_.borrow().type_id)?;
+            write!(self, "(&(p->{}));\n", names.variable_name(&field.borrow()))?;
+        }
+
+        self.dedent();
+        write!(self, "}}\n")?;
+
+        Ok(())
     }
 
     fn write_function_forward_decl(
@@ -255,11 +270,8 @@ impl CCodePrinter {
             self.write_type_name(names, &variable.type_.borrow().type_id)?;
             write!(self, " {};\n", names.variable_name(&variable))?;
 
-            if variable.type_.borrow().is_array() || variable.type_.borrow().is_string() {
-                write!(self, "init_vec(&{});\n", names.variable_name(&variable))?;
-            } else {
-                write!(self, "init0({});\n", names.variable_name(&variable))?;
-            }
+            self.write_init_function_name(names, &variable.type_.borrow().type_id)?;
+            write!(self, "(&{});\n", names.variable_name(&variable))?;
         }
 
         for instruction in &block.instructions {
@@ -460,16 +472,12 @@ impl CCodePrinter {
         self.write_type_name(names, &target_type.type_id)?;
         write!(self, "* {} = (", expression_name)?;
         self.write_type_name(names, &target_type.type_id)?;
-        write!(self, "*) calloc(1, sizeof(")?;
+        write!(self, "*) malloc(sizeof(")?;
         self.write_type_name(names, &target_type.type_id)?;
         write!(self, "));\n")?;
 
-        if target_type.is_array() || target_type.is_string() {
-            // We could use malloc or `new` instead of calloc in this case, but the whole
-            // "auto-constructor" mechanism needs a refactor which would probably also fix
-            // this issue.
-            write!(self, "init_vec({});\n", expression_name)?;
-        }
+        self.write_init_function_name(names, &target_type.type_id)?;
+        write!(self, "({});\n", expression_name)?;
 
         Ok(Some(expression_name))
     }
@@ -683,6 +691,21 @@ impl CCodePrinter {
             FunctionId::InstantiatedMethod(_, _) => {
                 write!(self, "{}", names.function_name(function))
             }
+        }
+    }
+
+    fn write_init_function_name(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        type_: &TypeId,
+    ) -> fmt::Result {
+        match type_ {
+            TypeId::TemplateInstance(TypeTemplateId::Array, _) => write!(self, "init_vec"),
+            TypeId::Struct(_) | TypeId::TemplateInstance(TypeTemplateId::Struct(_), _) => {
+                write!(self, "init_")?;
+                self.write_type_name(names, type_)
+            }
+            _ => write!(self, "init_0"),
         }
     }
 

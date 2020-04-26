@@ -31,7 +31,7 @@ typedef std::vector<char> *str;
 #define eq(a, b) ((a) == (b))
 #define neq(a, b) ((a) != (b))
 
-#define init0(v) memset(&(v), 0, sizeof(v))
+#define init_0(v) memset(v, 0, sizeof(*v))
 template <typename T>
 void init_vec(vec<T> **v) { *v = new vec<T>; }
 

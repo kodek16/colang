@@ -24,7 +24,8 @@ use crate::analyzer::visitor::GlobalVisitor;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::transforms::valid::ValidityChecker;
-use crate::source::{InputSpan, InputSpanFile};
+use crate::scope::FunctionEntity;
+use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
 use std::rc::Rc;
 
 /// Compiles a CO program, performs static checks, and returns the intermediate representation.
@@ -121,9 +122,9 @@ fn analyze(
 
     let main_function = context
         .scope
-        .lookup_function("main", InputSpan::top_of_file());
+        .lookup::<FunctionEntity>("main", SourceOrigin::Plain(InputSpan::top_of_file()));
     if let Ok(main_function) = main_function {
-        context.program.fill_main_function(Rc::clone(main_function));
+        context.program.fill_main_function(main_function);
     } else {
         let error = CompilationError::main_function_not_found();
         context.errors.push(error);

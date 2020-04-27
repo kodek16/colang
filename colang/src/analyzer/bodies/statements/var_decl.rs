@@ -3,6 +3,7 @@ use crate::analyzer::type_exprs;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::{BlockBuilder, Type, Variable};
+use crate::scope::VariableEntity;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::cell::RefCell;
@@ -57,7 +58,7 @@ fn compile_var_decl_entry(
         &mut context.program,
     )));
 
-    if let Err(error) = context.scope.add_variable(Rc::clone(&variable)) {
+    if let Err(error) = context.scope.add(VariableEntity(Rc::clone(&variable))) {
         context.errors.push(error);
     };
 

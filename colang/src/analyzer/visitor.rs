@@ -2,6 +2,7 @@
 
 use crate::ast;
 use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::scope::TypeEntity;
 use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -77,7 +78,7 @@ pub trait GlobalVisitor {
         context.scope.push();
 
         for type_parameter in template.borrow().type_parameters.iter() {
-            let result = context.scope.add_type(Rc::clone(&type_parameter));
+            let result = context.scope.add(TypeEntity(Rc::clone(&type_parameter)));
             if let Err(error) = result {
                 context.errors.push(error);
             }

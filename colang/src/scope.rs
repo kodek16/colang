@@ -1,77 +1,43 @@
 //! Named entity visibility hierarchy management.
 
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
-
 use crate::errors::CompilationError;
 use crate::program::{Function, Type, TypeTemplate, Variable};
-use crate::source::{InputSpan, SourceOrigin};
+use crate::source::SourceOrigin;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::rc::Rc;
 
-pub enum NamedEntity {
-    Variable(Rc<RefCell<Variable>>),
-    Function(Rc<RefCell<Function>>),
-    Type(Rc<RefCell<Type>>),
-    TypeTemplate(Rc<RefCell<TypeTemplate>>),
-    Field(Rc<RefCell<Variable>>),
-    Method(Rc<RefCell<Function>>),
-}
-
-impl NamedEntity {
-    pub fn kind(&self) -> NamedEntityKind {
-        match self {
-            NamedEntity::Variable(_) => NamedEntityKind::Variable,
-            NamedEntity::Function(_) => NamedEntityKind::Function,
-            NamedEntity::Type(_) => NamedEntityKind::Type,
-            NamedEntity::TypeTemplate(_) => NamedEntityKind::TypeTemplate,
-            NamedEntity::Field(_) => NamedEntityKind::Field,
-            NamedEntity::Method(_) => NamedEntityKind::Method,
-        }
-    }
-
-    pub fn name(&self) -> String {
-        match self {
-            NamedEntity::Variable(variable) => variable.borrow().name.to_string(),
-            NamedEntity::Function(function) => function.borrow().name.to_string(),
-            NamedEntity::Type(type_) => type_.borrow().name.to_string(),
-            NamedEntity::TypeTemplate(template) => template.borrow().name.to_string(),
-            NamedEntity::Field(field) => field.borrow().name.to_string(),
-            NamedEntity::Method(method) => method.borrow().name.to_string(),
-        }
-    }
-
-    pub fn definition_site(&self) -> Option<SourceOrigin> {
-        match self {
-            NamedEntity::Variable(variable) => variable.borrow().definition_site,
-            NamedEntity::Function(function) => function.borrow().definition_site,
-            NamedEntity::Type(type_) => type_.borrow().definition_site,
-            NamedEntity::TypeTemplate(template) => template.borrow().definition_site,
-            NamedEntity::Field(field) => field.borrow().definition_site,
-            NamedEntity::Method(method) => method.borrow().definition_site,
-        }
-    }
-}
-
-pub enum NamedEntityKind {
-    Variable,
-    Function,
-    Type,
-    TypeTemplate,
-    Field,
-    Method,
-}
-
-pub struct Scope {
+/// A collection of named entities that supports lookup by name.
+///
+/// Scopes are parametrized by a type `G` that defines the entity kinds allowed to be present
+/// in the scope. This way a field cannot be in a free scope, and vice versa.
+///
+/// All entities in each scope must have unique names: one of the main goals of scopes is to
+/// detect and report name conflicts.
+///
+/// Scopes support nesting: a scope can be nested in another, parent scope. All entities visible
+/// in the parent scope are also visible in the nested scope, as long as they are not "shadowed"
+/// by entities with the same name defined in the nested scope proper.
+pub struct Scope<G: GeneralNamedEntity> {
     // `entities` should always be Some, Option is for interior mutability.
-    entities: Option<HashMap<String, NamedEntity>>,
+    entities: Option<HashMap<String, G>>,
 
     // `parent` can be None for root scope.
-    parent: Option<Box<Scope>>,
+    parent: Option<Box<Scope<G>>>,
 }
 
-impl Scope {
+/// The scope containing all "free" names that are looked up directly.
+pub type FreeScope = Scope<FreeEntity>;
+
+/// A scope associated with a type.
+///
+/// Names in this scope can be only looked up in the context of a "receiver" value of this type.
+pub type TypeScope = Scope<TypeMemberEntity>;
+
+impl<G: GeneralNamedEntity> Scope<G> {
     /// Creates a new scope.
-    pub fn new() -> Scope {
+    pub fn new() -> Scope<G> {
         Scope {
             entities: Some(HashMap::new()),
             parent: None,
@@ -88,7 +54,7 @@ impl Scope {
         self.entities = Some(HashMap::new());
     }
 
-    /// Restores previous "scope frame". Has to called after `push`.
+    /// Restores the previous "scope frame". Has to called after `push`.
     pub fn pop(&mut self) {
         let parent = self
             .parent
@@ -98,183 +64,15 @@ impl Scope {
         self.parent = parent.parent.take();
     }
 
+    /// Adds a new entity to the scope.
+    ///
+    /// If a name conflict is detected, a `CompilationError` is returned.
     #[must_use]
-    pub fn add_variable(
-        &mut self,
-        variable: Rc<RefCell<Variable>>,
-    ) -> Result<(), CompilationError> {
-        self.add_entity(NamedEntity::Variable(variable))
-    }
-
-    #[must_use]
-    pub fn add_function(
-        &mut self,
-        function: Rc<RefCell<Function>>,
-    ) -> Result<(), CompilationError> {
-        self.add_entity(NamedEntity::Function(function))
-    }
-
-    #[must_use]
-    pub fn add_type(&mut self, type_: Rc<RefCell<Type>>) -> Result<(), CompilationError> {
-        self.add_entity(NamedEntity::Type(type_))
-    }
-
-    #[must_use]
-    pub fn add_type_template(
-        &mut self,
-        type_template: Rc<RefCell<TypeTemplate>>,
-    ) -> Result<(), CompilationError> {
-        self.add_entity(NamedEntity::TypeTemplate(type_template))
-    }
-
-    #[must_use]
-    pub fn add_field(&mut self, field: Rc<RefCell<Variable>>) -> Result<(), CompilationError> {
-        self.add_entity(NamedEntity::Field(field))
-    }
-
-    #[must_use]
-    pub fn add_method(&mut self, method: Rc<RefCell<Function>>) -> Result<(), CompilationError> {
-        self.add_entity(NamedEntity::Method(method))
-    }
-
-    pub fn lookup_variable(
-        &self,
-        name: &str,
-        reference_location: InputSpan,
-    ) -> Result<&Rc<RefCell<Variable>>, CompilationError> {
-        self.lookup_entity_kind(
-            name,
-            reference_location,
-            NamedEntityKind::Variable,
-            |entity| match entity {
-                NamedEntity::Variable(variable) => Some(variable),
-                _ => None,
-            },
-        )
-    }
-
-    pub fn lookup_function(
-        &self,
-        name: &str,
-        reference_location: InputSpan,
-    ) -> Result<&Rc<RefCell<Function>>, CompilationError> {
-        self.lookup_entity_kind(
-            name,
-            reference_location,
-            NamedEntityKind::Function,
-            |entity| match entity {
-                NamedEntity::Function(function) => Some(function),
-                _ => None,
-            },
-        )
-    }
-
-    pub fn lookup_type(
-        &self,
-        name: &str,
-        reference_location: InputSpan,
-    ) -> Result<&Rc<RefCell<Type>>, CompilationError> {
-        self.lookup_entity_kind(name, reference_location, NamedEntityKind::Type, |entity| {
-            match entity {
-                NamedEntity::Type(type_) => Some(type_),
-                _ => None,
-            }
-        })
-    }
-
-    pub fn lookup_type_template(
-        &self,
-        name: &str,
-        reference_location: InputSpan,
-    ) -> Result<&Rc<RefCell<TypeTemplate>>, CompilationError> {
-        self.lookup_entity_kind(
-            name,
-            reference_location,
-            NamedEntityKind::TypeTemplate,
-            |entity| match entity {
-                NamedEntity::TypeTemplate(type_template) => Some(type_template),
-                _ => None,
-            },
-        )
-    }
-
-    pub fn lookup_field(
-        &self,
-        name: &str,
-        reference_location: InputSpan,
-    ) -> Result<&Rc<RefCell<Variable>>, CompilationError> {
-        self.lookup_entity_kind(name, reference_location, NamedEntityKind::Field, |entity| {
-            match entity {
-                NamedEntity::Field(field) => Some(field),
-                _ => None,
-            }
-        })
-    }
-
-    pub fn lookup_method(
-        &self,
-        name: &str,
-        reference_location: InputSpan,
-    ) -> Result<&Rc<RefCell<Function>>, CompilationError> {
-        self.lookup_entity_kind(
-            name,
-            reference_location,
-            NamedEntityKind::Method,
-            |entity| match entity {
-                NamedEntity::Method(method) => Some(method),
-                _ => None,
-            },
-        )
-    }
-
-    /// Convenience method for mutator access.
-    fn entities_mut(&mut self) -> &mut HashMap<String, NamedEntity> {
-        self.entities.as_mut().unwrap()
-    }
-
-    fn lookup_self(&self, name: &str) -> Option<&NamedEntity> {
-        self.entities.as_ref().unwrap().get(name)
-    }
-
-    fn lookup(&self, name: &str) -> Option<&NamedEntity> {
-        self.entities
-            .as_ref()
-            .unwrap()
-            .get(name)
-            .or_else(|| self.parent.as_ref().and_then(|parent| parent.lookup(name)))
-    }
-
-    // Generic helper method for looking up different kinds of named entities.
-    fn lookup_entity_kind<T>(
-        &self,
-        name: &str,
-        reference_location: InputSpan,
-        expected_kind: NamedEntityKind,
-        pattern: impl FnOnce(&NamedEntity) -> Option<&Rc<RefCell<T>>>,
-    ) -> Result<&Rc<RefCell<T>>, CompilationError> {
-        match self.lookup(name) {
-            Some(entity) => match pattern(entity) {
-                Some(target) => Ok(target),
-                None => {
-                    let error = CompilationError::named_entity_kind_mismatch(
-                        name,
-                        expected_kind,
-                        entity,
-                        SourceOrigin::Plain(reference_location),
-                    );
-                    Err(error)
-                }
-            },
-            None => Err(CompilationError::named_entity_not_found(
-                name,
-                expected_kind,
-                SourceOrigin::Plain(reference_location),
-            )),
-        }
-    }
-
-    #[must_use]
-    fn add_entity(&mut self, entity: NamedEntity) -> Result<(), CompilationError> {
+    pub fn add<S>(&mut self, entity: S) -> Result<(), CompilationError>
+    where
+        S: SpecificNamedEntity,
+        G: From<S>,
+    {
         let name = entity.name();
         let definition_site = entity.definition_site();
 
@@ -290,9 +88,265 @@ impl Scope {
                 Err(error)
             }
             None => {
-                self.entities_mut().insert(name.to_string(), entity);
+                self.entities
+                    .as_mut()
+                    .unwrap()
+                    .insert(name.to_string(), entity.into());
                 Ok(())
             }
         }
     }
+
+    /// Looks up an entity with a specific name from the scope.
+    ///
+    /// Expected entity kind must be provided, and if the name corresponds to an entity of a
+    /// different kind, an error is returned.
+    ///
+    /// If the name is unknown, an error is returned as well.
+    pub fn lookup<S>(
+        &self,
+        name: &str,
+        reference_location: SourceOrigin,
+    ) -> Result<Rc<RefCell<S::Item>>, CompilationError>
+    where
+        S: SpecificNamedEntity,
+        S: TryFrom<G>,
+    {
+        match self.lookup_chain(name) {
+            Some(entity) => match S::try_from(entity.clone()) {
+                Ok(target) => Ok(target.item()),
+                Err(_) => {
+                    let error = CompilationError::named_entity_kind_mismatch(
+                        name,
+                        S::kind(),
+                        entity,
+                        reference_location,
+                    );
+                    Err(error)
+                }
+            },
+            None => Err(CompilationError::named_entity_not_found(
+                name,
+                S::kind(),
+                reference_location,
+            )),
+        }
+    }
+
+    fn lookup_self(&self, name: &str) -> Option<&G> {
+        self.entities.as_ref().unwrap().get(name)
+    }
+
+    fn lookup_chain(&self, name: &str) -> Option<&G> {
+        self.entities.as_ref().unwrap().get(name).or_else(|| {
+            self.parent
+                .as_ref()
+                .and_then(|parent| parent.lookup_chain(name))
+        })
+    }
 }
+
+/// A trait for types directly wrapping a named entity (scope member).
+pub trait SpecificNamedEntity: Clone {
+    type Item;
+
+    fn kind() -> NamedEntityKind;
+    fn item(self) -> Rc<RefCell<Self::Item>>;
+
+    fn name(&self) -> String;
+    fn definition_site(&self) -> Option<SourceOrigin>;
+}
+
+/// A trait for sum types of `SpecificNamedEntity`, defining allowed entity kinds for a scope.
+pub trait GeneralNamedEntity: Clone {
+    fn kind(&self) -> NamedEntityKind;
+
+    fn name(&self) -> String;
+    fn definition_site(&self) -> Option<SourceOrigin>;
+}
+
+// This macro saves a lot of boilerplate, but makes some specific assumptions. Treat with caution.
+macro_rules! specific_named_entity_impl {
+    ($specific:ty, $general:ty, $item:ty, $variant:path, $kind:ident) => {
+        impl SpecificNamedEntity for $specific {
+            type Item = $item;
+
+            fn kind() -> NamedEntityKind {
+                NamedEntityKind::$kind
+            }
+
+            fn item(self) -> Rc<RefCell<Self::Item>> {
+                self.0
+            }
+
+            fn name(&self) -> String {
+                self.0.borrow().name.clone()
+            }
+
+            fn definition_site(&self) -> Option<SourceOrigin> {
+                self.0.borrow().definition_site
+            }
+        }
+
+        impl From<$specific> for $general {
+            fn from(entity: $specific) -> Self {
+                $variant(entity)
+            }
+        }
+
+        impl TryFrom<$general> for $specific {
+            type Error = ();
+
+            fn try_from(entity: $general) -> Result<Self, Self::Error> {
+                match entity {
+                    $variant(entity) => Ok(entity),
+                    _ => Err(()),
+                }
+            }
+        }
+    };
+}
+
+/// A simple description of an entity kind used in error messages.
+pub enum NamedEntityKind {
+    Variable,
+    Function,
+    Type,
+    TypeTemplate,
+    Field,
+    Method,
+}
+
+/// A sum of all allowed type member entity kinds.
+#[derive(Clone)]
+pub enum TypeMemberEntity {
+    Field(FieldEntity),
+    Method(MethodEntity),
+}
+
+/// An entity kind representing a field of some type.
+#[derive(Clone)]
+pub struct FieldEntity(pub Rc<RefCell<Variable>>);
+
+/// An entity kind representing a method of some type.
+#[derive(Clone)]
+pub struct MethodEntity(pub Rc<RefCell<Function>>);
+
+impl GeneralNamedEntity for TypeMemberEntity {
+    fn kind(&self) -> NamedEntityKind {
+        match self {
+            TypeMemberEntity::Field(_) => NamedEntityKind::Field,
+            TypeMemberEntity::Method(_) => NamedEntityKind::Method,
+        }
+    }
+
+    fn name(&self) -> String {
+        match self {
+            TypeMemberEntity::Field(ref field) => field.name(),
+            TypeMemberEntity::Method(ref method) => method.name(),
+        }
+    }
+
+    fn definition_site(&self) -> Option<SourceOrigin> {
+        match self {
+            TypeMemberEntity::Field(ref field) => field.definition_site(),
+            TypeMemberEntity::Method(ref method) => method.definition_site(),
+        }
+    }
+}
+
+specific_named_entity_impl!(
+    FieldEntity,
+    TypeMemberEntity,
+    Variable,
+    TypeMemberEntity::Field,
+    Field
+);
+
+specific_named_entity_impl!(
+    MethodEntity,
+    TypeMemberEntity,
+    Function,
+    TypeMemberEntity::Method,
+    Method
+);
+
+/// A sum of all entity kinds allowed in the free scope.
+#[derive(Clone)]
+pub enum FreeEntity {
+    Variable(VariableEntity),
+    Function(FunctionEntity),
+    Type(TypeEntity),
+    TypeTemplate(TypeTemplateEntity),
+}
+
+/// An entity kind representing a local variable or a function parameter.
+#[derive(Clone)]
+pub struct VariableEntity(pub Rc<RefCell<Variable>>);
+
+/// An entity kind representing a non-method function.
+#[derive(Clone)]
+pub struct FunctionEntity(pub Rc<RefCell<Function>>);
+
+/// An entity kind representing a non-template type.
+#[derive(Clone)]
+pub struct TypeEntity(pub Rc<RefCell<Type>>);
+
+/// An entity kind representing a template type.
+#[derive(Clone)]
+pub struct TypeTemplateEntity(pub Rc<RefCell<TypeTemplate>>);
+
+impl GeneralNamedEntity for FreeEntity {
+    fn kind(&self) -> NamedEntityKind {
+        match self {
+            FreeEntity::Variable(_) => NamedEntityKind::Variable,
+            FreeEntity::Function(_) => NamedEntityKind::Function,
+            FreeEntity::Type(_) => NamedEntityKind::Type,
+            FreeEntity::TypeTemplate(_) => NamedEntityKind::TypeTemplate,
+        }
+    }
+
+    fn name(&self) -> String {
+        match self {
+            FreeEntity::Variable(ref variable) => variable.name(),
+            FreeEntity::Function(ref function) => function.name(),
+            FreeEntity::Type(ref type_) => type_.name(),
+            FreeEntity::TypeTemplate(ref type_template) => type_template.name(),
+        }
+    }
+
+    fn definition_site(&self) -> Option<SourceOrigin> {
+        match self {
+            FreeEntity::Variable(ref variable) => variable.definition_site(),
+            FreeEntity::Function(ref function) => function.definition_site(),
+            FreeEntity::Type(ref type_) => type_.definition_site(),
+            FreeEntity::TypeTemplate(ref type_template) => type_template.definition_site(),
+        }
+    }
+}
+
+specific_named_entity_impl!(
+    VariableEntity,
+    FreeEntity,
+    Variable,
+    FreeEntity::Variable,
+    Variable
+);
+
+specific_named_entity_impl!(
+    FunctionEntity,
+    FreeEntity,
+    Function,
+    FreeEntity::Function,
+    Function
+);
+
+specific_named_entity_impl!(TypeEntity, FreeEntity, Type, FreeEntity::Type, Type);
+
+specific_named_entity_impl!(
+    TypeTemplateEntity,
+    FreeEntity,
+    TypeTemplate,
+    FreeEntity::TypeTemplate,
+    TypeTemplate
+);

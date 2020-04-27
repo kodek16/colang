@@ -6,6 +6,7 @@ use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
 use crate::errors::CompilationError;
 use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::scope::{FunctionEntity, VariableEntity};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::cell::RefCell;
@@ -161,7 +162,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             .register_function(&function_def, Rc::clone(&function));
 
         context.program.add_function(Rc::clone(&function));
-        if let Err(error) = context.scope.add_function(Rc::clone(&function)) {
+        if let Err(error) = context.scope.add(FunctionEntity(Rc::clone(&function))) {
             context.errors.push(error);
         }
 
@@ -240,7 +241,7 @@ fn create_parameter(
         &mut context.program,
     )));
 
-    if let Err(error) = context.scope.add_variable(Rc::clone(&variable)) {
+    if let Err(error) = context.scope.add(VariableEntity(Rc::clone(&variable))) {
         context.errors.push(error);
     };
     Some(variable)

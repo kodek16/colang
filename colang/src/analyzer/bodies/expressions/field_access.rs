@@ -3,7 +3,6 @@ use crate::analyzer::bodies::maybe_deref;
 use crate::context::CompilerContext;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
-use std::rc::Rc;
 
 pub fn compile_field_access_expr(
     expression: ast::FieldAccessExpr,
@@ -19,10 +18,10 @@ pub fn compile_field_access_expr(
 
     let receiver_type = receiver.type_();
 
-    let field = receiver_type
-        .borrow()
-        .lookup_field(&expression.field.text, expression.field.span)
-        .map(Rc::clone);
+    let field = receiver_type.borrow().lookup_field(
+        &expression.field.text,
+        SourceOrigin::Plain(expression.field.span),
+    );
 
     let field = match field {
         Ok(field) => field,

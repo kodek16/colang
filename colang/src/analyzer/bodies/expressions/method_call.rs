@@ -2,10 +2,9 @@ use super::compile_expression;
 use crate::analyzer::bodies::{check_argument_types, compile_arguments, maybe_deref};
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::{Function, ValueCategory};
+use crate::program::ValueCategory;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
-use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn compile_method_call_expr(
@@ -22,12 +21,12 @@ pub fn compile_method_call_expr(
     let receiver = maybe_deref(receiver, context);
     let receiver_type = Rc::clone(receiver.type_());
 
-    let method = receiver_type
-        .borrow()
-        .lookup_method(&expression.method.text, expression.method.span)
-        .map(Rc::clone);
+    let method = receiver_type.borrow().lookup_method(
+        &expression.method.text,
+        SourceOrigin::Plain(expression.method.span),
+    );
 
-    let method: Rc<RefCell<Function>> = match method {
+    let method = match method {
         Ok(method) => method,
         Err(error) => {
             context.errors.push(error);

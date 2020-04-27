@@ -4,7 +4,7 @@
 
 use crate::program::function::ProtoInternalParameter;
 use crate::program::{Function, Program, Type, TypeId, TypeRegistry};
-use crate::scope::Scope;
+use crate::scope::{FreeScope, FunctionEntity};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -38,7 +38,7 @@ pub enum InternalFunctionTag {
     ArrayIndex(TypeId),
 }
 
-pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
+pub fn populate_internal_symbols(program: &mut Program, scope: &mut FreeScope) {
     let visible_functions = vec![
         create_assert_function(program.types()),
         create_ascii_code_function(program.types()),
@@ -107,10 +107,12 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut Scope) {
     }
 
     for function in visible_functions {
-        scope.add_function(Rc::clone(&function)).expect(&format!(
-            "Couldn't register internal function `{}`",
-            function.borrow().name
-        ));
+        scope
+            .add(FunctionEntity(Rc::clone(&function)))
+            .expect(&format!(
+                "Couldn't register internal function `{}`",
+                function.borrow().name
+            ));
     }
 }
 

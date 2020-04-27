@@ -4,6 +4,7 @@ use crate::ast;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::Type;
+use crate::scope::{TypeEntity, TypeTemplateEntity};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -44,7 +45,9 @@ fn compile_scalar_type_expr(
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
     let name = &type_expr.name;
-    let type_ = context.scope.lookup_type(&name.text, type_expr.span);
+    let type_ = context
+        .scope
+        .lookup::<TypeEntity>(&name.text, SourceOrigin::Plain(type_expr.span));
 
     match type_ {
         Ok(type_) if type_.borrow().is_void() => {
@@ -53,7 +56,7 @@ fn compile_scalar_type_expr(
             context.errors.push(error);
             Type::error()
         }
-        Ok(type_) => Rc::clone(type_),
+        Ok(type_) => type_,
         Err(error) => {
             context.errors.push(error);
             Type::error()
@@ -96,9 +99,10 @@ fn compile_template_instance_type_expr(
         return Type::error();
     }
 
-    let template = context
-        .scope
-        .lookup_type_template(&type_expr.template.text, type_expr.template.span);
+    let template = context.scope.lookup::<TypeTemplateEntity>(
+        &type_expr.template.text,
+        SourceOrigin::Plain(type_expr.template.span),
+    );
     let template = match template {
         Ok(template) => template,
         Err(error) => {

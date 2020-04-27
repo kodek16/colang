@@ -21,8 +21,8 @@ pub fn compile_index_expr(
 
     let method = collection_type
         .borrow()
-        .lookup_method("index", expression.span)
-        .map(Rc::clone);
+        .lookup_method("index", SourceOrigin::Plain(expression.span));
+
     let method = match method {
         Ok(method) => method,
         Err(error) => {

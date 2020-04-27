@@ -7,6 +7,7 @@ use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::errors::CompilationError;
 use crate::program::{Function, FunctionBody, Type, Variable};
+use crate::scope::VariableEntity;
 use crate::source::{InputSpan, SourceOrigin};
 use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
@@ -38,7 +39,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
         context.scope.push();
         for parameter in &method.borrow().parameters[1..] {
             // Ignore errors, they should be already reported in the previous phase.
-            let _ = context.scope.add_variable(Rc::clone(&parameter));
+            let _ = context.scope.add(VariableEntity(Rc::clone(&parameter)));
         }
 
         // Extract body from method definition.
@@ -74,7 +75,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
 
         for parameter in &function.borrow().parameters {
             // Ignore errors, they should be already reported in the previous phase.
-            let _ = context.scope.add_variable(Rc::clone(&parameter));
+            let _ = context.scope.add(VariableEntity(Rc::clone(&parameter)));
         }
 
         // Extract body from function definition.

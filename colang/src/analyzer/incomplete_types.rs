@@ -6,6 +6,7 @@ use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
 use crate::ast::FunctionDef;
 use crate::program::{ProtoTypeParameter, Type, TypeTemplate};
+use crate::scope::{TypeEntity, TypeTemplateEntity};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::rc::Rc;
@@ -28,7 +29,7 @@ impl GlobalVisitor for IncompleteTypesAnalyzerPass {
             .globals
             .register_struct(&struct_def, Rc::clone(&type_));
 
-        let result = context.scope.add_type(Rc::clone(&type_));
+        let result = context.scope.add(TypeEntity(Rc::clone(&type_)));
         if let Err(error) = result {
             context.errors.push(error);
         }
@@ -57,7 +58,7 @@ impl GlobalVisitor for IncompleteTypesAnalyzerPass {
             .globals
             .register_struct_template(&struct_def, Rc::clone(&template));
 
-        let result = context.scope.add_type_template(Rc::clone(&template));
+        let result = context.scope.add(TypeTemplateEntity(Rc::clone(&template)));
         if let Err(error) = result {
             context.errors.push(error);
         }

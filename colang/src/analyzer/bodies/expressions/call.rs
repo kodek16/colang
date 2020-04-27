@@ -1,10 +1,8 @@
 use crate::analyzer::bodies::{check_argument_types, compile_arguments};
 use crate::context::CompilerContext;
-use crate::program::Function;
+use crate::scope::FunctionEntity;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub fn compile_call_expr(
     expression: ast::CallExpr,
@@ -15,10 +13,9 @@ pub fn compile_call_expr(
 
     let function = context
         .scope
-        .lookup_function(&function_name, function_name_span)
-        .map(Rc::clone);
+        .lookup::<FunctionEntity>(&function_name, SourceOrigin::Plain(function_name_span));
 
-    let function: Rc<RefCell<Function>> = match function {
+    let function = match function {
         Ok(function) => function,
         Err(error) => {
             context.errors.push(error);

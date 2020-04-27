@@ -6,7 +6,7 @@ use crate::ast;
 use crate::program::{
     Expression, ExpressionKind, Function, Type, TypeCycleThroughFields, TypeTemplate, Variable,
 };
-use crate::scope::{NamedEntity, NamedEntityKind};
+use crate::scope::{GeneralNamedEntity, NamedEntityKind};
 use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
 use ast::ParseError;
 use std::cell::RefCell;
@@ -217,10 +217,10 @@ impl CompilationError {
         .with_subtitle(format!("refers to an unknown {}", kind.text()))
     }
 
-    pub fn named_entity_kind_mismatch(
+    pub fn named_entity_kind_mismatch<G: GeneralNamedEntity>(
         name: &str,
         expected: NamedEntityKind,
-        actual: &NamedEntity,
+        actual: &G,
         location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
@@ -243,9 +243,9 @@ impl CompilationError {
         })
     }
 
-    pub fn named_entity_already_defined(
+    pub fn named_entity_already_defined<G: GeneralNamedEntity>(
         name: &str,
-        existing: &NamedEntity,
+        existing: &G,
         location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(

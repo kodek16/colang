@@ -2,8 +2,8 @@ use crate::errors::CompilationError;
 use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::templates::TypeTemplateId;
 use crate::program::{Function, Program, SymbolId, Variable};
-use crate::scope::Scope;
-use crate::source::{InputSpan, SourceOrigin};
+use crate::scope::{FieldEntity, MethodEntity, Scope, TypeScope};
+use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -33,7 +33,7 @@ pub struct Type {
 
     fields: Vec<Rc<RefCell<Variable>>>,
     methods: Vec<Rc<RefCell<Function>>>,
-    scope: Scope,
+    scope: TypeScope,
 
     /// Types can be in one of a few states, see `TypeCompleteness` for details.
     pub(in crate::program::typing) completeness: TypeCompleteness,
@@ -123,32 +123,32 @@ impl Type {
     #[must_use]
     pub fn add_field(&mut self, field: Rc<RefCell<Variable>>) -> Result<(), CompilationError> {
         self.fields.push(Rc::clone(&field));
-        self.scope.add_field(field)
+        self.scope.add(FieldEntity(field))
     }
 
     /// Adds a method to the list of type members.
     #[must_use]
     pub fn add_method(&mut self, method: Rc<RefCell<Function>>) -> Result<(), CompilationError> {
         self.methods.push(Rc::clone(&method));
-        self.scope.add_method(method)
+        self.scope.add(MethodEntity(method))
     }
 
     /// Looks up a field in the type member scope.
     pub fn lookup_field(
         &self,
         name: &str,
-        reference_location: InputSpan,
-    ) -> Result<&Rc<RefCell<Variable>>, CompilationError> {
-        self.scope.lookup_field(name, reference_location)
+        reference_location: SourceOrigin,
+    ) -> Result<Rc<RefCell<Variable>>, CompilationError> {
+        self.scope.lookup::<FieldEntity>(name, reference_location)
     }
 
     /// Looks up a method in the type member scope.
     pub fn lookup_method(
         &self,
         name: &str,
-        reference_location: InputSpan,
-    ) -> Result<&Rc<RefCell<Function>>, CompilationError> {
-        self.scope.lookup_method(name, reference_location)
+        reference_location: SourceOrigin,
+    ) -> Result<Rc<RefCell<Function>>, CompilationError> {
+        self.scope.lookup::<MethodEntity>(name, reference_location)
     }
 
     pub fn fields(&self) -> impl Iterator<Item = &Rc<RefCell<Variable>>> {

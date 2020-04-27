@@ -3,7 +3,7 @@
 use crate::ast;
 use crate::errors::CompilationError;
 use crate::program::{self, Function, Type, TypeTemplate, Variable};
-use crate::scope::Scope;
+use crate::scope::{FreeScope, TypeEntity};
 use crate::source::InputSpan;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -15,7 +15,7 @@ pub struct CompilerContext {
     pub program: program::Program,
 
     /// Current free scope. Plain name lookups (not bound to a receiver) will use this scope.
-    pub scope: Scope,
+    pub scope: FreeScope,
 
     /// Errors in the user program encountered so far.
     pub errors: Vec<CompilationError>,
@@ -31,10 +31,10 @@ impl CompilerContext {
     /// Creates the initial root context.
     pub fn new() -> CompilerContext {
         let mut program = program::Program::new();
-        let mut scope = Scope::new();
+        let mut scope = FreeScope::new();
 
         for type_ in program.types().basic_types() {
-            scope.add_type(Rc::clone(type_)).unwrap();
+            scope.add(TypeEntity(Rc::clone(type_))).unwrap();
         }
 
         program::internal::populate_internal_symbols(&mut program, &mut scope);

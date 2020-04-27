@@ -26,7 +26,7 @@ use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn compile_expression(
+pub(crate) fn compile_expression(
     expression: ast::Expression,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,

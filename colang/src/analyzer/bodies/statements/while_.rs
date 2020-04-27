@@ -6,7 +6,7 @@ use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_while_stmt(
+pub(crate) fn compile_while_stmt(
     statement: ast::WhileStmt,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

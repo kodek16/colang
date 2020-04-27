@@ -4,7 +4,7 @@ use crate::program::{BlockBuilder, ValueCategory};
 use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 
-pub fn compile_read_stmt(
+pub(crate) fn compile_read_stmt(
     statement: ast::ReadStmt,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

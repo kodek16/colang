@@ -1,6 +1,6 @@
 use crate::{ast, program, CompilerContext};
 
-pub fn compile_bool_literal_expr(
+pub(crate) fn compile_bool_literal_expr(
     expression: ast::BoolLiteralExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

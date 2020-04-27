@@ -6,7 +6,7 @@ use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub trait GlobalVisitor {
+pub(crate) trait GlobalVisitor {
     fn run(&mut self, program: Vec<&mut ast::Program>, context: &mut CompilerContext) {
         for unit in program {
             for mut struct_def in &mut unit.structs {

@@ -5,7 +5,7 @@ use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn compile_call_expr(
+pub(crate) fn compile_call_expr(
     expression: ast::CallExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

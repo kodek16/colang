@@ -3,7 +3,7 @@ use crate::errors::CompilationError;
 use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 
-pub fn compile_unary_op_expression(
+pub(crate) fn compile_unary_op_expression(
     expression: ast::UnaryOperatorExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

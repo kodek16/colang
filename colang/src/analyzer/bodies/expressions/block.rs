@@ -5,7 +5,7 @@ use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn compile_block_expr(
+pub(crate) fn compile_block_expr(
     block: ast::BlockExpr,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,

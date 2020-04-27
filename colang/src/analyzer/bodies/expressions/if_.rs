@@ -5,7 +5,7 @@ use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
+pub(crate) fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
     let span = if_.span;
     let cond = compile_expression(
         *if_.cond,

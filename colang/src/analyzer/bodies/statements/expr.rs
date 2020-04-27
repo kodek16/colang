@@ -2,7 +2,7 @@ use crate::analyzer::bodies::expressions::compile_expression;
 use crate::program::BlockBuilder;
 use crate::{ast, program, CompilerContext};
 
-pub fn compile_expr_stmt(
+pub(crate) fn compile_expr_stmt(
     statement: ast::ExprStmt,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

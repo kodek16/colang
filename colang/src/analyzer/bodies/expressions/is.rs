@@ -4,7 +4,7 @@ use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_is_expr(
+pub(crate) fn compile_is_expr(
     expression: ast::IsExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

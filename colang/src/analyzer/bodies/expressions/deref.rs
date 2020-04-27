@@ -6,7 +6,7 @@ use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn compile_deref_expr(
+pub(crate) fn compile_deref_expr(
     expression: ast::DerefExpr,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,

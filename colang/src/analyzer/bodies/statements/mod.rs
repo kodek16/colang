@@ -9,7 +9,7 @@ mod write;
 use crate::program::BlockBuilder;
 use crate::{ast, CompilerContext};
 
-pub fn compile_statement(
+pub(crate) fn compile_statement(
     statement: ast::Statement,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

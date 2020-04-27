@@ -5,7 +5,7 @@ use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_array_from_copy_expr(
+pub(crate) fn compile_array_from_copy_expr(
     expression: ast::ArrayFromCopyExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

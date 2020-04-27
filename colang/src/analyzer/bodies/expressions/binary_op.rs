@@ -6,7 +6,7 @@ use crate::source::{InputSpan, SourceOrigin};
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_binary_op_expr(
+pub(crate) fn compile_binary_op_expr(
     expression: ast::BinaryOperatorExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

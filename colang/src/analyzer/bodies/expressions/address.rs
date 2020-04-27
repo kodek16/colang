@@ -6,7 +6,7 @@ use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn compile_address_expr(
+pub(crate) fn compile_address_expr(
     expression: ast::AddressExpr,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,

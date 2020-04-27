@@ -72,7 +72,7 @@ pub fn run(config: Config) -> RunResult {
     };
 
     if config.debug {
-        let result = colang::run_debug(&source_code);
+        let result = colang::debug(&source_code);
         return if result.is_ok() {
             RunResult::Ok
         } else {
@@ -80,7 +80,7 @@ pub fn run(config: Config) -> RunResult {
         };
     }
 
-    let program = match colang::run(&source_code) {
+    let program = match colang::compile(&source_code) {
         Ok(program) => program,
         Err(errors) => {
             report_compilation_errors(

@@ -2,7 +2,7 @@ use crate::analyzer::type_exprs;
 use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 
-pub fn compile_new_expr(
+pub(crate) fn compile_new_expr(
     expression: ast::NewExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

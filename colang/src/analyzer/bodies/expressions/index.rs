@@ -5,7 +5,7 @@ use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_index_expr(
+pub(crate) fn compile_index_expr(
     expression: ast::IndexExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

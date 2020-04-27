@@ -5,7 +5,7 @@ use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn compile_null_expr(
+pub(crate) fn compile_null_expr(
     expression: ast::NullExpr,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,

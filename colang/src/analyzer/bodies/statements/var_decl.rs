@@ -7,7 +7,7 @@ use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn compile_var_decl_stmt(
+pub(crate) fn compile_var_decl_stmt(
     statement: ast::VarDeclStmt,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

@@ -3,7 +3,7 @@ use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_self_expr(
+pub(crate) fn compile_self_expr(
     expression: ast::SelfExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

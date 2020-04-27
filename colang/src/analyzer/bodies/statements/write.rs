@@ -5,7 +5,7 @@ use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_write_stmt(
+pub(crate) fn compile_write_stmt(
     statement: ast::WriteStmt,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

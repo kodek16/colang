@@ -1,5 +1,9 @@
-//! Compiler frontend transforms the source code into an intermediate representation
-//! defined in `program`. All static checks are performed during this phase.
+//! This crate contains the CO compiler _frontend_: the part of the compiler which
+//! transforms the source code into an intermediate representation defined in `program` and
+//! subsequently consumed by some compiler _backend_.
+//!
+//! All static checks are performed during this phase. The generated IR is guaranteed to be
+//! valid: any errors it might contain indicate compiler bugs, and not user errors.
 
 use lalrpop_util::lalrpop_mod;
 
@@ -25,7 +29,12 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn run(source_code: &str) -> Result<program::Program, Vec<CompilationError>> {
+/// Compiles a CO program, performs static checks, and returns the intermediate representation.
+///
+/// Representation returned from this function is typically then passed to a backend: either
+/// an interpreter backend that runs the program, or a translator backend that translates it into
+/// a target language.
+pub fn compile(source_code: &str) -> Result<program::Program, Vec<CompilationError>> {
     let std_ast = parse(stdlib::STD_SOURCE, InputSpanFile::Std)
         .map_err(|err| vec![CompilationError::syntax_error(err, InputSpanFile::Std)])?;
 
@@ -36,7 +45,7 @@ pub fn run(source_code: &str) -> Result<program::Program, Vec<CompilationError>>
         )]
     })?;
 
-    let mut program = compile(vec![std_ast, program_ast]).map_err(|(_, errors)| errors)?;
+    let mut program = analyze(vec![std_ast, program_ast]).map_err(|(_, errors)| errors)?;
 
     let checker = ValidityChecker::new(&mut program);
     let errors = checker.check();
@@ -51,12 +60,16 @@ pub fn run(source_code: &str) -> Result<program::Program, Vec<CompilationError>>
     Ok(program)
 }
 
-pub fn run_debug(source_code: &str) -> Result<(), ()> {
+/// Compiles a CO program and prints a textual representation of the generated IR.
+///
+/// This function prints the program even if it is invalid because of some encountered errors.
+/// To see these errors, `compile` should be used.
+pub fn debug(source_code: &str) -> Result<(), ()> {
     let std_ast = parse(stdlib::STD_SOURCE, InputSpanFile::Std).expect("Syntax error in stdlib");
     let program_ast =
         parse(&source_code, InputSpanFile::UserProgram).expect("Syntax error in source file");
 
-    let result = compile(vec![std_ast, program_ast]);
+    let result = analyze(vec![std_ast, program_ast]);
     let is_ok = result.is_ok();
 
     let program = match result {
@@ -72,13 +85,13 @@ pub fn run_debug(source_code: &str) -> Result<(), ()> {
     }
 }
 
-/// Parses the source code and returns an AST root.
+/// Parses the source code of a file and returns an AST root node.
 fn parse(source_code: &str, file: InputSpanFile) -> Result<ast::Program, ast::ParseError> {
     grammar::ProgramParser::new().parse(file, source_code)
 }
 
 /// Context that gets passed along to various compiler routines.
-pub struct CompilerContext {
+struct CompilerContext {
     program: program::Program,
     scope: Scope,
 
@@ -127,8 +140,8 @@ impl CompilerContext {
     }
 }
 
-/// Compiles a CO program.
-fn compile(
+/// Constructs an intermediate representation of a program and performs all static error checking.
+fn analyze(
     mut sources: Vec<ast::Program>,
 ) -> Result<program::Program, (program::Program, Vec<CompilationError>)> {
     let mut context = CompilerContext::new();

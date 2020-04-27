@@ -4,7 +4,7 @@ use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_field_access_expr(
+pub(crate) fn compile_field_access_expr(
     expression: ast::FieldAccessExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

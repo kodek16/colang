@@ -7,7 +7,7 @@ use crate::{ast, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn compile_type_expr(
+pub(crate) fn compile_type_expr(
     type_expr: &ast::TypeExpr,
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
@@ -21,7 +21,7 @@ pub fn compile_type_expr(
     }
 }
 
-pub fn compile_type_expr_and_ensure_complete(
+pub(crate) fn compile_type_expr_and_ensure_complete(
     type_expr: &ast::TypeExpr,
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {

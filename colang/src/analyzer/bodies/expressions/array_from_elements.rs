@@ -6,7 +6,7 @@ use crate::{ast, program, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn compile_array_from_elements_expr(
+pub(crate) fn compile_array_from_elements_expr(
     expression: ast::ArrayFromElementsExpr,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,

@@ -2,7 +2,7 @@ use crate::source::SourceOrigin;
 use crate::{ast, program, CompilerContext};
 use std::rc::Rc;
 
-pub fn compile_variable_expr(
+pub(crate) fn compile_variable_expr(
     expression: ast::VariableExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

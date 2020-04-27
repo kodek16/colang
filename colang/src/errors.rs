@@ -55,14 +55,6 @@ impl CompilationError {
                 span,
                 Some("`index` method return value was automatically dereferenced"),
             ),
-            SourceOrigin::AddressedForRead(span) => (
-                span,
-                Some("expression address was automatically taken for reading into"),
-            ),
-            SourceOrigin::ReadFunctionCall(span) => (
-                span,
-                Some("internal function call was automatically generated for `read`"),
-            ),
             SourceOrigin::Stringified(span) => (
                 span,
                 Some("expression was automatically converted to `string`"),

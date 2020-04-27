@@ -7,13 +7,13 @@ mod analyzer;
 mod ast;
 mod scope;
 mod utils;
+lalrpop_mod!(grammar);
 
 pub mod backends;
 pub mod errors;
 pub mod program;
 pub mod source;
 pub mod stdlib;
-lalrpop_mod!(pub grammar);
 
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
 use crate::errors::CompilationError;

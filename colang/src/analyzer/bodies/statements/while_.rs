@@ -19,7 +19,7 @@ pub fn compile_while_stmt(
     );
     let body = compile_expression(*statement.body, None, context);
 
-    if *body.type_() != *context.program.types().void() {
+    if !body.type_().borrow().is_void() {
         let error = CompilationError::while_body_not_void(&body);
         context.errors.push(error)
     }

@@ -15,7 +15,7 @@ pub fn compile_unary_op_expression(
 
     match expression.operator {
         ast::UnaryOperator::LogicalNot => {
-            if operand.type_() != context.program.types().bool() {
+            if !operand.type_().borrow().is_bool() {
                 let error = CompilationError::logical_operator_operand_wrong_type(
                     &expression.operator.to_string(),
                     &operand,

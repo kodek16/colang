@@ -42,7 +42,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
 
     fn visit_write(&mut self, instruction: &mut WriteInstruction) {
         self.walk_write(instruction);
-        if instruction.expression.type_() != self.types().string() {
+        if !instruction.expression.type_().borrow().is_string() {
             self.errors.push(format!(
                 "`write` instruction expression has type `{}`",
                 instruction.expression.type_().borrow().name
@@ -52,7 +52,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
 
     fn visit_while(&mut self, instruction: &mut WhileInstruction) {
         self.walk_while(instruction);
-        if instruction.cond.type_() != self.types().bool() {
+        if !instruction.cond.type_().borrow().is_bool() {
             self.errors.push(format!(
                 "`while` condition has type `{}`",
                 instruction.cond.type_().borrow().name
@@ -93,7 +93,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
 
     fn visit_array_from_copy_expr(&mut self, expression: &mut ArrayFromCopyExpr) {
         self.walk_array_from_copy_expr(expression);
-        if expression.size.type_() != self.types().int() {
+        if !expression.size.type_().borrow().is_int() {
             self.errors.push(format!(
                 "array-from-copy expr has size of type `{}`",
                 expression.size.type_().borrow().name
@@ -152,7 +152,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
 
     fn visit_if_expr(&mut self, expression: &mut IfExpr) {
         self.walk_if_expr(expression);
-        if expression.cond.type_() != self.types().bool() {
+        if !expression.cond.type_().borrow().is_bool() {
             self.errors.push(format!(
                 "`if` condition has type `{}`",
                 expression.cond.type_().borrow().name
@@ -169,7 +169,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_new_expr(&mut self, expression: &mut NewExpr) {
-        if expression.target_type == *self.types().void() {
+        if expression.target_type.borrow().is_void() {
             self.errors
                 .push(format!("`new` expression for type `void`"));
         }

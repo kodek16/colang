@@ -181,6 +181,13 @@ impl Type {
         }
     }
 
+    pub fn is_bool(&self) -> bool {
+        match self.type_id {
+            TypeId::Bool => true,
+            _ => false,
+        }
+    }
+
     pub fn is_string(&self) -> bool {
         match self.type_id {
             TypeId::String => true,

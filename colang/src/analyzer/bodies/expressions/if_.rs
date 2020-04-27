@@ -22,7 +22,7 @@ pub fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> progr
 
     let then_type = then.type_();
 
-    if else_.is_none() && then_type != context.program.types().void() {
+    if else_.is_none() && !then_type.borrow().is_void() {
         let error =
             CompilationError::if_expression_missing_else(&then_type.borrow().name, then.location());
         context.errors.push(error);

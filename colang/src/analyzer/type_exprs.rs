@@ -47,7 +47,7 @@ fn compile_scalar_type_expr(
     let type_ = context.scope.lookup_type(&name.text, type_expr.span);
 
     match type_ {
-        Ok(type_) if type_ == context.program.types().void() => {
+        Ok(type_) if type_.borrow().is_void() => {
             let error =
                 CompilationError::explicit_reference_to_void(SourceOrigin::Plain(type_expr.span));
             context.errors.push(error);

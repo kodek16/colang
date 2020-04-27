@@ -64,7 +64,7 @@ fn compile_var_decl_entry(
     current_block.add_local_variable(Rc::clone(&variable));
 
     if let Some(initializer) = initializer {
-        if initializer.type_() == context.program.types().void() {
+        if initializer.type_().borrow().is_void() {
             let error = CompilationError::variable_initializer_is_void(&name.text, &initializer);
             context.errors.push(error);
             return;

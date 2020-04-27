@@ -107,7 +107,7 @@ fn compile_logical_binary_op_expr(
     context: &mut CompilerContext,
 ) -> program::Expression {
     for operand in &[&lhs, &rhs] {
-        if operand.type_() != context.program.types().bool() {
+        if !operand.type_().borrow().is_bool() {
             let error = CompilationError::logical_operator_operand_wrong_type(
                 &operator.to_string(),
                 operand,

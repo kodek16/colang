@@ -14,7 +14,7 @@ pub fn compile_new_expr(
     }
 
     // `void` cannot be referred to, so an error would have been already reported.
-    assert!(target_type != *context.program.types().void());
+    assert!(!target_type.borrow().is_void());
 
     program::Expression::new(
         program::ExpressionKind::New(program::NewExpr {

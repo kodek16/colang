@@ -18,7 +18,7 @@ pub fn compile_return_stmt(
         .expression
         .map(|expr| compile_expression(expr, Some(Rc::clone(&return_type)), context));
 
-    if expression.is_some() && return_type == *context.program.types().void() {
+    if expression.is_some() && return_type.borrow().is_void() {
         let error = CompilationError::return_stmt_with_value_in_void_function(
             &function.borrow(),
             expression.as_ref().unwrap(),
@@ -27,7 +27,7 @@ pub fn compile_return_stmt(
         return;
     }
 
-    if expression.is_none() && return_type != *context.program.types().void() {
+    if expression.is_none() && !return_type.borrow().is_void() {
         let error = CompilationError::return_stmt_without_value_in_non_void_function(
             &function.borrow(),
             SourceOrigin::Plain(statement.span),

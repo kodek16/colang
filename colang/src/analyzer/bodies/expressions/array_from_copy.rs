@@ -20,7 +20,7 @@ pub fn compile_array_from_copy_expr(
         return program::Expression::error(expression.span);
     }
 
-    if size.type_() != context.program.types().int() {
+    if !size.type_().borrow().is_int() {
         let error = CompilationError::array_size_not_int(&size);
         context.errors.push(error);
     }

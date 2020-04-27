@@ -1,7 +1,7 @@
 //! After all defined functions were analyzed and their bodies filled, this pass looks at all
 //! function calls in the program, and instantiates the needed functions for these calls.
 
-use crate::analyzer::utils::global_visitor::GlobalVisitor;
+use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast::FunctionDef;
 use crate::errors::CompilationError;
 use crate::program::transforms::visitor::CodeVisitor;
@@ -13,13 +13,7 @@ use std::rc::Rc;
 
 const MAX_FUNCTION_INSTANTIATION_DEPTH: usize = 64;
 
-pub struct FunctionInstantiationsAnalyzerPass {}
-
-impl FunctionInstantiationsAnalyzerPass {
-    pub fn new() -> FunctionInstantiationsAnalyzerPass {
-        FunctionInstantiationsAnalyzerPass {}
-    }
-}
+pub struct FunctionInstantiationsAnalyzerPass;
 
 impl GlobalVisitor for FunctionInstantiationsAnalyzerPass {
     fn revisit_method_def(

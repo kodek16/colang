@@ -4,7 +4,7 @@ mod expressions;
 mod statements;
 
 use crate::analyzer::bodies::expressions::compile_expression;
-use crate::analyzer::utils::global_visitor::GlobalVisitor;
+use crate::analyzer::visitor::GlobalVisitor;
 use crate::errors::CompilationError;
 use crate::program::{Function, FunctionBody, Type, Variable};
 use crate::source::{InputSpan, SourceOrigin};
@@ -13,13 +13,7 @@ use std::cell::RefCell;
 use std::iter;
 use std::rc::Rc;
 
-pub struct BodiesAnalyzerPass {}
-
-impl BodiesAnalyzerPass {
-    pub fn new() -> BodiesAnalyzerPass {
-        BodiesAnalyzerPass {}
-    }
-}
+pub struct BodiesAnalyzerPass;
 
 impl GlobalVisitor for BodiesAnalyzerPass {
     fn revisit_method_def(

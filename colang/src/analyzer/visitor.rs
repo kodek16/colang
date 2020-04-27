@@ -1,4 +1,4 @@
-//! A reusable interface for an analyzer pass that visits all defined global symbols.
+//! Framework for defining analyzer passes that visit all defined global symbols.
 
 use crate::ast;
 use crate::program::{Function, Type, TypeTemplate, Variable};
@@ -6,7 +6,16 @@ use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An analyzer pass that traverses the program AST starting from the root node.
+///
+/// The implementers should typically only redefine the `revisit_*` methods they care about:
+/// if a pass is only concerned with field definitions for example, `revisit_field_def` is
+/// the only method that needs to be defined.
+///
+/// Some of the earlier passes which construct the program IR skeleton may need to override
+/// the `analyze_*` methods.
 pub trait GlobalVisitor {
+    /// Executes the analyzer pass.
     fn run(&mut self, program: Vec<&mut ast::Program>, context: &mut CompilerContext) {
         for unit in program {
             for mut struct_def in &mut unit.structs {

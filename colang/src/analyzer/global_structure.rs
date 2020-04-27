@@ -2,7 +2,7 @@
 //! is everything except function bodies, that is: fields, function and method signatures.
 
 use crate::analyzer::type_exprs;
-use crate::analyzer::utils::global_visitor::GlobalVisitor;
+use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
 use crate::errors::CompilationError;
 use crate::program::{Function, Type, TypeTemplate, Variable};
@@ -11,13 +11,7 @@ use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct GlobalStructureAnalyzerPass {}
-
-impl GlobalStructureAnalyzerPass {
-    pub fn new() -> GlobalStructureAnalyzerPass {
-        GlobalStructureAnalyzerPass {}
-    }
-}
+pub struct GlobalStructureAnalyzerPass;
 
 impl GlobalVisitor for GlobalStructureAnalyzerPass {
     fn revisit_non_template_struct_def(

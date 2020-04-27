@@ -20,7 +20,7 @@ pub mod program;
 pub mod source;
 pub mod stdlib;
 
-use crate::analyzer::utils::global_visitor::GlobalVisitor;
+use crate::analyzer::visitor::GlobalVisitor;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::transforms::valid::ValidityChecker;
@@ -95,22 +95,22 @@ fn analyze(
     let mut context = CompilerContext::new();
 
     // 1st pass: initialize all defined types (and base types of type templates).
-    analyzer::incomplete_types::IncompleteTypesAnalyzerPass::new()
+    analyzer::incomplete_types::IncompleteTypesAnalyzerPass
         .run(sources.iter_mut().collect(), &mut context);
 
     // 2nd pass: collect all global information.
-    analyzer::global_structure::GlobalStructureAnalyzerPass::new()
+    analyzer::global_structure::GlobalStructureAnalyzerPass
         .run(sources.iter_mut().collect(), &mut context);
 
     // 3rd pass: complete all types referenced globally.
-    analyzer::complete_types::CompleteTypesAnalyzerPass::new()
+    analyzer::complete_types::CompleteTypesAnalyzerPass
         .run(sources.iter_mut().collect(), &mut context);
 
     // 4th pass: compile all defined function bodies.
-    analyzer::bodies::BodiesAnalyzerPass::new().run(sources.iter_mut().collect(), &mut context);
+    analyzer::bodies::BodiesAnalyzerPass.run(sources.iter_mut().collect(), &mut context);
 
     // 5th pass: instantiate all template method bodies for methods called by other functions.
-    analyzer::function_instantiations::FunctionInstantiationsAnalyzerPass::new()
+    analyzer::function_instantiations::FunctionInstantiationsAnalyzerPass
         .run(sources.iter_mut().collect(), &mut context);
 
     // 6th pass: remove all template base types and their methods from the program.

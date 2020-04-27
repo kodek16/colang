@@ -1,6 +1,8 @@
 //! In this pass, all globally referenced types are ensured to be fully complete.
+//!
+//! This may involve instantiating the types of fields or function signatures.
 
-use crate::analyzer::utils::global_visitor::GlobalVisitor;
+use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast::{self, FieldDef, FunctionDef};
 use crate::errors::CompilationError;
 use crate::program::{Function, Type, Variable};
@@ -9,13 +11,7 @@ use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct CompleteTypesAnalyzerPass {}
-
-impl CompleteTypesAnalyzerPass {
-    pub fn new() -> CompleteTypesAnalyzerPass {
-        CompleteTypesAnalyzerPass {}
-    }
-}
+pub struct CompleteTypesAnalyzerPass;
 
 impl GlobalVisitor for CompleteTypesAnalyzerPass {
     fn revisit_field_def(

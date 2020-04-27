@@ -2,20 +2,14 @@
 //! for all type definitions in the program. Type templates and incomplete base types also get
 //! created.
 
-use crate::analyzer::utils::global_visitor::GlobalVisitor;
+use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
 use crate::ast::FunctionDef;
 use crate::program::{ProtoTypeParameter, Type, TypeTemplate};
 use crate::CompilerContext;
 use std::rc::Rc;
 
-pub struct IncompleteTypesAnalyzerPass {}
-
-impl IncompleteTypesAnalyzerPass {
-    pub fn new() -> IncompleteTypesAnalyzerPass {
-        IncompleteTypesAnalyzerPass {}
-    }
-}
+pub struct IncompleteTypesAnalyzerPass;
 
 impl GlobalVisitor for IncompleteTypesAnalyzerPass {
     fn analyze_non_template_struct_def(

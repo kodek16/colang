@@ -1,11 +1,12 @@
 use super::compile_expression;
 use crate::analyzer::bodies::check_argument_types;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::rc::Rc;
 
-pub(crate) fn compile_index_expr(
+pub fn compile_index_expr(
     expression: ast::IndexExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

@@ -1,13 +1,14 @@
 //! Utilities for analysing type expressions. Used in multiple passes.
 
+use crate::ast;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::Type;
 use crate::source::SourceOrigin;
-use crate::{ast, CompilerContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub(crate) fn compile_type_expr(
+pub fn compile_type_expr(
     type_expr: &ast::TypeExpr,
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
@@ -21,7 +22,7 @@ pub(crate) fn compile_type_expr(
     }
 }
 
-pub(crate) fn compile_type_expr_and_ensure_complete(
+pub fn compile_type_expr_and_ensure_complete(
     type_expr: &ast::TypeExpr,
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {

@@ -6,10 +6,11 @@ mod var_decl;
 mod while_;
 mod write;
 
+use crate::ast;
+use crate::context::CompilerContext;
 use crate::program::BlockBuilder;
-use crate::{ast, CompilerContext};
 
-pub(crate) fn compile_statement(
+pub fn compile_statement(
     statement: ast::Statement,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

@@ -1,9 +1,10 @@
 use super::compile_expression;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 
-pub(crate) fn compile_unary_op_expression(
+pub fn compile_unary_op_expression(
     expression: ast::UnaryOperatorExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

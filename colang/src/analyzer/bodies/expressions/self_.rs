@@ -1,9 +1,10 @@
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::rc::Rc;
 
-pub(crate) fn compile_self_expr(
+pub fn compile_self_expr(
     expression: ast::SelfExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

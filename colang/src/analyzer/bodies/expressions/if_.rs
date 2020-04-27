@@ -1,11 +1,12 @@
 use super::compile_expression;
 use crate::analyzer::bodies::check_condition_is_bool;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::rc::Rc;
 
-pub(crate) fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
+pub fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> program::Expression {
     let span = if_.span;
     let cond = compile_expression(
         *if_.cond,

@@ -1,10 +1,11 @@
 use crate::analyzer::bodies::expressions::compile_expression;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::{BlockBuilder, ValueCategory};
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 
-pub(crate) fn compile_read_stmt(
+pub fn compile_read_stmt(
     statement: ast::ReadStmt,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

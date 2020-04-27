@@ -1,10 +1,11 @@
 use super::compile_expression;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::rc::Rc;
 
-pub(crate) fn compile_is_expr(
+pub fn compile_is_expr(
     expression: ast::IsExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

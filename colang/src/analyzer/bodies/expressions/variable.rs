@@ -1,8 +1,9 @@
+use crate::context::CompilerContext;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::rc::Rc;
 
-pub(crate) fn compile_variable_expr(
+pub fn compile_variable_expr(
     expression: ast::VariableExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

@@ -30,8 +30,8 @@ impl GlobalVisitor for IncompleteTypesAnalyzerPass {
             &mut context.program,
         );
         context
-            .defined_types
-            .insert(struct_def.signature_span, Rc::clone(&type_));
+            .globals
+            .register_struct(&struct_def, Rc::clone(&type_));
 
         let result = context.scope.add_type(Rc::clone(&type_));
         if let Err(error) = result {
@@ -59,8 +59,8 @@ impl GlobalVisitor for IncompleteTypesAnalyzerPass {
             &mut context.program,
         );
         context
-            .defined_type_templates
-            .insert(struct_def.signature_span, Rc::clone(&template));
+            .globals
+            .register_struct_template(&struct_def, Rc::clone(&template));
 
         let result = context.scope.add_type_template(Rc::clone(&template));
         if let Err(error) = result {

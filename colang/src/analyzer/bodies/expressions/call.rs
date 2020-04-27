@@ -1,11 +1,12 @@
 use crate::analyzer::bodies::{check_argument_types, compile_arguments};
+use crate::context::CompilerContext;
 use crate::program::Function;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub(crate) fn compile_call_expr(
+pub fn compile_call_expr(
     expression: ast::CallExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

@@ -1,8 +1,9 @@
 use crate::analyzer::type_exprs;
+use crate::context::CompilerContext;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 
-pub(crate) fn compile_new_expr(
+pub fn compile_new_expr(
     expression: ast::NewExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

@@ -6,7 +6,7 @@ use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub(crate) trait GlobalVisitor {
+pub trait GlobalVisitor {
     fn run(&mut self, program: Vec<&mut ast::Program>, context: &mut CompilerContext) {
         for unit in program {
             for mut struct_def in &mut unit.structs {
@@ -36,15 +36,7 @@ pub(crate) trait GlobalVisitor {
         struct_def: &mut ast::StructDef,
         context: &mut CompilerContext,
     ) {
-        let type_ = Rc::clone(
-            context
-                .defined_types
-                .get(&struct_def.signature_span)
-                .expect(&format!(
-                    "Missing type `{}` from previous passes",
-                    struct_def.name.text
-                )),
-        );
+        let type_ = Rc::clone(context.globals.struct_(struct_def));
 
         for mut field_def in &mut struct_def.fields {
             self.analyze_field_def(&mut field_def, &type_, context);
@@ -70,15 +62,7 @@ pub(crate) trait GlobalVisitor {
         struct_def: &mut ast::StructDef,
         context: &mut CompilerContext,
     ) {
-        let template = Rc::clone(
-            context
-                .defined_type_templates
-                .get(&struct_def.signature_span)
-                .expect(&format!(
-                    "Missing type template `{}` from previous passes",
-                    struct_def.name.text
-                )),
-        );
+        let template = Rc::clone(context.globals.struct_template(struct_def));
 
         // Type parameter scope.
         context.scope.push();
@@ -121,12 +105,7 @@ pub(crate) trait GlobalVisitor {
         current_type: &Rc<RefCell<Type>>,
         context: &mut CompilerContext,
     ) {
-        let field = Rc::clone(context.defined_fields.get(&field_def.span).expect(&format!(
-            "Missing field `{}` of type `{}` from previous phase",
-            field_def.name.text,
-            current_type.borrow().name
-        )));
-
+        let field = Rc::clone(context.globals.field(field_def));
         self.revisit_field_def(field_def, current_type, field, context);
     }
 
@@ -145,17 +124,7 @@ pub(crate) trait GlobalVisitor {
         current_type: &Rc<RefCell<Type>>,
         context: &mut CompilerContext,
     ) {
-        let method = Rc::clone(
-            context
-                .defined_methods
-                .get(&method_def.signature_span)
-                .expect(&format!(
-                    "Missing method `{}` of type `{}` from previous phase",
-                    method_def.name.text,
-                    current_type.borrow().name
-                )),
-        );
-
+        let method = Rc::clone(context.globals.method(method_def));
         self.revisit_method_def(method_def, current_type, method, context);
     }
 
@@ -173,16 +142,7 @@ pub(crate) trait GlobalVisitor {
         function_def: &mut ast::FunctionDef,
         context: &mut CompilerContext,
     ) {
-        let function = Rc::clone(
-            context
-                .defined_functions
-                .get(&function_def.signature_span)
-                .expect(&format!(
-                    "Missing function `{}` from previous phase",
-                    function_def.name.text
-                )),
-        );
-
+        let function = Rc::clone(context.globals.function(function_def));
         self.revisit_function_def(function_def, function, context);
     }
 

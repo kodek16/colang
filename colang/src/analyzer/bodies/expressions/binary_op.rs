@@ -1,12 +1,13 @@
 use super::compile_expression;
 use crate::analyzer::bodies::check_argument_types;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::{InternalFunctionTag, TypeId};
 use crate::source::{InputSpan, SourceOrigin};
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::rc::Rc;
 
-pub(crate) fn compile_binary_op_expr(
+pub fn compile_binary_op_expr(
     expression: ast::BinaryOperatorExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

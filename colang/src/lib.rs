@@ -9,6 +9,7 @@ use lalrpop_util::lalrpop_mod;
 
 mod analyzer;
 mod ast;
+mod context;
 mod scope;
 mod utils;
 lalrpop_mod!(grammar);
@@ -20,13 +21,10 @@ pub mod source;
 pub mod stdlib;
 
 use crate::analyzer::utils::global_visitor::GlobalVisitor;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::transforms::valid::ValidityChecker;
-use crate::program::{Function, Type, TypeTemplate, Variable};
-use crate::scope::Scope;
 use crate::source::{InputSpan, InputSpanFile};
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Compiles a CO program, performs static checks, and returns the intermediate representation.
@@ -88,56 +86,6 @@ pub fn debug(source_code: &str) -> Result<(), ()> {
 /// Parses the source code of a file and returns an AST root node.
 fn parse(source_code: &str, file: InputSpanFile) -> Result<ast::Program, ast::ParseError> {
     grammar::ProgramParser::new().parse(file, source_code)
-}
-
-/// Context that gets passed along to various compiler routines.
-struct CompilerContext {
-    program: program::Program,
-    scope: Scope,
-
-    // TODO we should have a separate BodyCompilerContext type that has the fields only relevant
-    // in function bodies.
-    /// Function currently being analyzed.
-    function: Option<Rc<RefCell<Function>>>,
-
-    /// In methods, this is the variable bound to `self`.
-    self_: Option<Rc<RefCell<Variable>>>,
-
-    // Keep track of semantic objects created from syntactic definitions so that later passes
-    // can easily access them.
-    defined_types: HashMap<InputSpan, Rc<RefCell<Type>>>,
-    defined_type_templates: HashMap<InputSpan, Rc<RefCell<TypeTemplate>>>,
-    defined_functions: HashMap<InputSpan, Rc<RefCell<Function>>>,
-    defined_fields: HashMap<InputSpan, Rc<RefCell<Variable>>>,
-    defined_methods: HashMap<InputSpan, Rc<RefCell<Function>>>,
-
-    errors: Vec<CompilationError>,
-}
-
-impl CompilerContext {
-    /// Creates the initial root context.
-    pub fn new() -> CompilerContext {
-        let mut program = program::Program::new();
-        let mut scope = Scope::new();
-
-        for type_ in program.types().basic_types() {
-            scope.add_type(Rc::clone(type_)).unwrap();
-        }
-
-        program::internal::populate_internal_symbols(&mut program, &mut scope);
-        CompilerContext {
-            program,
-            scope,
-            function: None,
-            self_: None,
-            defined_types: HashMap::new(),
-            defined_type_templates: HashMap::new(),
-            defined_functions: HashMap::new(),
-            defined_fields: HashMap::new(),
-            defined_methods: HashMap::new(),
-            errors: vec![],
-        }
-    }
 }
 
 /// Constructs an intermediate representation of a program and performs all static error checking.

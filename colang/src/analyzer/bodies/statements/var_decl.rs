@@ -1,13 +1,14 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::type_exprs;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::{BlockBuilder, Type, Variable};
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub(crate) fn compile_var_decl_stmt(
+pub fn compile_var_decl_stmt(
     statement: ast::VarDeclStmt,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

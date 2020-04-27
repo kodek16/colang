@@ -60,8 +60,8 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             &mut context.program,
         )));
         context
-            .defined_fields
-            .insert(field_def.span, Rc::clone(&field));
+            .globals
+            .register_field(&field_def, Rc::clone(&field));
 
         let result = current_type.borrow_mut().add_field(Rc::clone(&field));
         if let Err(error) = result {
@@ -85,8 +85,8 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             context.program.symbol_ids_mut(),
         )));
         context
-            .defined_methods
-            .insert(method_def.signature_span, Rc::clone(&method));
+            .globals
+            .register_method(&method_def, Rc::clone(&method));
 
         context.program.add_function(Rc::clone(&method));
         let result = current_type.borrow_mut().add_method(Rc::clone(&method));
@@ -163,8 +163,8 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             context.program.symbol_ids_mut(),
         )));
         context
-            .defined_functions
-            .insert(function_def.signature_span, Rc::clone(&function));
+            .globals
+            .register_function(&function_def, Rc::clone(&function));
 
         context.program.add_function(Rc::clone(&function));
         if let Err(error) = context.scope.add_function(Rc::clone(&function)) {

@@ -20,13 +20,14 @@ mod string_literal;
 mod unary_op;
 mod variable;
 
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::Type;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub(crate) fn compile_expression(
+pub fn compile_expression(
     expression: ast::Expression,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,

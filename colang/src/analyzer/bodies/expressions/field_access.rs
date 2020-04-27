@@ -1,10 +1,11 @@
 use super::compile_expression;
 use crate::analyzer::bodies::maybe_deref;
+use crate::context::CompilerContext;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::rc::Rc;
 
-pub(crate) fn compile_field_access_expr(
+pub fn compile_field_access_expr(
     expression: ast::FieldAccessExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

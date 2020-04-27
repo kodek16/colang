@@ -1,11 +1,12 @@
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::Type;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub(crate) fn compile_null_expr(
+pub fn compile_null_expr(
     expression: ast::NullExpr,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,

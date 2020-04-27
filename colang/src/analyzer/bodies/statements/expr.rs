@@ -1,8 +1,9 @@
 use crate::analyzer::bodies::expressions::compile_expression;
+use crate::context::CompilerContext;
 use crate::program::BlockBuilder;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 
-pub(crate) fn compile_expr_stmt(
+pub fn compile_expr_stmt(
     statement: ast::ExprStmt,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

@@ -1,6 +1,7 @@
-use crate::{ast, program, CompilerContext};
+use crate::context::CompilerContext;
+use crate::{ast, program};
 
-pub(crate) fn compile_char_literal_expr(
+pub fn compile_char_literal_expr(
     expression: ast::CharLiteralExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

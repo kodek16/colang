@@ -1,11 +1,12 @@
 use super::compile_expression;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::ExpressionKind;
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::rc::Rc;
 
-pub(crate) fn compile_array_from_copy_expr(
+pub fn compile_array_from_copy_expr(
     expression: ast::ArrayFromCopyExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {

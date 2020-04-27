@@ -1,11 +1,12 @@
 use crate::analyzer::bodies::expressions::compile_expression;
+use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::{BlockBuilder, InternalFunctionTag, TypeId};
 use crate::source::SourceOrigin;
-use crate::{ast, program, CompilerContext};
+use crate::{ast, program};
 use std::rc::Rc;
 
-pub(crate) fn compile_write_stmt(
+pub fn compile_write_stmt(
     statement: ast::WriteStmt,
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,

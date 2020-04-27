@@ -42,15 +42,11 @@ impl NamedEntity {
 
     pub fn definition_site(&self) -> Option<SourceOrigin> {
         match self {
-            NamedEntity::Variable(variable) => {
-                variable.borrow().definition_site.map(SourceOrigin::Plain)
-            }
+            NamedEntity::Variable(variable) => variable.borrow().definition_site,
             NamedEntity::Function(function) => function.borrow().definition_site,
-            NamedEntity::Type(type_) => type_.borrow().definition_site.map(SourceOrigin::Plain),
-            NamedEntity::TypeTemplate(template) => {
-                template.borrow().definition_site.map(SourceOrigin::Plain)
-            }
-            NamedEntity::Field(field) => field.borrow().definition_site.map(SourceOrigin::Plain),
+            NamedEntity::Type(type_) => type_.borrow().definition_site,
+            NamedEntity::TypeTemplate(template) => template.borrow().definition_site,
+            NamedEntity::Field(field) => field.borrow().definition_site,
             NamedEntity::Method(method) => method.borrow().definition_site,
         }
     }

@@ -3,15 +3,16 @@ use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::templates::TypeTemplateId;
 use crate::program::{Function, Program, SymbolId, Variable};
 use crate::scope::Scope;
-use crate::source::InputSpan;
+use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 const MAX_TYPE_INSTANTIATION_DEPTH: usize = 64;
 
-/// A type in the target language. Every value has a certain type, and every expression has
-/// a type since it evaluates to a value.
+/// A type in CO.
+///
+/// Every value has a certain type, and every expression has a type since it evaluates to a value.
 ///
 /// Types can be divided into groups in multiple ways:
 /// - User-defined vs. internal: a type defined in the source program is said to be "user-defined",
@@ -28,7 +29,7 @@ pub struct Type {
     /// A unique identifier for types that is immutable and hashable.
     pub type_id: TypeId,
     pub name: String,
-    pub definition_site: Option<InputSpan>,
+    pub definition_site: Option<SourceOrigin>,
 
     fields: Vec<Rc<RefCell<Variable>>>,
     methods: Vec<Rc<RefCell<Function>>>,
@@ -59,7 +60,7 @@ impl Type {
     /// Creates a new user-defined struct type and registers it with the program.
     pub fn new_struct(
         name: String,
-        definition_site: InputSpan,
+        definition_site: SourceOrigin,
         program: &mut Program,
     ) -> Rc<RefCell<Type>> {
         let type_id = TypeId::Struct(program.symbol_ids_mut().next_id());
@@ -72,7 +73,8 @@ impl Type {
         )
     }
 
-    /// A convenience method for constructing managed error type instances.
+    /// Creates an instance of the error type.
+    ///
     /// Error type is not bound to the registry, so there can exist multiple distinct instances
     /// of it. Error type can not be present in a valid program.
     pub fn error() -> Rc<RefCell<Type>> {
@@ -87,12 +89,13 @@ impl Type {
         }))
     }
 
-    /// Creates a new type and registers it with `registry`. There must be no existing types
-    /// with the same `type_id`.
+    /// Creates a new type and registers it with `registry`.
+    ///
+    /// There must be no existing types with the same `type_id`.
     pub(in crate::program::typing) fn new(
         name: String,
         type_id: TypeId,
-        definition_site: Option<InputSpan>,
+        definition_site: Option<SourceOrigin>,
         completeness: TypeCompleteness,
         registry: &mut TypeRegistry,
     ) -> Rc<RefCell<Type>> {
@@ -240,9 +243,10 @@ impl Type {
         check(&self.type_id)
     }
 
-    /// Substitutes a set of types in the "signature" of `type_` with other types. "Signature"
-    /// here is defined as the type itself and the signatures of all type arguments, if `type_`
-    /// is a template instance.
+    /// Substitutes a set of types in the "signature" of `type_` with other types.
+    ///
+    /// "Signature" here is defined as the type itself and the signatures of all type arguments,
+    /// if `type_` is a template instance.
     ///
     /// No guarantees are made about the completeness of any new types that may be created as
     /// a result of this operation: typically they are incomplete.
@@ -461,8 +465,9 @@ impl PartialEq for Type {
     }
 }
 
-/// A plain, hashable unique identifier for types. Types can be looked up from `TypeRegistry`
-/// using their IDs.
+/// A plain, hashable, unique identifier for types.
+///
+/// Types can be looked up from `TypeRegistry` using their IDs.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeId {
     Void,

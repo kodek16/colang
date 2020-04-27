@@ -1,30 +1,70 @@
+//! CO variables, fields, and other kinds of named values.
+
 use crate::program::function::ProtoInternalParameter;
 use crate::program::{
     FunctionId, InternalFunctionTag, Program, SymbolId, Type, TypeId, TypeRegistry,
 };
-use crate::source::InputSpan;
+use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+/// A variable-like entity in CO: a named, stateful value.
+///
+/// `Variable` may represent one of several distinct but similar kinds of entities:
+///
+/// - **Local variable** (or simply **variable**): a named "box" for a value of some determined type
+///   defined within a function body (or more specifically, directly in a block expression).
+///   Local variables instances (not in template sense) get created and destroyed automatically when
+///   their enclosing block starts and finishes its execution.
+/// - **Function parameter** (or simply **parameter**): a local variable that is part of a function
+///   signature which gets assigned the value of the corresponding argument provided at the
+///   function call site.
+/// - **Field**: a part of a value of some `struct` type that can be individually referenced and
+///   assigned to. Its lifecycle is fully bound to the `struct` value it is part of.
+///
+/// All of these entity kinds share the same common properties: they have a name, a statically
+/// determined type, and they identify a stateful value.
 pub struct Variable {
+    /// The name of the entity.
     pub name: String,
+
+    /// A unique identifier of the entity that also includes information about its kind.
     pub id: VariableId,
-    pub definition_site: Option<InputSpan>,
+
+    /// The location in program source code where the entity is defined.
+    ///
+    /// This can be `None` only for internal function parameters.
+    pub definition_site: Option<SourceOrigin>,
+
+    /// The type of the entity value.
     pub type_: Rc<RefCell<Type>>,
 
     /// For instantiated fields, this is the ID of their prototype field in the base type.
     base_field_id: Option<VariableId>,
 }
 
+/// A plain, hashable, unique identifier for variable-like entities.
+///
+/// Also includes information about what kind of variable-like entity is a `Variable` exactly:
+/// different variants correspond to different kinds.
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub enum VariableId {
+    /// Identifies a local variable defined in a function which has not been instantiated.
     LocalVariable(SymbolId),
+
+    /// Identifies a local variable defined in an instantiated function.
     InstantiatedLocalVariable(SymbolId, FunctionId),
 
+    /// Identifies a field of a type that has not been instantiated.
     Field(SymbolId),
+
+    /// Identifies a field of an instantiated type.
     InstantiatedField(SymbolId, TypeId),
 
+    /// Identifies a parameter of an internal function.
+    ///
+    /// Second element is the index of the parameter, starting from zero.
     InternalParameter(InternalFunctionTag, usize),
 }
 
@@ -33,33 +73,35 @@ impl Variable {
     pub fn new_variable(
         name: String,
         type_: Rc<RefCell<Type>>,
-        definition_site: Option<InputSpan>,
+        definition_site: SourceOrigin,
         program: &mut Program,
     ) -> Variable {
         Variable {
             name,
             type_,
-            definition_site,
+            definition_site: Some(definition_site),
             id: VariableId::LocalVariable(program.symbol_ids_mut().next_id()),
             base_field_id: None,
         }
     }
 
+    /// Creates a new field with a given name and type.
     pub fn new_field(
         name: String,
         type_: Rc<RefCell<Type>>,
-        definition_site: Option<InputSpan>,
+        definition_site: SourceOrigin,
         program: &mut Program,
     ) -> Variable {
         Variable {
             name,
             type_,
-            definition_site,
+            definition_site: Some(definition_site),
             id: VariableId::Field(program.symbol_ids_mut().next_id()),
             base_field_id: None,
         }
     }
 
+    /// Creates an internal function parameter from its proto-definition.
     pub fn new_internal_parameter(
         parameter: ProtoInternalParameter,
         function_tag: InternalFunctionTag,
@@ -74,8 +116,10 @@ impl Variable {
         }
     }
 
-    /// Create a copy of this field with all occurrences of type parameters in its type
-    /// replaced by concrete type arguments.
+    /// Instantiates a field of a template base type, creating a copy for the instantiated type.
+    ///
+    /// A copy of this field is created with all occurrences of type parameters in its type
+    /// replaced by concrete type arguments using `type_arguments` map.
     pub fn instantiate_field(
         &self,
         instantiated_type_id: TypeId,
@@ -96,6 +140,10 @@ impl Variable {
         }
     }
 
+    /// Instantiates a local variable of a template base function.
+    ///
+    /// A copy of this variable is created with all occurrences of type parameters in its type
+    /// replaced by concrete type arguments using `type_arguments` map.
     pub fn instantiate_local_variable(
         &self,
         instantiated_function_id: FunctionId,
@@ -118,6 +166,10 @@ impl Variable {
         }
     }
 
+    /// Instantiates a parameter of an internal template base function.
+    ///
+    /// A copy of this parameter is created with all occurrences of type parameters in its type
+    /// replaced by concrete type arguments using `type_arguments` map.
     pub fn instantiate_internal_parameter(
         &self,
         instantiated_function_tag: InternalFunctionTag,
@@ -140,8 +192,7 @@ impl Variable {
         }
     }
 
-    /// For fields of template base types, looks up the field instantiation in an instantiation
-    /// of the type.
+    /// Looks up the field instantiated from this field in an instantiated type.
     pub fn lookup_instantiated_field(&self, instantiated_type: &Type) -> Rc<RefCell<Variable>> {
         let target_field_id = self.base_field_id.clone().unwrap_or(self.id.clone());
 

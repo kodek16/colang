@@ -611,7 +611,7 @@ impl CompilationError {
             argument.type_().borrow().name
         ))
         .maybe_with_type_explanation(argument)
-        .maybe_with_bound_note(parameter.definition_site.map(SourceOrigin::Plain), || {
+        .maybe_with_bound_note(parameter.definition_site, || {
             format!(
                 "parameter `{}` is defined here with type `{}`",
                 parameter.name,
@@ -697,7 +697,7 @@ impl CompilationError {
         } else {
             "too few type arguments"
         })
-        .maybe_with_bound_note(template.definition_site.map(SourceOrigin::Plain), || {
+        .maybe_with_bound_note(template.definition_site, || {
             format!(
                 "type template `{}` defined with {} type parameters",
                 template.name,
@@ -759,7 +759,7 @@ impl CompilationError {
             method
                 .parameters
                 .get(0)
-                .and_then(|self_| self_.borrow().definition_site.map(SourceOrigin::Plain)),
+                .and_then(|self_| self_.borrow().definition_site),
             || {
                 format!(
                     "method `{}` takes `self` by pointer, so it needs to be an lvalue",
@@ -986,7 +986,7 @@ impl CompilationError {
                 anchor_type.name,
             ),
         )
-        .with_location(SourceOrigin::Plain(anchor_field.definition_site.unwrap()))
+        .with_location(anchor_field.definition_site.unwrap())
         .with_subtitle("field type starts a type cycle")
         .with_free_note({
             let type_cycle: Vec<_> = cycle

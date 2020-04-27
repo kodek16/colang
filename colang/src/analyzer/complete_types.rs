@@ -22,7 +22,7 @@ impl GlobalVisitor for CompleteTypesAnalyzerPass {
         context: &mut CompilerContext,
     ) {
         let field_type = Rc::clone(&field.borrow().type_);
-        complete_type(field_type, field_def.span, context);
+        complete_type(field_type, SourceOrigin::Plain(field_def.span), context);
     }
 
     fn revisit_method_def(
@@ -69,16 +69,16 @@ fn complete_function_types(
         function_def
             .return_type
             .as_ref()
-            .map(|type_expr| type_expr.span())
+            .map(|type_expr| SourceOrigin::Plain(type_expr.span()))
             // Completing `void` should never fail.
-            .unwrap_or(InputSpan::top_of_file()),
+            .unwrap_or(SourceOrigin::Plain(InputSpan::top_of_file())),
         context,
     );
 }
 
 fn complete_type(
     type_: Rc<RefCell<Type>>,
-    reference_location: InputSpan,
+    reference_location: SourceOrigin,
     context: &mut CompilerContext,
 ) {
     let result = Type::ensure_is_fully_complete(Rc::clone(&type_), context.program.types_mut());
@@ -86,7 +86,7 @@ fn complete_type(
         let error = CompilationError::type_infinite_dependency_chain(
             &type_.borrow(),
             type_chain,
-            SourceOrigin::Plain(reference_location),
+            reference_location,
         );
         context.errors.push(error);
     }

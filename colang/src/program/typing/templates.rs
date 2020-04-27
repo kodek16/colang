@@ -9,7 +9,7 @@ use std::rc::Rc;
 pub struct TypeTemplate {
     pub type_template_id: TypeTemplateId,
     pub name: String,
-    pub definition_site: Option<InputSpan>,
+    pub definition_site: Option<SourceOrigin>,
 
     /// The placeholder types that will be substituted with type arguments in fields and methods
     /// during instantiation.
@@ -27,7 +27,7 @@ pub struct TypeTemplate {
 /// collected beforehand.
 pub struct ProtoTypeParameter {
     pub name: String,
-    pub definition_site: Option<InputSpan>,
+    pub definition_site: Option<SourceOrigin>,
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -42,7 +42,7 @@ impl TypeTemplate {
     pub fn new_struct_template(
         name: String,
         type_parameters: Vec<ProtoTypeParameter>,
-        definition_site: InputSpan,
+        definition_site: SourceOrigin,
         program: &mut Program,
     ) -> Rc<RefCell<TypeTemplate>> {
         let id = program.symbol_ids_mut().next_id();
@@ -62,7 +62,7 @@ impl TypeTemplate {
         type_template_id: TypeTemplateId,
         name: String,
         type_parameters: Vec<ProtoTypeParameter>,
-        definition_site: Option<InputSpan>,
+        definition_site: Option<SourceOrigin>,
         name_template: Option<Box<dyn Fn(Vec<&Rc<RefCell<Type>>>) -> String>>,
         registry: &mut TypeRegistry,
     ) -> Rc<RefCell<TypeTemplate>> {

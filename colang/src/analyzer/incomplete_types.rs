@@ -6,6 +6,7 @@ use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
 use crate::ast::FunctionDef;
 use crate::program::{ProtoTypeParameter, Type, TypeTemplate};
+use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::rc::Rc;
 
@@ -20,7 +21,7 @@ impl GlobalVisitor for IncompleteTypesAnalyzerPass {
         let name = &struct_def.name.text;
         let type_ = Type::new_struct(
             name.to_string(),
-            struct_def.signature_span,
+            SourceOrigin::Plain(struct_def.signature_span),
             &mut context.program,
         );
         context
@@ -43,13 +44,13 @@ impl GlobalVisitor for IncompleteTypesAnalyzerPass {
             .iter()
             .map(|type_param| ProtoTypeParameter {
                 name: type_param.text.clone(),
-                definition_site: Some(type_param.span),
+                definition_site: Some(SourceOrigin::Plain(type_param.span)),
             })
             .collect();
         let template = TypeTemplate::new_struct_template(
             struct_def.name.text.clone(),
             type_parameters,
-            struct_def.signature_span,
+            SourceOrigin::Plain(struct_def.signature_span),
             &mut context.program,
         );
         context

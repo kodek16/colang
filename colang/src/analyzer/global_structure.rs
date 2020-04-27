@@ -6,7 +6,7 @@ use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
 use crate::errors::CompilationError;
 use crate::program::{Function, Type, TypeTemplate, Variable};
-use crate::source::{InputSpan, SourceOrigin};
+use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -50,7 +50,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
         let field = Rc::new(RefCell::new(Variable::new_field(
             field_def.name.text.clone(),
             Rc::clone(&type_),
-            Some(field_def.span),
+            SourceOrigin::Plain(field_def.span),
             &mut context.program,
         )));
         context
@@ -113,7 +113,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
                 let fake_self = create_parameter(
                     "<self>".to_string(),
                     Rc::clone(current_type),
-                    Some(method_def.signature_span),
+                    SourceOrigin::Plain(method_def.signature_span),
                     context,
                 )
                 .unwrap();
@@ -205,7 +205,7 @@ fn compile_normal_parameter(
     let name = parameter.name.text.clone();
     let type_ = type_exprs::compile_type_expr(&parameter.type_, context);
 
-    create_parameter(name, type_, Some(parameter.span), context)
+    create_parameter(name, type_, SourceOrigin::Plain(parameter.span), context)
 }
 
 fn compile_self_parameter(
@@ -218,14 +218,19 @@ fn compile_self_parameter(
         ast::SelfParameterKind::ByPointer => context.program.types_mut().pointer_to(&current_type),
     };
 
-    create_parameter("<self>".to_string(), type_, Some(parameter.span), context)
-        .expect("Couldn't create variable for <self> parameter")
+    create_parameter(
+        "<self>".to_string(),
+        type_,
+        SourceOrigin::Plain(parameter.span),
+        context,
+    )
+    .expect("Couldn't create variable for <self> parameter")
 }
 
 fn create_parameter(
     name: String,
     type_: Rc<RefCell<Type>>,
-    definition_site: Option<InputSpan>,
+    definition_site: SourceOrigin,
     context: &mut CompilerContext,
 ) -> Option<Rc<RefCell<Variable>>> {
     let variable = Rc::new(RefCell::new(Variable::new_variable(

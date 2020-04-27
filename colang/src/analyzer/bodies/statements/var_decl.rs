@@ -53,7 +53,7 @@ fn compile_var_decl_entry(
     let variable = Rc::new(RefCell::new(Variable::new_variable(
         name.text.clone(),
         type_,
-        Some(declaration.span),
+        SourceOrigin::Plain(declaration.span),
         &mut context.program,
     )));
 

@@ -8,7 +8,7 @@ pub fn compile_self_expr(
     expression: ast::SelfExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    match context.self_ {
+    match context.local().self_ {
         Some(ref variable) => program::Expression::new(
             program::ExpressionKind::Variable(program::VariableExpr {
                 variable: Rc::clone(&variable),

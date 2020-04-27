@@ -29,16 +29,19 @@ impl GlobalVisitor for BodiesAnalyzerPass {
         method: Rc<RefCell<Function>>,
         context: &mut CompilerContext,
     ) {
-        context.function = Some(Rc::clone(&method));
-        // Parameters have their own scope.
-        context.scope.push();
-        context.self_ = Some(Rc::clone(&method.borrow().parameters.get(0).expect(
-            &format!(
-                "Attempt to parse method `{}` of type `{}` which is in an error state: no `self` parameter",
+        context.push_local(
+            Rc::clone(&method),
+            Some(Rc::clone(&method.borrow().parameters.get(0).expect(
+                &format!(
+                "Attempt to parse method `{}` of type `{}` which is in an error state: no `self`",
                 method_def.name.text,
                 current_type.borrow().name
             ),
-        )));
+            ))),
+        );
+
+        // Parameters have their own scope.
+        context.scope.push();
         for parameter in &method.borrow().parameters[1..] {
             // Ignore errors, they should be already reported in the previous phase.
             let _ = context.scope.add_variable(Rc::clone(&parameter));
@@ -58,9 +61,8 @@ impl GlobalVisitor for BodiesAnalyzerPass {
             context,
         );
 
-        context.self_ = None;
         context.scope.pop();
-        context.function = None;
+        context.pop_local();
 
         fill_function_body(method, body, context);
     }
@@ -71,7 +73,8 @@ impl GlobalVisitor for BodiesAnalyzerPass {
         function: Rc<RefCell<Function>>,
         context: &mut CompilerContext,
     ) {
-        context.function = Some(Rc::clone(&function));
+        context.push_local(Rc::clone(&function), None);
+
         // Parameters have their own scope.
         context.scope.push();
 
@@ -95,7 +98,7 @@ impl GlobalVisitor for BodiesAnalyzerPass {
         );
 
         context.scope.pop();
-        context.function = None;
+        context.pop_local();
 
         fill_function_body(function, body, context);
     }

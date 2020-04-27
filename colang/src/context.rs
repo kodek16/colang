@@ -11,20 +11,20 @@ use std::rc::Rc;
 
 /// Global compilation context that gets passed along to various compiler routines.
 pub struct CompilerContext {
+    /// Program intermediate representation that is being constructed.
     pub program: program::Program,
+
+    /// Current free scope. Plain name lookups (not bound to a receiver) will use this scope.
     pub scope: Scope,
 
+    /// Errors in the user program encountered so far.
+    pub errors: Vec<CompilationError>,
+
+    /// Mapping from syntactic to semantic global entities.
     pub globals: GlobalEntities,
 
-    // TODO we should have a separate BodyCompilerContext type that has the fields only relevant
-    // in function bodies.
-    /// Function currently being analyzed.
-    pub function: Option<Rc<RefCell<Function>>>,
-
-    /// In methods, this is the variable bound to `self`.
-    pub self_: Option<Rc<RefCell<Variable>>>,
-
-    pub errors: Vec<CompilationError>,
+    /// Current local (function body) context.
+    local: Option<LocalCompilerContext>,
 }
 
 impl CompilerContext {
@@ -41,11 +41,30 @@ impl CompilerContext {
         CompilerContext {
             program,
             scope,
-            globals: GlobalEntities::new(),
-            function: None,
-            self_: None,
             errors: vec![],
+            globals: GlobalEntities::new(),
+            local: None,
         }
+    }
+
+    /// Initializes a new `LocalCompilerContext` for an analyzed function.
+    pub fn push_local(
+        &mut self,
+        function: Rc<RefCell<Function>>,
+        self_: Option<Rc<RefCell<Variable>>>,
+    ) {
+        self.local = Some(LocalCompilerContext { function, self_ });
+    }
+
+    /// Cleans up the active `LocalCompilerContext`.
+    pub fn pop_local(&mut self) {
+        self.local = None;
+    }
+
+    pub fn local(&mut self) -> &mut LocalCompilerContext {
+        self.local
+            .as_mut()
+            .expect("Local context cannot be accessed outside of function bodies")
     }
 }
 
@@ -144,4 +163,13 @@ impl GlobalEntities {
                 method_def.name.text
             ))
     }
+}
+
+/// Extension of `CompilerContext` for local (function bodies) contexts.
+pub struct LocalCompilerContext {
+    /// Function currently being analyzed.
+    pub function: Rc<RefCell<Function>>,
+
+    /// In methods, this is the variable bound to `self`.
+    pub self_: Option<Rc<RefCell<Variable>>>,
 }

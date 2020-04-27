@@ -11,12 +11,7 @@ pub fn compile_return_stmt(
     current_block: &mut BlockBuilder,
     context: &mut CompilerContext,
 ) {
-    let function = Rc::clone(
-        &context
-            .function
-            .as_ref()
-            .expect("Function reference was not set in compiler context"),
-    );
+    let function = Rc::clone(&context.local().function);
     let return_type = Rc::clone(&function.borrow().return_type);
 
     let expression = statement

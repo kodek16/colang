@@ -1,12 +1,12 @@
 use crate::program::expressions::ExpressionKindImpl;
-use crate::program::{Expression, Type, TypeRegistry, ValueCategory, Variable};
+use crate::program::{Expression, Field, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct FieldAccessExpr {
     pub receiver: Box<Expression>,
-    pub field: Rc<RefCell<Variable>>,
+    pub field: Rc<RefCell<Field>>,
     pub location: SourceOrigin,
 }
 

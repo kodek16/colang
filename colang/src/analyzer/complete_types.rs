@@ -5,7 +5,7 @@
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast::{self, FieldDef, FunctionDef};
 use crate::errors::CompilationError;
-use crate::program::{Function, Type, Variable};
+use crate::program::{Field, Function, Type};
 use crate::source::{InputSpan, SourceOrigin};
 use crate::CompilerContext;
 use std::cell::RefCell;
@@ -18,7 +18,7 @@ impl GlobalVisitor for CompleteTypesAnalyzerPass {
         &mut self,
         field_def: &mut FieldDef,
         _: &Rc<RefCell<Type>>,
-        field: Rc<RefCell<Variable>>,
+        field: Rc<RefCell<Field>>,
         context: &mut CompilerContext,
     ) {
         let field_type = Rc::clone(&field.borrow().type_);

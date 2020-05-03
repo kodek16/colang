@@ -986,7 +986,7 @@ impl CompilationError {
                 anchor_type.name,
             ),
         )
-        .with_location(anchor_field.definition_site.unwrap())
+        .with_location(anchor_field.definition_site)
         .with_subtitle("field type starts a type cycle")
         .with_free_note({
             let type_cycle: Vec<_> = cycle

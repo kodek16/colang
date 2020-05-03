@@ -1,7 +1,7 @@
 //! Named entity visibility hierarchy management.
 
 use crate::errors::CompilationError;
-use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::program::{Field, Function, Type, TypeTemplate, Variable};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -167,27 +167,7 @@ pub trait GeneralNamedEntity: Clone {
 
 // This macro saves a lot of boilerplate, but makes some specific assumptions. Treat with caution.
 macro_rules! specific_named_entity_impl {
-    ($specific:ty, $general:ty, $item:ty, $variant:path, $kind:ident) => {
-        impl SpecificNamedEntity for $specific {
-            type Item = $item;
-
-            fn kind() -> NamedEntityKind {
-                NamedEntityKind::$kind
-            }
-
-            fn item(self) -> Rc<RefCell<Self::Item>> {
-                self.0
-            }
-
-            fn name(&self) -> String {
-                self.0.borrow().name.clone()
-            }
-
-            fn definition_site(&self) -> Option<SourceOrigin> {
-                self.0.borrow().definition_site
-            }
-        }
-
+    ($specific:ty, $general:ty, $variant:path) => {
         impl From<$specific> for $general {
             fn from(entity: $specific) -> Self {
                 $variant(entity)
@@ -226,7 +206,7 @@ pub enum TypeMemberEntity {
 
 /// An entity kind representing a field of some type.
 #[derive(Clone)]
-pub struct FieldEntity(pub Rc<RefCell<Variable>>);
+pub struct FieldEntity(pub Rc<RefCell<Field>>);
 
 /// An entity kind representing a method of some type.
 #[derive(Clone)]
@@ -255,21 +235,47 @@ impl GeneralNamedEntity for TypeMemberEntity {
     }
 }
 
-specific_named_entity_impl!(
-    FieldEntity,
-    TypeMemberEntity,
-    Variable,
-    TypeMemberEntity::Field,
-    Field
-);
+impl SpecificNamedEntity for FieldEntity {
+    type Item = Field;
 
-specific_named_entity_impl!(
-    MethodEntity,
-    TypeMemberEntity,
-    Function,
-    TypeMemberEntity::Method,
-    Method
-);
+    fn kind() -> NamedEntityKind {
+        NamedEntityKind::Field
+    }
+
+    fn item(self) -> Rc<RefCell<Self::Item>> {
+        self.0
+    }
+
+    fn name(&self) -> String {
+        self.0.borrow().name.clone()
+    }
+
+    fn definition_site(&self) -> Option<SourceOrigin> {
+        Some(self.0.borrow().definition_site)
+    }
+}
+specific_named_entity_impl!(FieldEntity, TypeMemberEntity, TypeMemberEntity::Field);
+
+impl SpecificNamedEntity for MethodEntity {
+    type Item = Function;
+
+    fn kind() -> NamedEntityKind {
+        NamedEntityKind::Function
+    }
+
+    fn item(self) -> Rc<RefCell<Self::Item>> {
+        self.0
+    }
+
+    fn name(&self) -> String {
+        self.0.borrow().name.clone()
+    }
+
+    fn definition_site(&self) -> Option<SourceOrigin> {
+        self.0.borrow().definition_site
+    }
+}
+specific_named_entity_impl!(MethodEntity, TypeMemberEntity, TypeMemberEntity::Method);
 
 /// A sum of all entity kinds allowed in the free scope.
 #[derive(Clone)]
@@ -325,28 +331,86 @@ impl GeneralNamedEntity for FreeEntity {
     }
 }
 
-specific_named_entity_impl!(
-    VariableEntity,
-    FreeEntity,
-    Variable,
-    FreeEntity::Variable,
-    Variable
-);
+impl SpecificNamedEntity for VariableEntity {
+    type Item = Variable;
 
-specific_named_entity_impl!(
-    FunctionEntity,
-    FreeEntity,
-    Function,
-    FreeEntity::Function,
-    Function
-);
+    fn kind() -> NamedEntityKind {
+        NamedEntityKind::Variable
+    }
 
-specific_named_entity_impl!(TypeEntity, FreeEntity, Type, FreeEntity::Type, Type);
+    fn item(self) -> Rc<RefCell<Self::Item>> {
+        self.0
+    }
 
-specific_named_entity_impl!(
-    TypeTemplateEntity,
-    FreeEntity,
-    TypeTemplate,
-    FreeEntity::TypeTemplate,
-    TypeTemplate
-);
+    fn name(&self) -> String {
+        self.0.borrow().name.clone()
+    }
+
+    fn definition_site(&self) -> Option<SourceOrigin> {
+        self.0.borrow().definition_site
+    }
+}
+specific_named_entity_impl!(VariableEntity, FreeEntity, FreeEntity::Variable);
+
+impl SpecificNamedEntity for FunctionEntity {
+    type Item = Function;
+
+    fn kind() -> NamedEntityKind {
+        NamedEntityKind::Function
+    }
+
+    fn item(self) -> Rc<RefCell<Self::Item>> {
+        self.0
+    }
+
+    fn name(&self) -> String {
+        self.0.borrow().name.clone()
+    }
+
+    fn definition_site(&self) -> Option<SourceOrigin> {
+        self.0.borrow().definition_site
+    }
+}
+specific_named_entity_impl!(FunctionEntity, FreeEntity, FreeEntity::Function);
+
+impl SpecificNamedEntity for TypeEntity {
+    type Item = Type;
+
+    fn kind() -> NamedEntityKind {
+        NamedEntityKind::Type
+    }
+
+    fn item(self) -> Rc<RefCell<Self::Item>> {
+        self.0
+    }
+
+    fn name(&self) -> String {
+        self.0.borrow().name.clone()
+    }
+
+    fn definition_site(&self) -> Option<SourceOrigin> {
+        self.0.borrow().definition_site
+    }
+}
+specific_named_entity_impl!(TypeEntity, FreeEntity, FreeEntity::Type);
+
+impl SpecificNamedEntity for TypeTemplateEntity {
+    type Item = TypeTemplate;
+
+    fn kind() -> NamedEntityKind {
+        NamedEntityKind::TypeTemplate
+    }
+
+    fn item(self) -> Rc<RefCell<Self::Item>> {
+        self.0
+    }
+
+    fn name(&self) -> String {
+        self.0.borrow().name.clone()
+    }
+
+    fn definition_site(&self) -> Option<SourceOrigin> {
+        self.0.borrow().definition_site
+    }
+}
+specific_named_entity_impl!(TypeTemplateEntity, FreeEntity, FreeEntity::TypeTemplate);

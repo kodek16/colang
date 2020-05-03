@@ -5,7 +5,7 @@ use crate::analyzer::type_exprs;
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
 use crate::errors::CompilationError;
-use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::program::{Field, Function, Type, TypeTemplate, Variable};
 use crate::scope::{FunctionEntity, VariableEntity};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
@@ -48,7 +48,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
     ) {
         let type_ = type_exprs::compile_type_expr(&field_def.type_, context);
 
-        let field = Rc::new(RefCell::new(Variable::new_field(
+        let field = Rc::new(RefCell::new(Field::new(
             field_def.name.text.clone(),
             Rc::clone(&type_),
             SourceOrigin::Plain(field_def.span),
@@ -234,7 +234,7 @@ fn create_parameter(
     definition_site: SourceOrigin,
     context: &mut CompilerContext,
 ) -> Option<Rc<RefCell<Variable>>> {
-    let variable = Rc::new(RefCell::new(Variable::new_variable(
+    let variable = Rc::new(RefCell::new(Variable::new(
         name,
         type_,
         definition_site,

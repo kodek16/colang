@@ -2,7 +2,7 @@
 
 use crate::ast;
 use crate::errors::CompilationError;
-use crate::program::{self, Function, Type, TypeTemplate, Variable};
+use crate::program::{self, Field, Function, Type, TypeTemplate, Variable};
 use crate::scope::{FreeScope, TypeEntity};
 use crate::source::InputSpan;
 use std::cell::RefCell;
@@ -73,7 +73,7 @@ pub struct GlobalEntities {
     structs: HashMap<InputSpan, Rc<RefCell<Type>>>,
     struct_templates: HashMap<InputSpan, Rc<RefCell<TypeTemplate>>>,
     functions: HashMap<InputSpan, Rc<RefCell<Function>>>,
-    fields: HashMap<InputSpan, Rc<RefCell<Variable>>>,
+    fields: HashMap<InputSpan, Rc<RefCell<Field>>>,
     methods: HashMap<InputSpan, Rc<RefCell<Function>>>,
 }
 
@@ -109,7 +109,7 @@ impl GlobalEntities {
         self.functions.insert(function_def.signature_span, function);
     }
 
-    pub fn register_field(&mut self, field_def: &ast::FieldDef, field: Rc<RefCell<Variable>>) {
+    pub fn register_field(&mut self, field_def: &ast::FieldDef, field: Rc<RefCell<Field>>) {
         self.fields.insert(field_def.span, field);
     }
 
@@ -148,7 +148,7 @@ impl GlobalEntities {
             ))
     }
 
-    pub fn field(&self, field_def: &ast::FieldDef) -> &Rc<RefCell<Variable>> {
+    pub fn field(&self, field_def: &ast::FieldDef) -> &Rc<RefCell<Field>> {
         self.fields.get(&field_def.span).expect(&format!(
             "Field `{}` was not analyzed in previous passes",
             field_def.name.text

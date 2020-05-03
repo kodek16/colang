@@ -95,7 +95,7 @@ impl CCodePrinter {
 
         for field in type_.fields() {
             self.write_init_function_name(names, &field.borrow().type_.borrow().type_id)?;
-            write!(self, "(&(p->{}));\n", names.variable_name(&field.borrow()))?;
+            write!(self, "(&(p->{}));\n", names.field_name(&field.borrow()))?;
         }
 
         self.dedent();
@@ -154,14 +154,14 @@ impl CCodePrinter {
         write!(self, "}}\n")
     }
 
-    fn write_field_def(&mut self, names: &mut impl CNameRegistry, field: &Variable) -> fmt::Result {
-        names.add_variable(field);
+    fn write_field_def(&mut self, names: &mut impl CNameRegistry, field: &Field) -> fmt::Result {
+        names.add_field(field);
 
         self.write_type_name(names, &field.type_.borrow().type_id)?;
         write!(
             self,
             " {}; /* {}: {} */\n",
-            names.variable_name(field),
+            names.field_name(field),
             field.name,
             field.type_.borrow().name,
         )
@@ -383,11 +383,7 @@ impl CCodePrinter {
     ) -> ExprWriteResult {
         let receiver = self.write_expression(names, &expression.receiver)?.unwrap();
         let field = expression.field.borrow();
-        Ok(Some(format!(
-            "({}.{})",
-            receiver,
-            names.variable_name(&field)
-        )))
+        Ok(Some(format!("({}.{})", receiver, names.field_name(&field))))
     }
 
     fn write_if_expr(

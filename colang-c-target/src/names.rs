@@ -1,4 +1,4 @@
-use colang::program::{Function, FunctionId, TypeId, Variable, VariableId};
+use colang::program::{Field, FieldId, Function, FunctionId, TypeId, Variable, VariableId};
 use std::collections::HashMap;
 
 pub trait CNameRegistry {
@@ -8,10 +8,12 @@ pub trait CNameRegistry {
     fn type_name(&self, type_: &TypeId) -> &str;
     fn variable_name(&self, variable: &Variable) -> &str;
     fn function_name(&self, function: &Function) -> &str;
+    fn field_name(&self, field: &Field) -> &str;
 
     fn add_type(&mut self, type_: &TypeId);
     fn add_variable(&mut self, variable: &Variable);
     fn add_function(&mut self, function: &Function);
+    fn add_field(&mut self, field: &Field);
 
     /// Expression names are transient and not stored in the registry. Every call to this
     /// method returns a new unique name.
@@ -22,11 +24,13 @@ pub struct NumericCNameRegistry {
     type_names: HashMap<TypeId, String>,
     variable_names: HashMap<VariableId, String>,
     function_names: HashMap<FunctionId, String>,
+    field_names: HashMap<FieldId, String>,
 
     // Names are generated as increasing integer sequence.
     next_type: usize,
     next_variable: usize,
     next_function: usize,
+    next_field: usize,
     next_expression: usize,
 }
 
@@ -36,9 +40,11 @@ impl NumericCNameRegistry {
             type_names: HashMap::new(),
             variable_names: HashMap::new(),
             function_names: HashMap::new(),
+            field_names: HashMap::new(),
             next_type: 0,
             next_variable: 0,
             next_function: 0,
+            next_field: 0,
             next_expression: 0,
         }
     }
@@ -58,6 +64,12 @@ impl NumericCNameRegistry {
     fn generate_function_name(&mut self) -> String {
         let name = format!("f{}", self.next_function);
         self.next_function += 1;
+        name
+    }
+
+    fn generate_field_name(&mut self) -> String {
+        let name = format!("fi{}", self.next_field);
+        self.next_field += 1;
         name
     }
 
@@ -90,6 +102,13 @@ impl CNameRegistry for NumericCNameRegistry {
         ))
     }
 
+    fn field_name(&self, field: &Field) -> &str {
+        self.field_names.get(&field.id).expect(&format!(
+            "Field `{}` was not added to C name registry",
+            field.name
+        ))
+    }
+
     fn add_type(&mut self, type_: &TypeId) {
         let name = self.generate_type_name();
         let previous = self.type_names.insert(type_.clone(), name);
@@ -117,6 +136,14 @@ impl CNameRegistry for NumericCNameRegistry {
                 "Function `{}` was added to C name registry twice",
                 function.name
             )
+        }
+    }
+
+    fn add_field(&mut self, field: &Field) {
+        let name = self.generate_field_name();
+        let previous = self.field_names.insert(field.id.clone(), name);
+        if previous.is_some() {
+            panic!("Field `{}` was added to C name registry twice", field.name)
         }
     }
 

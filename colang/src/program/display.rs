@@ -98,6 +98,16 @@ impl Variable {
     }
 }
 
+impl Field {
+    fn to_full_sexp(&self) -> Sexp {
+        sexp_list!(
+            sexp_str!("field"),
+            sexp_list!(sexp_str!("name"), sexp_str!(&self.name)),
+            sexp_list!(sexp_str!("type"), self.type_.borrow().to_sexp()),
+        )
+    }
+}
+
 impl ToSexp for Variable {
     fn to_sexp(&self) -> Sexp {
         sexp_str!(&self.name)
@@ -111,6 +121,12 @@ impl ToSexp for Function {
 }
 
 impl ToSexp for Type {
+    fn to_sexp(&self) -> Sexp {
+        sexp_str!(&self.name)
+    }
+}
+
+impl ToSexp for Field {
     fn to_sexp(&self) -> Sexp {
         sexp_str!(&self.name)
     }

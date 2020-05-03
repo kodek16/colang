@@ -1,7 +1,7 @@
 use crate::errors::RuntimeError;
 use crate::panic_wrong_type;
 use crate::RunResult;
-use colang::program::VariableId;
+use colang::program::FieldId;
 use colang::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -67,7 +67,7 @@ pub enum Rvalue {
     Char(u8),
     Array(Rc<RefCell<Vec<Lvalue>>>),
     Pointer(Option<Lvalue>),
-    Struct(HashMap<VariableId, Lvalue>),
+    Struct(HashMap<FieldId, Lvalue>),
     Void,
 }
 
@@ -150,7 +150,7 @@ impl Rvalue {
         }
     }
 
-    pub fn as_struct(&self) -> &HashMap<VariableId, Lvalue> {
+    pub fn as_struct(&self) -> &HashMap<FieldId, Lvalue> {
         match self {
             Rvalue::Struct(fields) => fields,
             _ => panic_wrong_type("struct", self.type_()),

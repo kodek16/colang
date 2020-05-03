@@ -1,7 +1,7 @@
 //! Framework for defining analyzer passes that visit all defined global symbols.
 
 use crate::ast;
-use crate::program::{Function, Type, TypeTemplate, Variable};
+use crate::program::{Field, Function, Type, TypeTemplate};
 use crate::scope::TypeEntity;
 use crate::CompilerContext;
 use std::cell::RefCell;
@@ -123,7 +123,7 @@ pub trait GlobalVisitor {
         &mut self,
         _field_def: &mut ast::FieldDef,
         _current_type: &Rc<RefCell<Type>>,
-        _field: Rc<RefCell<Variable>>,
+        _field: Rc<RefCell<Field>>,
         _context: &mut CompilerContext,
     ) {
     }

@@ -1,7 +1,7 @@
 use crate::errors::CompilationError;
 use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::templates::TypeTemplateId;
-use crate::program::{Function, Program, SymbolId, Variable};
+use crate::program::{Field, Function, Program, SymbolId};
 use crate::scope::{FieldEntity, MethodEntity, Scope, TypeScope};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -31,7 +31,7 @@ pub struct Type {
     pub name: String,
     pub definition_site: Option<SourceOrigin>,
 
-    fields: Vec<Rc<RefCell<Variable>>>,
+    fields: Vec<Rc<RefCell<Field>>>,
     methods: Vec<Rc<RefCell<Function>>>,
     scope: TypeScope,
 
@@ -121,7 +121,7 @@ impl Type {
 
     /// Adds a field to the list of type members.
     #[must_use]
-    pub fn add_field(&mut self, field: Rc<RefCell<Variable>>) -> Result<(), CompilationError> {
+    pub fn add_field(&mut self, field: Rc<RefCell<Field>>) -> Result<(), CompilationError> {
         self.fields.push(Rc::clone(&field));
         self.scope.add(FieldEntity(field))
     }
@@ -138,7 +138,7 @@ impl Type {
         &self,
         name: &str,
         reference_location: SourceOrigin,
-    ) -> Result<Rc<RefCell<Variable>>, CompilationError> {
+    ) -> Result<Rc<RefCell<Field>>, CompilationError> {
         self.scope.lookup::<FieldEntity>(name, reference_location)
     }
 
@@ -151,7 +151,7 @@ impl Type {
         self.scope.lookup::<MethodEntity>(name, reference_location)
     }
 
-    pub fn fields(&self) -> impl Iterator<Item = &Rc<RefCell<Variable>>> {
+    pub fn fields(&self) -> impl Iterator<Item = &Rc<RefCell<Field>>> {
         self.fields.iter()
     }
 
@@ -382,12 +382,11 @@ impl Type {
 
                 let own_type_arguments = type_.borrow().actual_type_arguments(registry);
                 for field in base_type.fields.iter() {
-                    let instantiated_field =
-                        Rc::new(RefCell::new(field.borrow().instantiate_field(
-                            type_id.clone(),
-                            &own_type_arguments,
-                            registry,
-                        )));
+                    let instantiated_field = Rc::new(RefCell::new(field.borrow().instantiate(
+                        type_id.clone(),
+                        &own_type_arguments,
+                        registry,
+                    )));
                     // Name collisions have already been reported for the base type.
                     let _ = type_.borrow_mut().add_field(instantiated_field);
                 }

@@ -1,6 +1,6 @@
 use crate::program::typing::templates::{ProtoTypeParameter, TypeTemplate, TypeTemplateId};
 use crate::program::typing::types::{Type, TypeCompleteness, TypeId};
-use crate::program::Variable;
+use crate::program::Field;
 use crate::utils::graphs;
 use petgraph::algo::toposort;
 use petgraph::Graph;
@@ -171,7 +171,7 @@ impl TypeRegistry {
     ///
     /// If there is a cycle, the fields causing it are returned as `Err`.
     pub fn all_types_sorted(&self) -> Result<Vec<Rc<RefCell<Type>>>, TypeCycleThroughFields> {
-        let mut type_graph = Graph::<Rc<RefCell<Type>>, Rc<RefCell<Variable>>>::new();
+        let mut type_graph = Graph::<Rc<RefCell<Type>>, Rc<RefCell<Field>>>::new();
 
         // Indices are stable as long as no nodes are removed.
         let mut node_indices = HashMap::new();
@@ -236,7 +236,7 @@ pub struct TypeCycleThroughFields {
 
     /// Field path causing a cycle. The first field belongs to `anchor_type`, the last field has
     /// type `anchor_type`.
-    pub fields: Vec<Rc<RefCell<Variable>>>,
+    pub fields: Vec<Rc<RefCell<Field>>>,
 }
 
 fn create_array_template(registry: &mut TypeRegistry) -> Rc<RefCell<TypeTemplate>> {

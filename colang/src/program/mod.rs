@@ -5,7 +5,7 @@
 mod display;
 mod expressions;
 mod field;
-mod function;
+pub(crate) mod function;
 mod instructions;
 pub(crate) mod internal;
 pub mod transforms;
@@ -178,7 +178,7 @@ pub use expressions::variable::VariableExpr;
 pub use expressions::{Expression, ExpressionKind};
 
 pub use field::{Field, FieldId};
-pub use function::{Function, FunctionBody, FunctionId};
+pub use function::{Function, FunctionId};
 pub use internal::InternalFunctionTag;
 pub use typing::{
     ProtoTypeParameter, Type, TypeCycleThroughFields, TypeId, TypeRegistry, TypeTemplate,

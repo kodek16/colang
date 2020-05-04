@@ -4,8 +4,9 @@
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast::FunctionDef;
 use crate::errors::CompilationError;
+use crate::program::function::FunctionBody;
 use crate::program::transforms::visitor::CodeVisitor;
-use crate::program::{CallExpr, Function, FunctionBody, Program, Type, TypeRegistry};
+use crate::program::{CallExpr, Function, Program, Type, TypeRegistry};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::cell::RefCell;

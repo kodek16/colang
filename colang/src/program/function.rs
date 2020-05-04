@@ -1,28 +1,65 @@
+//! Definitions and handling routines for CO functions (including methods).
+
 use crate::program::internal::InternalFunctionTag;
 use crate::program::transforms::visitor::CodeVisitor;
 use crate::program::{
     transforms, ArrayFromElementsExpr, CallExpr, Expression, FieldAccessExpr, NewExpr, NullExpr,
     SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
 };
-use crate::source::{InputSpan, SourceOrigin};
+use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+/// A function in CO: an executable subroutine in the program.
+///
+/// CO functions are executable subroutines that can be _called_ by providing an argument
+/// for every parameter in the function definition. The function call is an expression that
+/// ultimately evaluates to the return value of the function. Functions that do not return
+/// a useful value can be defined with return type `void` which is treated specially in the syntax.
+///
+/// Functions can be divided into two syntactic categories: _free functions_ which are defined in
+/// the global scope, and _methods_ which are defined in the context of some type. From a semantic
+/// perspective, there is no difference between a free function and a method, so the term "function"
+/// usually means any of them. If there is a need to specify one of the categories, the terms
+/// "method" and "non-method function" can be used.
+///
+/// Methods must be defined with a special first parameter named `self`, and called with a special
+/// syntax that includes a "receiver" object: `x.f(y)` is a call to a method `f` of type of `x`
+/// that has two parameters. The `self` parameter is set to `x` and the other parameter set to `y`.
+///
+/// The `self` parameter can have a special form `&self` that indicates that the receiver must be
+/// passed as a pointer. Methods that use this form can only be called on lvalue receivers (which
+/// are automatically referenced).
 pub struct Function {
+    /// The name of the function.
     pub name: String,
+
+    /// A unique identifier of the function.
     pub id: FunctionId,
+
+    /// Function parameters.
+    ///
+    /// Every parameter is associated with a `Variable` object representing a local variable that
+    /// gets assigned the value of the argument at call site.
     pub parameters: Vec<Rc<RefCell<Variable>>>,
+
+    /// The return type of the function.
     pub return_type: Rc<RefCell<Type>>,
 
+    /// The location where function was defined.
+    ///
+    /// This can be `None` for internal functions.
     pub definition_site: Option<SourceOrigin>,
 
-    pub body: FunctionBody,
+    /// Current state of the function body.
+    pub(crate) body: FunctionBody,
 
     /// For instantiated methods, this is the ID of their prototype method in the base type.
-    pub base_method_id: Option<FunctionId>,
+    base_method_id: Option<FunctionId>,
 }
 
+/// A plain, hashable, unique identifier for functions.
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub enum FunctionId {
     UserDefined(SymbolId),
@@ -30,49 +67,64 @@ pub enum FunctionId {
     Internal(InternalFunctionTag),
 }
 
-pub enum FunctionBody {
+/// A stateful wrapper for function bodies that can be in one of a few states.
+pub(crate) enum FunctionBody {
+    /// Function body is fully analyzed and ready to be used.
     // Body is wrapped in a separate cell so that we can still borrow function immutably
     // while the body is borrowed mutably. This is very useful for recursive functions.
     Filled(Rc<RefCell<Expression>>),
+
+    /// Function body is expected to be filled in a future analysis pass.
     ToBeFilled,
+
+    /// Function body is expected to be instantiated from the base function body.
+    ///
+    /// Instantiation is handled by `colang::analyzer::function_instantiations`.
     ToBeInstantiated {
         base: Rc<RefCell<Function>>,
         type_arguments: HashMap<TypeId, TypeId>,
     },
+
+    /// Function body is deliberately absent because the function is internal.
     Internal,
 }
 
+/// Information about an internal parameter of some function.
 pub struct ProtoInternalParameter {
     pub name: String,
     pub type_: Rc<RefCell<Type>>,
 }
 
 impl Function {
-    /// Initialize a new, empty function. Parameters and body are filled later.
+    /// Creates a new user-defined function without a body.
+    ///
+    /// The function body is expected to be filled later.
     pub fn new(
         name: String,
+        parameters: Vec<Rc<RefCell<Variable>>>,
         return_type: Rc<RefCell<Type>>,
-        definition_site: InputSpan,
+        definition_site: SourceOrigin,
         symbol_ids: &mut SymbolIdRegistry,
     ) -> Function {
         Function {
             name,
-            id: FunctionId::UserDefined(symbol_ids.next_id()),
-            definition_site: Some(SourceOrigin::Plain(definition_site)),
-            parameters: vec![],
+            parameters,
             return_type,
+            id: FunctionId::UserDefined(symbol_ids.next_id()),
+            definition_site: Some(definition_site),
             body: FunctionBody::ToBeFilled,
             base_method_id: None,
         }
     }
 
+    /// Creates a new internal function.
     pub fn new_internal(
         name: String,
         tag: InternalFunctionTag,
         parameters: Vec<ProtoInternalParameter>,
         return_type: Rc<RefCell<Type>>,
     ) -> Function {
-        let function_id = FunctionId::Internal(tag.clone());
+        let id = FunctionId::Internal(tag.clone());
         let parameters = parameters
             .into_iter()
             .enumerate()
@@ -87,21 +139,19 @@ impl Function {
 
         Function {
             name,
-            id: function_id,
-            definition_site: None,
+            id,
             parameters,
             return_type,
+            definition_site: None,
             body: FunctionBody::Internal,
             base_method_id: None,
         }
     }
 
-    // TODO get rid of this.
-    // This has to be called for user-defined functions.
-    pub fn fill_parameters(&mut self, parameters: Vec<Rc<RefCell<Variable>>>) {
-        self.parameters = parameters
-    }
-
+    /// Accesses the function body which is assumed to be present.
+    ///
+    /// This method should only be called for user-defined functions only after
+    /// the analysis is complete.
     pub fn body(&self) -> &Rc<RefCell<Expression>> {
         match &self.body {
             FunctionBody::Filled(ref body) => body,
@@ -114,6 +164,7 @@ impl Function {
         }
     }
 
+    /// Checks if the function body is expecting instantiation.
     pub fn body_needs_instantiation(&self) -> bool {
         match &self.body {
             FunctionBody::ToBeInstantiated { .. } => true,
@@ -121,9 +172,17 @@ impl Function {
         }
     }
 
-    /// Create a copy of a function with all occurrences of type parameters replaced by
-    /// concrete type arguments.
-    /// The function body is not copied yet, it has to be done later by calling `instantiate_body`.
+    /// Instantiates the function, creating a copy after applying some type substitutions.
+    ///
+    /// Does not actually instantiate the function body yet, this needs to be done in a later
+    /// pass by calling `instantiate_body`.
+    ///
+    /// A copy of the function is created with all occurrences of type parameters in its signature
+    /// replaced by concrete type arguments.
+    ///
+    /// Currently only methods can be instantiated, and `instantiated_type_id` is used to create
+    /// unique IDs for them. In the future this is likely to change as function templates are
+    /// introduced.
     pub fn instantiate_interface(
         function: Rc<RefCell<Function>>,
         instantiated_type_id: TypeId,
@@ -215,6 +274,15 @@ impl Function {
         }
     }
 
+    /// Instantiates the function body, copying it from the body of the base function.
+    ///
+    /// It is assumed that `function` was instantiated using `instantiate_interface` and so has
+    /// the necessary information to instantiate its body.
+    ///
+    /// The new body is obtained by applying type substitutions to the entire code of the base
+    /// function body, rerouting field accesses and method calls to other types where necessary.
+    /// These transformations are guaranteed to be safe as long as type arguments conform to
+    /// their corresponding type parameters.
     pub fn instantiate_body(
         function: Rc<RefCell<Function>>,
         types: &mut TypeRegistry,
@@ -264,8 +332,13 @@ impl Function {
         }
     }
 
-    /// For methods of template base types, looks up the method instantiation in an instantiation
-    /// of the type.
+    /// Looks up the method of the same origin as this method in an instantiated type.
+    ///
+    /// Assumes that this function is a method.
+    ///
+    /// This method works both for methods of base types (finding the method instantiated from
+    /// this base method), and for other instantiated types (finding the method instantiated from
+    /// the same base method as this method).
     pub fn lookup_instantiated_method(&self, instantiated_type: &Type) -> Rc<RefCell<Function>> {
         let target_method_id = self.base_method_id.clone().unwrap_or(self.id.clone());
 
@@ -362,7 +435,7 @@ impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
     fn visit_local_variable(&mut self, variable: &mut Variable) {
         // The base variable type and the type arguments are assumed to be fully complete at this
         // point, so we can assume no errors will occur.
-        // We do it here and not in `instantiate_local_variable` because running this code
+        // We do it here and not in `Variable::instantiate_local_variable` because running this code
         // for method parameters is likely to cause a stack overflow by infinite loop.
         Type::ensure_is_fully_complete(Rc::clone(&variable.type_), self.types)
             .map_err(|_| ())

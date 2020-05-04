@@ -770,14 +770,14 @@ impl CompilationError {
     }
 
     pub fn self_not_in_method_signature(
-        function: &Function,
+        function_def: &ast::FunctionDef,
         location: SourceOrigin,
     ) -> CompilationError {
         CompilationError::new(
             "E9028",
             format!(
                 "`self` can only appear as a method parameter, but `{}` is a function",
-                function.name
+                function_def.name.text
             ),
         )
         .with_location(location)

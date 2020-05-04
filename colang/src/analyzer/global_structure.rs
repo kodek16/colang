@@ -73,22 +73,6 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
         let name = method_def.name.text.clone();
         let return_type = compile_return_type(method_def.return_type.as_ref(), context);
 
-        let method = Rc::new(RefCell::new(Function::new(
-            name,
-            Rc::clone(&return_type),
-            method_def.signature_span,
-            context.program.symbol_ids_mut(),
-        )));
-        context
-            .globals
-            .register_method(&method_def, Rc::clone(&method));
-
-        context.program.add_function(Rc::clone(&method));
-        let result = current_type.borrow_mut().add_method(Rc::clone(&method));
-        if let Err(error) = result {
-            context.errors.push(error);
-        }
-
         let (self_parameter, normal_parameters): (_, Vec<_>) = match method_def.parameters.get(0) {
             Some(ast::Parameter::Self_(_)) => {
                 let mut parameters = method_def.parameters.iter();
@@ -138,9 +122,24 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
 
         let mut all_parameters = vec![self_parameter];
         all_parameters.append(&mut normal_parameters);
-        method.borrow_mut().fill_parameters(all_parameters);
-
         context.scope.pop();
+
+        let method = Rc::new(RefCell::new(Function::new(
+            name,
+            all_parameters,
+            Rc::clone(&return_type),
+            SourceOrigin::Plain(method_def.signature_span),
+            context.program.symbol_ids_mut(),
+        )));
+        context
+            .globals
+            .register_method(&method_def, Rc::clone(&method));
+
+        context.program.add_function(Rc::clone(&method));
+        let result = current_type.borrow_mut().add_method(Rc::clone(&method));
+        if let Err(error) = result {
+            context.errors.push(error);
+        }
     }
 
     fn analyze_function_def(
@@ -151,21 +150,6 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
         let name = function_def.name.text.clone();
         let return_type = compile_return_type(function_def.return_type.as_ref(), context);
 
-        let function = Rc::new(RefCell::new(Function::new(
-            name,
-            Rc::clone(&return_type),
-            function_def.signature_span,
-            context.program.symbol_ids_mut(),
-        )));
-        context
-            .globals
-            .register_function(&function_def, Rc::clone(&function));
-
-        context.program.add_function(Rc::clone(&function));
-        if let Err(error) = context.scope.add(FunctionEntity(Rc::clone(&function))) {
-            context.errors.push(error);
-        }
-
         // Parameters have their own scope.
         context.scope.push();
         let parameters: Vec<Rc<RefCell<Variable>>> = function_def
@@ -174,7 +158,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             .flat_map(|parameter| match parameter {
                 ast::Parameter::Self_(parameter) => {
                     let error = CompilationError::self_not_in_method_signature(
-                        &function.borrow(),
+                        &function_def,
                         SourceOrigin::Plain(parameter.span),
                     );
                     context.errors.push(error);
@@ -183,9 +167,25 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
                 ast::Parameter::Normal(parameter) => compile_normal_parameter(parameter, context),
             })
             .collect();
-        function.borrow_mut().fill_parameters(parameters);
 
         context.scope.pop();
+
+        let function = Rc::new(RefCell::new(Function::new(
+            name,
+            parameters,
+            Rc::clone(&return_type),
+            SourceOrigin::Plain(function_def.signature_span),
+            context.program.symbol_ids_mut(),
+        )));
+        context
+            .globals
+            .register_function(&function_def, Rc::clone(&function));
+
+        context.program.add_function(Rc::clone(&function));
+        let result = context.scope.add(FunctionEntity(Rc::clone(&function)));
+        if let Err(error) = result {
+            context.errors.push(error);
+        }
     }
 }
 

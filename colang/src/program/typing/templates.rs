@@ -1,6 +1,6 @@
 use crate::errors::CompilationError;
 use crate::program::typing::registry::TypeRegistry;
-use crate::program::typing::types::{Type, TypeCompleteness, TypeId, TypeInstantiationData};
+use crate::program::typing::types::{Type, TypeId, TypeInstantiationData, TypeInstantiationStatus};
 use crate::program::{Program, SymbolId};
 use crate::scope::TypeScope;
 use crate::source::{InputSpan, SourceOrigin};
@@ -79,7 +79,7 @@ impl TypeTemplate {
                     fields: Vec::new(),
                     methods: Vec::new(),
                     scope: TypeScope::new(),
-                    completeness: TypeCompleteness::FullyComplete,
+                    instantiation_status: TypeInstantiationStatus::FullyComplete,
                 })
             })
             .collect();
@@ -115,7 +115,7 @@ impl TypeTemplate {
             fields: Vec::new(),
             methods: Vec::new(),
             scope: TypeScope::new(),
-            completeness: TypeCompleteness::Incomplete,
+            instantiation_status: TypeInstantiationStatus::DepsMayNeedInstantiation,
         });
 
         let type_template = Rc::new(RefCell::new(TypeTemplate {
@@ -197,7 +197,7 @@ impl TypeTemplate {
             fields: Vec::new(),
             methods: Vec::new(),
             scope: TypeScope::new(),
-            completeness: TypeCompleteness::Incomplete,
+            instantiation_status: TypeInstantiationStatus::NeedsInstantiation,
         }))
     }
 }

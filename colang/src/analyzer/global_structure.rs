@@ -5,7 +5,7 @@ use crate::analyzer::type_exprs;
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
 use crate::errors::CompilationError;
-use crate::program::{Field, Function, Type, TypeTemplate, Variable};
+use crate::program::{Field, Function, Type, Variable};
 use crate::scope::{FunctionEntity, VariableEntity};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
@@ -15,31 +15,6 @@ use std::rc::Rc;
 pub struct GlobalStructureAnalyzerPass;
 
 impl GlobalVisitor for GlobalStructureAnalyzerPass {
-    fn revisit_non_template_struct_def(
-        &mut self,
-        _: &mut ast::StructDef,
-        type_: Rc<RefCell<Type>>,
-        context: &mut CompilerContext,
-    ) {
-        context
-            .program
-            .types_mut()
-            .mark_complete_without_deps(&type_);
-    }
-
-    fn revisit_template_struct_def(
-        &mut self,
-        _: &mut ast::StructDef,
-        _: Rc<RefCell<TypeTemplate>>,
-        base_type: Rc<RefCell<Type>>,
-        context: &mut CompilerContext,
-    ) {
-        context
-            .program
-            .types_mut()
-            .mark_complete_without_deps(&base_type);
-    }
-
     fn analyze_field_def(
         &mut self,
         field_def: &mut ast::FieldDef,

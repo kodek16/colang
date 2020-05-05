@@ -1,6 +1,6 @@
-//! The very first analysis pass: creating incomplete types (skipping fields and methods)
-//! for all type definitions in the program. Type templates and incomplete base types also get
-//! created.
+//! The very first analysis pass: initializing types for all type definitions in the program.
+//! Type templates and incomplete base types also get initialized. No type members are analyzed
+//! yet.
 
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
@@ -11,9 +11,9 @@ use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::rc::Rc;
 
-pub struct IncompleteTypesAnalyzerPass;
+pub struct BasicTypesAnalyzerPass;
 
-impl GlobalVisitor for IncompleteTypesAnalyzerPass {
+impl GlobalVisitor for BasicTypesAnalyzerPass {
     fn analyze_non_template_struct_def(
         &mut self,
         struct_def: &mut ast::StructDef,

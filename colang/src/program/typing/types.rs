@@ -26,9 +26,11 @@ const MAX_TYPE_INSTANTIATION_DEPTH: usize = 64;
 /// - `void` vs. all other types: as an exception, there can be no values of the type `void`.
 ///   Expressions can have type `void` only if they appear in a "void context".
 pub struct Type {
-    /// A unique identifier for types that is immutable and hashable.
-    pub type_id: TypeId,
+    /// The name of the type.
     pub name: String,
+
+    /// A unique identifier of the type.
+    pub type_id: TypeId,
     pub definition_site: Option<SourceOrigin>,
 
     /// For types instantiated from a template, this is the data about the instantiation.
@@ -39,8 +41,10 @@ pub struct Type {
 
     pub(crate) scope: TypeScope,
 
-    /// Types can be in one of a few states, see `TypeCompleteness` for details.
-    pub(in crate::program::typing) completeness: TypeCompleteness,
+    /// Associated information for the type instantiation process.
+    ///
+    /// See `TypeInstantiationStatus` for more information.
+    pub(in crate::program::typing) instantiation_status: TypeInstantiationStatus,
 }
 
 /// A plain, hashable, unique identifier for types.
@@ -74,20 +78,33 @@ pub struct TypeInstantiationData {
     pub type_arguments: Vec<Rc<RefCell<Type>>>,
 }
 
-/// Represents a state a type is in. There are a few states through which a type passes during
-/// compilation: every consequent state carries more information.
+/// Tracks progress of type instantiation process.
+///
+/// Type instantiation happens in multiple phases, and this type keeps track of the phase that
+/// some type is in.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub(in crate::program::typing) enum TypeCompleteness {
-    /// The very basic level of information: the compiler knows a type exists and knows its name.
-    /// Fields and methods are not yet analyzed.
-    Incomplete,
+pub(in crate::program::typing) enum TypeInstantiationStatus {
+    /// The type was instantiated from a template, but its members still need instantiation.
+    ///
+    /// This state is assigned to newly created type template instances that do not have their
+    /// fields and methods yet. Their members are instantiated from the base type after all base
+    /// type members are analyzed.
+    NeedsInstantiation,
 
-    /// Fields and methods (and their types) of a type are known, but their types may not be
-    /// complete.
-    CompleteWithoutDeps,
+    /// The type members are present, but their types may still need further instantiation.
+    ///
+    /// This state is assigned to non-instantiated types. Their fields and methods are analyzed
+    /// in the `global_structure` compiler pass, but the types that they refer to may be template
+    /// instances, or indirectly depend on template instances, that still need instantiation.
+    ///
+    /// Instantiated types can also have this state when their own instantiation is already
+    /// done, but their dependency type instantiation is still pending.
+    DepsMayNeedInstantiation,
 
-    /// Fields and methods are known, and all the types they refer to are fully complete. Type
-    /// arguments, if any, are also fully complete.
+    /// The type and all of its transitive dependencies do not need any further instantiation.
+    ///
+    /// This state is assigned to types after the instantiation process for themselves and also
+    /// all of the types referred to by their members' signatures is fully complete.
     FullyComplete,
 }
 
@@ -107,7 +124,7 @@ impl Type {
             fields: Vec::new(),
             methods: Vec::new(),
             scope: TypeScope::new(),
-            completeness: TypeCompleteness::Incomplete,
+            instantiation_status: TypeInstantiationStatus::DepsMayNeedInstantiation,
         })
     }
 
@@ -124,7 +141,7 @@ impl Type {
             fields: vec![],
             methods: vec![],
             scope: Scope::new(),
-            completeness: TypeCompleteness::FullyComplete,
+            instantiation_status: TypeInstantiationStatus::FullyComplete,
         }))
     }
 
@@ -314,6 +331,10 @@ impl Type {
         type_: Rc<RefCell<Type>>,
         registry: &mut TypeRegistry,
     ) -> Result<(), Vec<Rc<RefCell<Type>>>> {
+        if type_.borrow().instantiation_status == TypeInstantiationStatus::FullyComplete {
+            return Ok(());
+        }
+
         let mut type_stack = Vec::new();
 
         fn process(
@@ -327,22 +348,29 @@ impl Type {
                 return Err(());
             }
 
-            if current_type.borrow().completeness == TypeCompleteness::Incomplete {
+            if current_type.borrow().instantiation_status
+                == TypeInstantiationStatus::NeedsInstantiation
+            {
                 Type::complete_from_base_type(Rc::clone(&current_type), registry);
             }
 
-            if current_type.borrow().completeness == TypeCompleteness::CompleteWithoutDeps {
+            if current_type.borrow().instantiation_status
+                == TypeInstantiationStatus::DepsMayNeedInstantiation
+            {
                 let dependencies = current_type
                     .borrow()
                     .type_dependencies_from_global_interface();
                 for dependency in dependencies {
-                    if !stack.contains(&dependency) {
+                    if !stack.contains(&dependency)
+                        && dependency.borrow().instantiation_status
+                            != TypeInstantiationStatus::FullyComplete
+                    {
                         process(Rc::clone(&dependency), stack, registry)?;
                     }
                 }
             }
 
-            registry.mark_fully_complete(&current_type);
+            current_type.borrow_mut().instantiation_status = TypeInstantiationStatus::FullyComplete;
             stack.pop();
             Ok(())
         }
@@ -354,11 +382,11 @@ impl Type {
     /// For an incomplete type instantiated from a template, completes the instantiation by
     /// copying fields and methods from the base type.
     fn complete_from_base_type(type_: Rc<RefCell<Type>>, registry: &mut TypeRegistry) {
-        if type_.borrow().completeness != TypeCompleteness::Incomplete {
+        if type_.borrow().instantiation_status != TypeInstantiationStatus::NeedsInstantiation {
             panic!(
                 "Attempted to complete type `{}`, which is in an unexpected state {:?}",
                 type_.borrow().name,
-                type_.borrow().completeness,
+                type_.borrow().instantiation_status,
             );
         }
 
@@ -370,13 +398,6 @@ impl Type {
             Some(instantiation_data) => {
                 let template = instantiation_data.template.borrow();
                 let base_type = template.base_type().borrow();
-
-                if base_type.completeness == TypeCompleteness::Incomplete {
-                    panic!(
-                        "Attempted to complete type `{}` from its base type `{}`, but the base type is not complete yet",
-                        type_name, base_type.name
-                    )
-                }
 
                 let own_type_arguments = type_.borrow().actual_type_arguments();
                 for field in base_type.fields.iter() {
@@ -400,7 +421,8 @@ impl Type {
                     let _ = type_.borrow_mut().add_method(instantiated_method);
                 }
 
-                registry.mark_complete_without_deps(&type_);
+                type_.borrow_mut().instantiation_status =
+                    TypeInstantiationStatus::DepsMayNeedInstantiation;
             }
             None => panic!(
                 "Cannot use base type to complete type `{}`: not a template instance",

@@ -1,5 +1,5 @@
 use crate::program::typing::templates::{ProtoTypeParameter, TypeTemplate, TypeTemplateId};
-use crate::program::typing::types::{Type, TypeCompleteness, TypeId};
+use crate::program::typing::types::{Type, TypeId, TypeInstantiationStatus};
 use crate::program::Field;
 use crate::scope::TypeScope;
 use crate::utils::graphs;
@@ -28,9 +28,6 @@ impl TypeRegistry {
             templates: HashMap::new(),
         };
 
-        // Strictly speaking, some primitive types that have internal methods are not
-        // fully complete yet, but this does not really matter since their methods are also
-        // added on program initialization.
         create_basic_type("void", TypeId::Void, &mut registry);
         create_basic_type("int", TypeId::Int, &mut registry);
         create_basic_type("bool", TypeId::Bool, &mut registry);
@@ -39,9 +36,6 @@ impl TypeRegistry {
 
         create_array_template(&mut registry);
         create_pointer_template(&mut registry);
-
-        // Array is marked fully complete once its internal methods are initialized later.
-        registry.mark_fully_complete(&Rc::clone(registry.pointer()).borrow().base_type());
 
         registry
     }
@@ -147,16 +141,6 @@ impl TypeRegistry {
         ));
     }
 
-    /// Marks a previously incomplete type as complete (but with possibly incomplete dependencies).
-    pub fn mark_complete_without_deps(&mut self, type_: &Rc<RefCell<Type>>) {
-        type_.borrow_mut().completeness = TypeCompleteness::CompleteWithoutDeps;
-    }
-
-    /// Marks a type as fully complete (with all dependencies also fully complete).
-    pub fn mark_fully_complete(&mut self, type_: &Rc<RefCell<Type>>) {
-        type_.borrow_mut().completeness = TypeCompleteness::FullyComplete;
-    }
-
     /// Performs a reverse topological sort of the type graph containing all types where edges
     /// are fields.
     ///
@@ -246,7 +230,7 @@ fn create_basic_type(
         fields: Vec::new(),
         methods: Vec::new(),
         scope: TypeScope::new(),
-        completeness: TypeCompleteness::FullyComplete,
+        instantiation_status: TypeInstantiationStatus::DepsMayNeedInstantiation,
     })
 }
 

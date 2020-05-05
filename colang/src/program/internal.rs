@@ -97,7 +97,6 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut FreeScope) {
                 .expect("Internal method name collision.");
         }
     }
-    program.types_mut().mark_fully_complete(&array);
 
     let mut string = program.types.string().borrow_mut();
     for method in string_methods.iter() {

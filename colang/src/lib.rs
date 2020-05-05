@@ -96,8 +96,7 @@ fn analyze(
     let mut context = CompilerContext::new();
 
     // 1st pass: initialize all defined types (and base types of type templates).
-    analyzer::incomplete_types::IncompleteTypesAnalyzerPass
-        .run(sources.iter_mut().collect(), &mut context);
+    analyzer::basic_types::BasicTypesAnalyzerPass.run(sources.iter_mut().collect(), &mut context);
 
     // 2nd pass: collect all global information.
     analyzer::global_structure::GlobalStructureAnalyzerPass

@@ -6,4 +6,4 @@ mod types;
 
 pub use registry::{TypeCycleThroughFields, TypeRegistry};
 pub use templates::{ProtoTypeParameter, TypeTemplate, TypeTemplateId};
-pub use types::{Type, TypeId};
+pub use types::{Type, TypeId, TypeInstantiationData};

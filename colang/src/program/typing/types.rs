@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 const MAX_TYPE_INSTANTIATION_DEPTH: usize = 64;
 
-/// A type in CO.
+/// A type in CO: a named set of values with common properties.
 ///
 /// Every value has a certain type, and every expression has a type since it evaluates to a value.
 ///
@@ -21,7 +21,7 @@ const MAX_TYPE_INSTANTIATION_DEPTH: usize = 64;
 ///
 /// - Template instances vs. normal types: a type can be an instance of a type template
 ///   (see `TypeTemplate`). Instantiation (creating a new type from a template) happens in a
-///   few stages.
+///   few phases.
 ///
 /// - `void` vs. all other types: as an exception, there can be no values of the type `void`.
 ///   Expressions can have type `void` only if they appear in a "void context".
@@ -31,14 +31,25 @@ pub struct Type {
 
     /// A unique identifier of the type.
     pub type_id: TypeId,
+
+    /// The location in program source code where the type is defined.
+    ///
+    /// This can be `None` only for internal types.
     pub definition_site: Option<SourceOrigin>,
 
     /// For types instantiated from a template, this is the data about the instantiation.
     pub instantiation_data: Option<TypeInstantiationData>,
 
+    /// For struct types, these are their fields.
     pub fields: Vec<Rc<RefCell<Field>>>,
+
+    /// All methods defined for this type.
+    ///
+    /// These methods can be also found in the `Program` function collection, this collection
+    /// is secondary and is mostly used for lookup and type instantiation.
     pub methods: Vec<Rc<RefCell<Function>>>,
 
+    /// The member scope associated with the type.
     pub(crate) scope: TypeScope,
 
     /// Associated information for the type instantiation process.
@@ -58,9 +69,12 @@ pub enum TypeId {
     Char,
     String,
 
+    /// An instance of a type template.
+    ///
+    /// The second element contains the IDs of type arguments.
     TemplateInstance(TypeTemplateId, Vec<TypeId>),
 
-    /// A user-defined struct.
+    /// A user-defined "struct" type: product type of its fields.
     Struct(SymbolId),
 
     /// Template type parameter that will be substituted for a concrete type during instantiation.
@@ -275,8 +289,8 @@ impl Type {
     /// "Signature" here is defined as the type itself and the signatures of all type arguments,
     /// if `type_` is a template instance.
     ///
-    /// No guarantees are made about the completeness of any new types that may be created as
-    /// a result of this operation: typically they are incomplete.
+    /// If any new types are created (instantiated) during this operation, their instantiation
+    /// status is `NeedsInstantiation`.
     ///
     /// This function is typically used as a first stage of instantiation: type parameter
     /// placeholders for a template base type are substituted with actual type arguments.
@@ -314,18 +328,19 @@ impl Type {
         }
     }
 
-    /// Ensures that `type_` is fully complete, that is, all of its transitive "dependency" types
-    /// are complete.
+    /// Ensures that `type_` and all of the types it refers to are fully instantiated.
     ///
     /// This function assumes that the base types for all type templates in the program are already
-    /// complete.
+    /// fully analyzed.
     ///
     /// This function performs one of the stages of template instantiation: copying fields and
-    /// methods from the base type to the instantiated type. As all transitive dependencies also
-    /// have to be instantiated, this function may encounter an infinite loop is the transitive
-    /// dependency set is infinite. To prevent that, once a maximum instantiation depth is reached,
+    /// methods from base types to instantiated types.
+    ///
+    /// As all transitive dependencies also have to be instantiated, this function may encounter
+    /// an infinite loop if the transitive dependency set is infinite.
+    /// To prevent that, once a maximum instantiation depth is reached,
     /// it is assumed that the transitive dependency set is infinite, and an error is produced,
-    /// since the type set in a program has to be finite. The instantiation stack presumed to be
+    /// since the type set in a program must be finite. The instantiation stack presumed to be
     /// a beginning of an infinite chain is returned as an error in that case.
     pub fn ensure_is_fully_complete(
         type_: Rc<RefCell<Type>>,

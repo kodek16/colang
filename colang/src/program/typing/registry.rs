@@ -20,8 +20,9 @@ pub struct TypeRegistry {
 }
 
 impl TypeRegistry {
-    /// Initialize a new registry. There should be only one instance of a `TypeRegistry`
-    /// present in a program.
+    /// Initialize a new registry.
+    ///
+    /// There should be only one instance of a `TypeRegistry` present in a program.
     pub fn new() -> TypeRegistry {
         let mut registry = TypeRegistry {
             types: HashMap::new(),
@@ -57,6 +58,7 @@ impl TypeRegistry {
         type_
     }
 
+    /// Looks up a type from the registry by its ID.
     pub fn lookup(&self, type_id: &TypeId) -> &Rc<RefCell<Type>> {
         &self.types[type_id]
     }
@@ -85,6 +87,9 @@ impl TypeRegistry {
         &self.templates[&TypeTemplateId::Array]
     }
 
+    /// Looks up the array template instantiation for some element type.
+    ///
+    /// If the instantiation did not exist before, it is created by this method.
     pub fn array_of(&mut self, element_type: &Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
         TypeTemplate::instantiate(
             Rc::clone(self.array()),
@@ -99,6 +104,9 @@ impl TypeRegistry {
         &self.templates[&TypeTemplateId::Pointer]
     }
 
+    /// Looks up the pointer template instantiation for some target type.
+    ///
+    /// If the instantiation did not exist before, it is created by this method.
     pub fn pointer_to(&mut self, target_type: &Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
         TypeTemplate::instantiate(
             Rc::clone(self.pointer()),
@@ -131,6 +139,7 @@ impl TypeRegistry {
     }
 
     /// Unregisters (hides) a previously registered type from the registry.
+    ///
     /// This type will not appear in calls to `all_user_defined`, but there still might remain
     /// references to it from other types. If such references from types that have not been removed
     /// exist in a program, it should be considered invalid.
@@ -212,8 +221,9 @@ pub struct TypeCycleThroughFields {
     /// Arbitrary type in the cycle.
     pub anchor_type: Rc<RefCell<Type>>,
 
-    /// Field path causing a cycle. The first field belongs to `anchor_type`, the last field has
-    /// type `anchor_type`.
+    /// Field path causing the cycle.
+    ///
+    /// The first field belongs to `anchor_type`, the last field has type `anchor_type`.
     pub fields: Vec<Rc<RefCell<Field>>>,
 }
 

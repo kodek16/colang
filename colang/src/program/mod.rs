@@ -181,8 +181,8 @@ pub use field::{Field, FieldId};
 pub use function::{Function, FunctionId};
 pub use internal::InternalFunctionTag;
 pub use typing::{
-    ProtoTypeParameter, Type, TypeCycleThroughFields, TypeId, TypeRegistry, TypeTemplate,
-    TypeTemplateId,
+    ProtoTypeParameter, Type, TypeCycleThroughFields, TypeId, TypeInstantiationData, TypeRegistry,
+    TypeTemplate, TypeTemplateId,
 };
 pub use variable::{Variable, VariableId};
 

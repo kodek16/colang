@@ -7,12 +7,21 @@ use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// A type template in CO: a type definition with type placeholders that can be substituted for
+/// concrete types.
 pub struct TypeTemplate {
-    pub type_template_id: TypeTemplateId,
+    /// The name of the type template.
     pub name: String,
+
+    /// A unique identifier of the type template.
+    pub type_template_id: TypeTemplateId,
+
+    /// The location in program source code where the type template is defined.
+    ///
+    /// This can be `None` only for internal type templates.
     pub definition_site: Option<SourceOrigin>,
 
-    /// The placeholder types that will be substituted with type arguments in fields and methods
+    /// The placeholder types that are substituted with type arguments in fields and methods
     /// during instantiation.
     pub type_parameters: Vec<Rc<RefCell<Type>>>,
 
@@ -24,6 +33,8 @@ pub struct TypeTemplate {
     base_type: Rc<RefCell<Type>>,
 }
 
+/// Information about a to-be-created type parameter.
+///
 /// Type parameters are constructed at the same time as the template using this information
 /// collected beforehand.
 pub struct ProtoTypeParameter {
@@ -31,6 +42,9 @@ pub struct ProtoTypeParameter {
     pub definition_site: Option<SourceOrigin>,
 }
 
+/// A plain, hashable, unique identifier for type templates.
+///
+/// Type templates can be looked up from `TypeRegistry` using their IDs.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub enum TypeTemplateId {
     Array,

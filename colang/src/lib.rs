@@ -147,7 +147,7 @@ fn remove_template_base_types_and_functions(program: &mut program::Program) {
     for type_ in program.types().all_types() {
         if type_.borrow().depends_on_type_parameter_placeholders() {
             types_to_remove.push(Rc::clone(type_));
-            for method in type_.borrow().methods() {
+            for method in &type_.borrow().methods {
                 functions_to_remove.push(Rc::clone(&method));
             }
         }

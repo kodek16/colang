@@ -441,7 +441,8 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
 
 fn default_value_for_struct(type_: &Type) -> Rvalue {
     let fields = type_
-        .fields()
+        .fields
+        .iter()
         .map(|field| {
             let field = field.borrow();
             let value = default_value_for_type(&field.type_.borrow());

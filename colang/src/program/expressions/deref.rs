@@ -10,8 +10,8 @@ pub struct DerefExpr {
 }
 
 impl ExpressionKindImpl for DerefExpr {
-    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
-        if let Some(target_type) = self.pointer.type_().borrow().pointer_target_type(types) {
+    fn calculate_type(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+        if let Some(target_type) = self.pointer.type_().borrow().pointer_target_type() {
             target_type
         } else {
             panic!(

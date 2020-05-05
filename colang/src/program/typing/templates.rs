@@ -1,7 +1,8 @@
 use crate::errors::CompilationError;
 use crate::program::typing::registry::TypeRegistry;
-use crate::program::typing::types::{Type, TypeCompleteness, TypeId};
+use crate::program::typing::types::{Type, TypeCompleteness, TypeId, TypeInstantiationData};
 use crate::program::{Program, SymbolId};
+use crate::scope::TypeScope;
 use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -70,13 +71,16 @@ impl TypeTemplate {
             .into_iter()
             .enumerate()
             .map(|(index, type_param)| {
-                Type::new(
-                    type_param.name,
-                    TypeId::TypeParameter(type_template_id.clone(), index),
-                    type_param.definition_site,
-                    TypeCompleteness::FullyComplete,
-                    registry,
-                )
+                registry.register(Type {
+                    name: type_param.name,
+                    type_id: TypeId::TypeParameter(type_template_id.clone(), index),
+                    definition_site: type_param.definition_site,
+                    instantiation_data: None,
+                    fields: Vec::new(),
+                    methods: Vec::new(),
+                    scope: TypeScope::new(),
+                    completeness: TypeCompleteness::FullyComplete,
+                })
             })
             .collect();
 
@@ -101,22 +105,32 @@ impl TypeTemplate {
                 .map(|type_param| type_param.borrow().type_id.clone())
                 .collect(),
         );
-        let base_type = Type::new(
-            (*name_template)(type_parameters.iter().collect()),
-            base_type_id,
+
+        let base_type = registry.register(Type {
+            name: (*name_template)(type_parameters.iter().collect()),
+            type_id: base_type_id,
             definition_site,
-            TypeCompleteness::Incomplete,
-            registry,
-        );
+            // instantiation_data is filled later after `TypeTemplate` is actually created.
+            instantiation_data: None,
+            fields: Vec::new(),
+            methods: Vec::new(),
+            scope: TypeScope::new(),
+            completeness: TypeCompleteness::Incomplete,
+        });
 
         let type_template = Rc::new(RefCell::new(TypeTemplate {
-            type_template_id: type_template_id.clone(),
             name,
             definition_site,
             name_template,
-            type_parameters,
-            base_type,
+            base_type: Rc::clone(&base_type),
+            type_template_id: type_template_id.clone(),
+            type_parameters: type_parameters.clone(),
         }));
+
+        base_type.borrow_mut().instantiation_data = Some(TypeInstantiationData {
+            template: Rc::clone(&type_template),
+            type_arguments: type_parameters,
+        });
 
         let existing = registry
             .templates
@@ -135,14 +149,20 @@ impl TypeTemplate {
     }
 
     pub fn instantiate(
-        &self,
-        type_arguments: Vec<&Rc<RefCell<Type>>>,
+        template: Rc<RefCell<TypeTemplate>>,
+        type_arguments: Vec<Rc<RefCell<Type>>>,
         registry: &mut TypeRegistry,
         location: Option<InputSpan>,
     ) -> Result<Rc<RefCell<Type>>, CompilationError> {
-        if type_arguments.len() != self.type_parameters.len() {
+        let instantiation_data = TypeInstantiationData {
+            template: Rc::clone(&template),
+            type_arguments: type_arguments.clone(),
+        };
+
+        let template = template.borrow();
+        if type_arguments.len() != template.type_parameters.len() {
             return Err(CompilationError::wrong_number_of_type_template_arguments(
-                &self,
+                &template,
                 type_arguments.len(),
                 SourceOrigin::Plain(location.expect(
                     "Synthetic instantiation of type template with wrong number of type arguments",
@@ -163,18 +183,21 @@ impl TypeTemplate {
             .collect();
 
         let concrete_type_id =
-            TypeId::TemplateInstance(self.type_template_id.clone(), type_argument_ids);
+            TypeId::TemplateInstance(template.type_template_id.clone(), type_argument_ids);
 
         if let Some(preexisting_instantiation) = registry.types.get(&concrete_type_id) {
             return Ok(Rc::clone(preexisting_instantiation));
         }
 
-        Ok(Type::new(
-            (*self.name_template)(type_arguments),
-            concrete_type_id,
-            self.definition_site,
-            TypeCompleteness::Incomplete,
-            registry,
-        ))
+        Ok(registry.register(Type {
+            name: (*template.name_template)(type_arguments.iter().collect()),
+            type_id: concrete_type_id,
+            definition_site: template.definition_site,
+            instantiation_data: Some(instantiation_data),
+            fields: Vec::new(),
+            methods: Vec::new(),
+            scope: TypeScope::new(),
+            completeness: TypeCompleteness::Incomplete,
+        }))
     }
 }

@@ -3,7 +3,7 @@
 use crate::ast;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::Type;
+use crate::program::{Type, TypeTemplate};
 use crate::scope::{TypeEntity, TypeTemplateEntity};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -111,8 +111,9 @@ fn compile_template_instance_type_expr(
         }
     };
 
-    let type_ = template.borrow().instantiate(
-        type_arguments.iter().collect(),
+    let type_ = TypeTemplate::instantiate(
+        template,
+        type_arguments,
         context.program.types_mut(),
         Some(type_expr.span),
     );

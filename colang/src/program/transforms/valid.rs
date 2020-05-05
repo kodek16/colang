@@ -141,7 +141,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     fn visit_field_access_expr(&mut self, expression: &mut FieldAccessExpr) {
         self.walk_field_access_expr(expression);
         let receiver_type = expression.receiver.type_().borrow();
-        if !receiver_type.fields().any(|f| *f == expression.field) {
+        if !receiver_type.fields.iter().any(|f| *f == expression.field) {
             self.errors.push(format!(
                 "field access expr for type `{}` and wrong field `{}`",
                 receiver_type.name,

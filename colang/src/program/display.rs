@@ -45,7 +45,8 @@ impl Type {
             sexp_list!(
                 sexp_str!("fields"),
                 Sexp::List(
-                    self.fields()
+                    self.fields
+                        .iter()
                         .map(|field| field.borrow().to_full_sexp())
                         .collect()
                 ),
@@ -53,7 +54,8 @@ impl Type {
             sexp_list!(
                 sexp_str!("methods"),
                 Sexp::List(
-                    self.methods()
+                    self.methods
+                        .iter()
                         .map(|method| method.borrow().to_full_sexp())
                         .collect()
                 ),

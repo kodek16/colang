@@ -12,8 +12,7 @@ pub fn compile_address_expr(
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let hint =
-        type_hint.and_then(|hint| hint.borrow().pointer_target_type(context.program.types()));
+    let hint = type_hint.and_then(|hint| hint.borrow().pointer_target_type());
 
     let target = compile_expression(*expression.target, hint, context);
 

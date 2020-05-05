@@ -1,7 +1,7 @@
 use crate::errors::CompilationError;
 use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::templates::TypeTemplateId;
-use crate::program::{Field, Function, Program, SymbolId};
+use crate::program::{Field, Function, Program, SymbolId, TypeTemplate};
 use crate::scope::{FieldEntity, MethodEntity, Scope, TypeScope};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -31,12 +31,47 @@ pub struct Type {
     pub name: String,
     pub definition_site: Option<SourceOrigin>,
 
-    fields: Vec<Rc<RefCell<Field>>>,
-    methods: Vec<Rc<RefCell<Function>>>,
-    scope: TypeScope,
+    /// For types instantiated from a template, this is the data about the instantiation.
+    pub instantiation_data: Option<TypeInstantiationData>,
+
+    pub fields: Vec<Rc<RefCell<Field>>>,
+    pub methods: Vec<Rc<RefCell<Function>>>,
+
+    pub(crate) scope: TypeScope,
 
     /// Types can be in one of a few states, see `TypeCompleteness` for details.
     pub(in crate::program::typing) completeness: TypeCompleteness,
+}
+
+/// A plain, hashable, unique identifier for types.
+///
+/// Types can be looked up from `TypeRegistry` using their IDs.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TypeId {
+    Void,
+    Int,
+    Bool,
+    Char,
+    String,
+
+    TemplateInstance(TypeTemplateId, Vec<TypeId>),
+
+    /// A user-defined struct.
+    Struct(SymbolId),
+
+    /// Template type parameter that will be substituted for a concrete type during instantiation.
+    /// The second element of the tag is the index of the parameter.
+    TypeParameter(TypeTemplateId, usize),
+
+    /// An invalid type. It can never appear in a valid program.
+    Error,
+}
+
+/// Contains information about the instantiation process performed for some type.
+#[derive(Clone)]
+pub struct TypeInstantiationData {
+    pub template: Rc<RefCell<TypeTemplate>>,
+    pub type_arguments: Vec<Rc<RefCell<Type>>>,
 }
 
 /// Represents a state a type is in. There are a few states through which a type passes during
@@ -64,13 +99,16 @@ impl Type {
         program: &mut Program,
     ) -> Rc<RefCell<Type>> {
         let type_id = TypeId::Struct(program.symbol_ids_mut().next_id());
-        Type::new(
+        program.types_mut().register(Type {
             name,
             type_id,
-            Some(definition_site),
-            TypeCompleteness::Incomplete,
-            program.types_mut(),
-        )
+            definition_site: Some(definition_site),
+            instantiation_data: None,
+            fields: Vec::new(),
+            methods: Vec::new(),
+            scope: TypeScope::new(),
+            completeness: TypeCompleteness::Incomplete,
+        })
     }
 
     /// Creates an instance of the error type.
@@ -82,41 +120,12 @@ impl Type {
             type_id: TypeId::Error,
             name: "<error>".to_string(),
             definition_site: None,
+            instantiation_data: None,
             fields: vec![],
             methods: vec![],
             scope: Scope::new(),
             completeness: TypeCompleteness::FullyComplete,
         }))
-    }
-
-    /// Creates a new type and registers it with `registry`.
-    ///
-    /// There must be no existing types with the same `type_id`.
-    pub(in crate::program::typing) fn new(
-        name: String,
-        type_id: TypeId,
-        definition_site: Option<SourceOrigin>,
-        completeness: TypeCompleteness,
-        registry: &mut TypeRegistry,
-    ) -> Rc<RefCell<Type>> {
-        let type_ = Type {
-            type_id: type_id.clone(),
-            name,
-            definition_site,
-            fields: vec![],
-            methods: vec![],
-            scope: Scope::new(),
-            completeness,
-        };
-        let type_ = Rc::new(RefCell::new(type_));
-        let existing = registry.types.insert(type_id.clone(), Rc::clone(&type_));
-        if existing.is_some() {
-            panic!(
-                "Attempt to create a duplicate type with the same type ID: {:?}",
-                type_id
-            )
-        }
-        type_
     }
 
     /// Adds a field to the list of type members.
@@ -149,14 +158,6 @@ impl Type {
         reference_location: SourceOrigin,
     ) -> Result<Rc<RefCell<Function>>, CompilationError> {
         self.scope.lookup::<MethodEntity>(name, reference_location)
-    }
-
-    pub fn fields(&self) -> impl Iterator<Item = &Rc<RefCell<Field>>> {
-        self.fields.iter()
-    }
-
-    pub fn methods(&self) -> impl Iterator<Item = &Rc<RefCell<Function>>> {
-        self.methods.iter()
     }
 
     pub fn is_user_defined(&self) -> bool {
@@ -217,22 +218,24 @@ impl Type {
     }
 
     /// If `self` is a pointer type, returns the type of target.
-    pub fn pointer_target_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
-        match self.type_id {
-            TypeId::TemplateInstance(TypeTemplateId::Pointer, ref type_parameters) => {
-                Some(Rc::clone(&registry.types[&type_parameters[0]]))
-            }
-            _ => None,
+    pub fn pointer_target_type(&self) -> Option<Rc<RefCell<Type>>> {
+        if self.is_pointer() {
+            Some(Rc::clone(
+                &self.instantiation_data.as_ref().unwrap().type_arguments[0],
+            ))
+        } else {
+            None
         }
     }
 
     /// If `self` is an array type, returns the type of elements.
-    pub fn array_element_type(&self, registry: &TypeRegistry) -> Option<Rc<RefCell<Type>>> {
-        match self.type_id {
-            TypeId::TemplateInstance(TypeTemplateId::Array, ref type_parameters) => {
-                Some(Rc::clone(&registry.types[&type_parameters[0]]))
-            }
-            _ => None,
+    pub fn array_element_type(&self) -> Option<Rc<RefCell<Type>>> {
+        if self.is_array() {
+            Some(Rc::clone(
+                &self.instantiation_data.as_ref().unwrap().type_arguments[0],
+            ))
+        } else {
+            None
         }
     }
 
@@ -241,7 +244,7 @@ impl Type {
     pub fn depends_on_type_parameter_placeholders(&self) -> bool {
         fn check(type_id: &TypeId) -> bool {
             match type_id {
-                TypeId::TemplateInstance(_, ref type_arguments) => type_arguments.iter().any(check),
+                TypeId::TemplateInstance(_, ref type_arg_ids) => type_arg_ids.iter().any(check),
                 TypeId::TypeParameter(_, _) => true,
                 _ => false,
             }
@@ -269,31 +272,27 @@ impl Type {
         if let Some(target_id) = substitutions.get(type_id) {
             Rc::clone(registry.lookup(target_id))
         } else {
-            match type_id {
-                TypeId::TemplateInstance(template_id, type_arguments) => {
-                    let template = Rc::clone(&registry.templates[template_id]);
-                    let arguments_after_substitution: Vec<_> = type_arguments
+            match type_.borrow().instantiation_data {
+                Some(ref instantiation_data) => {
+                    let template = &instantiation_data.template;
+                    let arguments_after_substitution: Vec<_> = instantiation_data
+                        .type_arguments
                         .iter()
-                        .map(|argument_id| {
-                            let argument_type = Rc::clone(registry.lookup(argument_id));
-                            Type::substitute(&argument_type, substitutions, registry)
-                        })
+                        .map(|type_arg| Type::substitute(type_arg, substitutions, registry))
                         .collect();
 
-                    let result = template
-                        .borrow()
-                        .instantiate(
-                            arguments_after_substitution.iter().collect(),
-                            registry,
-                            None,
-                        )
-                        .expect(&format!(
-                            "Failed to instantiate type template `{}`",
-                            template.borrow().name
-                        ));
-                    result
+                    TypeTemplate::instantiate(
+                        Rc::clone(&template),
+                        arguments_after_substitution,
+                        registry,
+                        None,
+                    )
+                    .expect(&format!(
+                        "Failed to instantiate type template `{}`",
+                        template.borrow().name
+                    ))
                 }
-                _ => Rc::clone(type_),
+                None => Rc::clone(type_),
             }
         }
     }
@@ -335,7 +334,7 @@ impl Type {
             if current_type.borrow().completeness == TypeCompleteness::CompleteWithoutDeps {
                 let dependencies = current_type
                     .borrow()
-                    .type_dependencies_from_global_interface(registry);
+                    .type_dependencies_from_global_interface();
                 for dependency in dependencies {
                     if !stack.contains(&dependency) {
                         process(Rc::clone(&dependency), stack, registry)?;
@@ -365,12 +364,11 @@ impl Type {
 
         let type_id = type_.borrow().type_id.clone();
         let type_name = type_.borrow().name.clone();
+        let instantiation_data = type_.borrow().instantiation_data.clone();
 
-        match &type_id {
-            TypeId::TemplateInstance(template_id, _) => {
-                let template = Rc::clone(&registry.templates[template_id]);
-                let template = template.borrow();
-
+        match instantiation_data {
+            Some(instantiation_data) => {
+                let template = instantiation_data.template.borrow();
                 let base_type = template.base_type().borrow();
 
                 if base_type.completeness == TypeCompleteness::Incomplete {
@@ -380,7 +378,7 @@ impl Type {
                     )
                 }
 
-                let own_type_arguments = type_.borrow().actual_type_arguments(registry);
+                let own_type_arguments = type_.borrow().actual_type_arguments();
                 for field in base_type.fields.iter() {
                     let instantiated_field = Rc::new(RefCell::new(field.borrow().instantiate(
                         type_id.clone(),
@@ -404,33 +402,39 @@ impl Type {
 
                 registry.mark_complete_without_deps(&type_);
             }
-            _ => panic!(
+            None => panic!(
                 "Cannot use base type to complete type `{}`: not a template instance",
                 type_name
             ),
         }
     }
 
-    /// For an instance of a type template, creates a mapping from type parameter IDs to actual
-    /// type argument IDs.
-    fn actual_type_arguments(&self, registry: &TypeRegistry) -> HashMap<TypeId, TypeId> {
-        match &self.type_id {
-            TypeId::TemplateInstance(template_id, type_arg_ids) => {
-                let template = Rc::clone(&registry.templates[template_id]);
-                let type_parameter_ids: Vec<_> = template
+    /// Creates a mapping from type parameter IDs to actual type argument IDs.
+    ///
+    /// Assumes this type is a template instance.
+    fn actual_type_arguments(&self) -> HashMap<TypeId, TypeId> {
+        match self.instantiation_data {
+            Some(ref instantiation_data) => {
+                let type_parameter_ids: Vec<_> = instantiation_data
+                    .template
                     .borrow()
                     .type_parameters
                     .iter()
                     .map(|type_param| type_param.borrow().type_id.clone())
                     .collect();
 
-                type_parameter_ids
+                let type_argument_ids: Vec<_> = instantiation_data
+                    .type_arguments
                     .iter()
-                    .zip(type_arg_ids.iter())
-                    .map(|(a, p)| (a.clone(), p.clone()))
+                    .map(|type_arg| type_arg.borrow().type_id.clone())
+                    .collect();
+
+                type_parameter_ids
+                    .into_iter()
+                    .zip(type_argument_ids.into_iter())
                     .collect()
             }
-            _ => panic!(
+            None => panic!(
                 "Concrete type `{}` is not a template instance, and thus has no type arguments",
                 self.name
             ),
@@ -440,24 +444,23 @@ impl Type {
     /// Collects the types that are "visible" from the "global" definition of a type, that is,
     /// disregarding the method bodies. This includes the fields' types, types from methods'
     /// signatures, and, for template instances, type arguments.
-    fn type_dependencies_from_global_interface(
-        &self,
-        registry: &TypeRegistry,
-    ) -> Vec<Rc<RefCell<Type>>> {
+    fn type_dependencies_from_global_interface(&self) -> Vec<Rc<RefCell<Type>>> {
         let mut result = Vec::new();
+
         for field in &self.fields {
             result.push(Rc::clone(&field.borrow().type_));
         }
+
         for method in &self.methods {
             result.push(Rc::clone(&method.borrow().return_type));
             for parameter in &method.borrow().parameters {
                 result.push(Rc::clone(&parameter.borrow().type_));
             }
         }
-        if let TypeId::TemplateInstance(_, type_arg_ids) = &self.type_id {
-            for type_arg_id in type_arg_ids {
-                let type_arg = Rc::clone(&registry.lookup(type_arg_id));
-                result.push(type_arg)
+
+        if let Some(ref instantiation_data) = self.instantiation_data {
+            for type_argument in &instantiation_data.type_arguments {
+                result.push(Rc::clone(&type_argument))
             }
         }
 
@@ -469,28 +472,4 @@ impl PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         self.type_id == other.type_id
     }
-}
-
-/// A plain, hashable, unique identifier for types.
-///
-/// Types can be looked up from `TypeRegistry` using their IDs.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TypeId {
-    Void,
-    Int,
-    Bool,
-    Char,
-    String,
-
-    TemplateInstance(TypeTemplateId, Vec<TypeId>),
-
-    /// A user-defined struct.
-    Struct(SymbolId),
-
-    /// Template type parameter that will be substituted for a concrete type during instantiation.
-    /// The second element of the tag is the index of the parameter.
-    TypeParameter(TypeTemplateId, usize),
-
-    /// An invalid type. It can never appear in a valid program.
-    Error,
 }

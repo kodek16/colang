@@ -23,7 +23,7 @@ pub fn compile_array_from_elements_expr(
     let inferred_type = elements.first().map(|element| Rc::clone(element.type_()));
     let inferred_type = match inferred_type {
         Some(type_) => type_,
-        None => match type_hint.and_then(|hint| hint.borrow().array_element_type(types)) {
+        None => match type_hint.and_then(|hint| hint.borrow().array_element_type()) {
             Some(element_type) => element_type,
             None => {
                 let error = CompilationError::cannot_infer_empty_array_type(SourceOrigin::Plain(

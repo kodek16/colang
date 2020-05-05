@@ -1,6 +1,7 @@
 use crate::program::typing::templates::{ProtoTypeParameter, TypeTemplate, TypeTemplateId};
 use crate::program::typing::types::{Type, TypeCompleteness, TypeId};
 use crate::program::Field;
+use crate::scope::TypeScope;
 use crate::utils::graphs;
 use petgraph::algo::toposort;
 use petgraph::Graph;
@@ -30,41 +31,11 @@ impl TypeRegistry {
         // Strictly speaking, some primitive types that have internal methods are not
         // fully complete yet, but this does not really matter since their methods are also
         // added on program initialization.
-        Type::new(
-            "void".to_string(),
-            TypeId::Void,
-            None,
-            TypeCompleteness::FullyComplete,
-            &mut registry,
-        );
-        Type::new(
-            "int".to_string(),
-            TypeId::Int,
-            None,
-            TypeCompleteness::FullyComplete,
-            &mut registry,
-        );
-        Type::new(
-            "bool".to_string(),
-            TypeId::Bool,
-            None,
-            TypeCompleteness::FullyComplete,
-            &mut registry,
-        );
-        Type::new(
-            "char".to_string(),
-            TypeId::Char,
-            None,
-            TypeCompleteness::FullyComplete,
-            &mut registry,
-        );
-        Type::new(
-            "string".to_string(),
-            TypeId::String,
-            None,
-            TypeCompleteness::FullyComplete,
-            &mut registry,
-        );
+        create_basic_type("void", TypeId::Void, &mut registry);
+        create_basic_type("int", TypeId::Int, &mut registry);
+        create_basic_type("bool", TypeId::Bool, &mut registry);
+        create_basic_type("char", TypeId::Char, &mut registry);
+        create_basic_type("string", TypeId::String, &mut registry);
 
         create_array_template(&mut registry);
         create_pointer_template(&mut registry);
@@ -73,6 +44,23 @@ impl TypeRegistry {
         registry.mark_fully_complete(&Rc::clone(registry.pointer()).borrow().base_type());
 
         registry
+    }
+
+    /// Adds a newly created type to the registry.
+    ///
+    /// This has to be done for all types as soon as they are created unless there is a very good
+    /// reason to not do so (e.g. the error type).
+    pub fn register(&mut self, type_: Type) -> Rc<RefCell<Type>> {
+        let id = type_.type_id.clone();
+        let type_ = Rc::new(RefCell::new(type_));
+        let existing = self.types.insert(id.clone(), Rc::clone(&type_));
+        if existing.is_some() {
+            panic!(
+                "Attempt to create a duplicate type with the same type ID: {:?}",
+                id
+            )
+        }
+        type_
     }
 
     pub fn lookup(&self, type_id: &TypeId) -> &Rc<RefCell<Type>> {
@@ -104,10 +92,13 @@ impl TypeRegistry {
     }
 
     pub fn array_of(&mut self, element_type: &Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
-        Rc::clone(self.array())
-            .borrow()
-            .instantiate(vec![element_type], self, None)
-            .unwrap()
+        TypeTemplate::instantiate(
+            Rc::clone(self.array()),
+            vec![Rc::clone(element_type)],
+            self,
+            None,
+        )
+        .unwrap()
     }
 
     pub fn pointer(&self) -> &Rc<RefCell<TypeTemplate>> {
@@ -115,10 +106,13 @@ impl TypeRegistry {
     }
 
     pub fn pointer_to(&mut self, target_type: &Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
-        Rc::clone(self.pointer())
-            .borrow()
-            .instantiate(vec![target_type], self, None)
-            .unwrap()
+        TypeTemplate::instantiate(
+            Rc::clone(self.pointer()),
+            vec![Rc::clone(target_type)],
+            self,
+            None,
+        )
+        .unwrap()
     }
 
     /// Basic types are non-template internal types.
@@ -182,7 +176,7 @@ impl TypeRegistry {
 
         for type_ in self.types.values() {
             let type_ = type_.borrow();
-            for field in type_.fields() {
+            for field in &type_.fields {
                 type_graph.add_edge(
                     node_indices[&type_.type_id],
                     node_indices[&field.borrow().type_.borrow().type_id],
@@ -237,6 +231,23 @@ pub struct TypeCycleThroughFields {
     /// Field path causing a cycle. The first field belongs to `anchor_type`, the last field has
     /// type `anchor_type`.
     pub fields: Vec<Rc<RefCell<Field>>>,
+}
+
+fn create_basic_type(
+    name: impl Into<String>,
+    id: TypeId,
+    registry: &mut TypeRegistry,
+) -> Rc<RefCell<Type>> {
+    registry.register(Type {
+        name: name.into(),
+        type_id: id,
+        definition_site: None,
+        instantiation_data: None,
+        fields: Vec::new(),
+        methods: Vec::new(),
+        scope: TypeScope::new(),
+        completeness: TypeCompleteness::FullyComplete,
+    })
 }
 
 fn create_array_template(registry: &mut TypeRegistry) -> Rc<RefCell<TypeTemplate>> {

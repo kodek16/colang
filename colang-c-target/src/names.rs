@@ -1,16 +1,13 @@
-use colang::program::{Field, FieldId, Function, FunctionId, TypeId, Variable, VariableId};
+use colang::program::{Field, FieldId, Function, FunctionId, Type, TypeId, Variable, VariableId};
 use std::collections::HashMap;
 
 pub trait CNameRegistry {
-    // TODO once `Type` has links to its type arguments that can be used without a `TypeRegistry`,
-    // refactor these methods to accept `Type` instead of `TypeId`.
-
-    fn type_name(&self, type_: &TypeId) -> &str;
+    fn type_name(&self, type_: &Type) -> &str;
     fn variable_name(&self, variable: &Variable) -> &str;
     fn function_name(&self, function: &Function) -> &str;
     fn field_name(&self, field: &Field) -> &str;
 
-    fn add_type(&mut self, type_: &TypeId);
+    fn add_type(&mut self, type_: &Type);
     fn add_variable(&mut self, variable: &Variable);
     fn add_function(&mut self, function: &Function);
     fn add_field(&mut self, field: &Field);
@@ -81,10 +78,10 @@ impl NumericCNameRegistry {
 }
 
 impl CNameRegistry for NumericCNameRegistry {
-    fn type_name(&self, type_: &TypeId) -> &str {
-        self.type_names.get(&type_).expect(&format!(
-            "Type `{:?}` was not added to C name registry",
-            type_
+    fn type_name(&self, type_: &Type) -> &str {
+        self.type_names.get(&type_.type_id).expect(&format!(
+            "Type `{}` was not added to C name registry",
+            type_.name
         ))
     }
 
@@ -109,11 +106,11 @@ impl CNameRegistry for NumericCNameRegistry {
         ))
     }
 
-    fn add_type(&mut self, type_: &TypeId) {
+    fn add_type(&mut self, type_: &Type) {
         let name = self.generate_type_name();
-        let previous = self.type_names.insert(type_.clone(), name);
+        let previous = self.type_names.insert(type_.type_id.clone(), name);
         if previous.is_some() {
-            panic!("Type `{:?}` was added to C name registry twice", type_)
+            panic!("Type `{}` was added to C name registry twice", type_.name)
         }
     }
 

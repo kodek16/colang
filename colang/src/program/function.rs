@@ -342,7 +342,7 @@ impl Function {
     pub fn lookup_instantiated_method(&self, instantiated_type: &Type) -> Rc<RefCell<Function>> {
         let target_method_id = self.base_method_id.clone().unwrap_or(self.id.clone());
 
-        for method in instantiated_type.methods() {
+        for method in &instantiated_type.methods {
             if let Some(base_method_id) = method.borrow().base_method_id.clone() {
                 if base_method_id == target_method_id {
                     return Rc::clone(method);
@@ -389,7 +389,7 @@ impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
         let self_type = Rc::clone(&expression.function.borrow().parameters[0].borrow().type_);
 
         if *receiver_type != self_type {
-            let receiver_type = match receiver_type.borrow().pointer_target_type(self.types) {
+            let receiver_type = match receiver_type.borrow().pointer_target_type() {
                 Some(target_type) => target_type,
                 None => Rc::clone(receiver_type),
             };
@@ -407,7 +407,8 @@ impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
 
         let receiver_type = expression.receiver.type_().borrow();
         if !receiver_type
-            .fields()
+            .fields
+            .iter()
             .any(|type_field| *type_field == expression.field)
         {
             let instantiated_field = expression

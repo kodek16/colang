@@ -12,10 +12,7 @@ pub fn compile_null_expr(
     context: &mut CompilerContext,
 ) -> program::Expression {
     let span = expression.span;
-    let target_type_hint = type_hint.and_then(|hint| {
-        hint.borrow()
-            .pointer_target_type(context.program.types_mut())
-    });
+    let target_type_hint = type_hint.and_then(|hint| hint.borrow().pointer_target_type());
 
     match target_type_hint {
         Some(target_type) => {

@@ -91,7 +91,7 @@ impl Field {
     pub fn lookup_instantiated_field(&self, instantiated_type: &Type) -> Rc<RefCell<Field>> {
         let target_field_id = self.base_field_id.clone().unwrap_or(self.id.clone());
 
-        for field in instantiated_type.fields() {
+        for field in &instantiated_type.fields {
             if let Some(base_field_id) = field.borrow().base_field_id.clone() {
                 if base_field_id == target_field_id {
                     return Rc::clone(field);

@@ -497,6 +497,34 @@ impl CompilationError {
         .maybe_with_type_explanation(value)
     }
 
+    pub fn variable_initializer_type_mismatch(
+        variable: &Variable,
+        initializer: &Expression,
+    ) -> CompilationError {
+        let variable_type = variable.type_.borrow();
+        let initializer_type = initializer.type_().borrow();
+
+        // TODO point variable note to type and not the whole definition.
+
+        CompilationError::new(
+            "E9047",
+            format!(
+                "cannot initialize a variable of type `{}` with a value of type `{}`",
+                variable_type.name, initializer_type.name,
+            ),
+        )
+        .with_location(initializer.location())
+        .with_subtitle(format!(
+            "initializer has type `{}`, expected `{}`",
+            initializer_type.name, variable_type.name,
+        ))
+        .maybe_with_type_explanation(initializer)
+        .with_bound_note(
+            variable.definition_site.unwrap(),
+            format!("variable defined with type `{}`", variable_type.name),
+        )
+    }
+
     pub fn function_body_type_mismatch(function: &Function, body: &Expression) -> CompilationError {
         let return_type = function.return_type.borrow();
 
@@ -1015,7 +1043,7 @@ impl CompilationError {
         CompilationError::new("E9041", "`main` function not found: you must define one")
     }
 
-    // Next code: E9047.
+    // Next code: E9048.
 }
 
 fn maybe_explain_expression_type(expression: &Expression, error: &mut CompilationError) {

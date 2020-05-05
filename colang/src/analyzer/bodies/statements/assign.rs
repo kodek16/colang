@@ -1,6 +1,7 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
-use crate::program::BlockBuilder;
+use crate::errors::CompilationError;
+use crate::program::{BlockBuilder, ValueCategory};
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -16,9 +17,29 @@ pub fn compile_assign_stmt(
         return;
     }
 
-    let result = program::AssignInstruction::new(lhs, rhs, SourceOrigin::Plain(statement.span));
-    match result {
-        Ok(statement) => current_block.append_instruction(statement),
-        Err(error) => context.errors.push(error),
+    if lhs.value_category() != ValueCategory::Lvalue {
+        let error = CompilationError::assignment_target_not_lvalue(lhs.location());
+        context.errors.push(error);
+        return;
     }
+
+    let lhs_type = lhs.type_();
+    let rhs_type = rhs.type_();
+
+    if lhs_type != rhs_type {
+        let error = CompilationError::assignment_type_mismatch(
+            &lhs,
+            &rhs,
+            SourceOrigin::Plain(statement.span),
+        );
+        context.errors.push(error);
+        return;
+    }
+
+    let instruction = program::Instruction::Assign(program::AssignInstruction {
+        target: lhs,
+        value: rhs,
+        location: SourceOrigin::Plain(statement.span),
+    });
+    current_block.append_instruction(instruction);
 }

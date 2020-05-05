@@ -23,7 +23,8 @@ pub fn compile_while_stmt(
         let error = CompilationError::while_body_not_void(&body);
         context.errors.push(error)
     }
-    let body = program::EvalInstruction::new(body);
+
+    let body = program::Instruction::Eval(program::EvalInstruction { expression: body });
 
     if cond.is_error() {
         return;
@@ -32,7 +33,7 @@ pub fn compile_while_stmt(
     check_condition_is_bool(&cond, context);
 
     let instruction = program::Instruction::While(program::WhileInstruction {
-        cond: Box::new(cond),
+        cond,
         body: Box::new(body),
         location: SourceOrigin::Plain(statement.span),
     });

@@ -13,6 +13,6 @@ pub fn compile_expr_stmt(
         return;
     }
 
-    let result = program::EvalInstruction::new(expression);
-    current_block.append_instruction(result);
+    let instruction = program::Instruction::Eval(program::EvalInstruction { expression });
+    current_block.append_instruction(instruction);
 }

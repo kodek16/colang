@@ -7,6 +7,10 @@ pub mod return_;
 pub mod while_;
 pub mod write;
 
+/// A fragment of imperative CO code that does not evaluate to a value.
+///
+/// "Instructions" in CO IR closely correspond to statements in CO syntax. The different name
+/// is mostly because of historical reasons.
 pub enum Instruction {
     Read(read::ReadInstruction),
     Write(write::WriteInstruction),
@@ -17,6 +21,7 @@ pub enum Instruction {
 }
 
 impl Instruction {
+    /// The location in source code which produced this instruction.
     pub fn location(&self) -> SourceOrigin {
         match self {
             Instruction::Read(instruction) => instruction.location,

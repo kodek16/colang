@@ -71,21 +71,27 @@ fn compile_var_decl_entry(
             return;
         }
 
-        let initialization = program::AssignInstruction::new(
-            program::Expression::new(
+        if *initializer.type_() != variable.borrow().type_ {
+            let error = CompilationError::variable_initializer_type_mismatch(
+                &variable.borrow(),
+                &initializer,
+            );
+            context.errors.push(error);
+            return;
+        }
+
+        let initialization = program::Instruction::Assign(program::AssignInstruction {
+            target: program::Expression::new(
                 program::ExpressionKind::Variable(program::VariableExpr {
                     variable,
                     location: SourceOrigin::Plain(name.span),
                 }),
                 context.program.types_mut(),
             ),
-            initializer,
-            SourceOrigin::Plain(declaration.span),
-        );
+            value: initializer,
+            location: SourceOrigin::Plain(declaration.span),
+        });
 
-        match initialization {
-            Ok(initialization) => current_block.append_instruction(initialization),
-            Err(error) => context.errors.push(error),
-        }
+        current_block.append_instruction(initialization);
     }
 }

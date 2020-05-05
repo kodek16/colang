@@ -1,37 +1,18 @@
-use crate::errors::CompilationError;
-use crate::program::instructions::Instruction;
-use crate::program::{Expression, ValueCategory};
+use crate::program::Expression;
 use crate::source::SourceOrigin;
 
+/// An instruction that updates an lvalue setting it to a new value.
 pub struct AssignInstruction {
-    pub target: Box<Expression>,
-    pub value: Box<Expression>,
+    /// The lvalue to be updated.
+    ///
+    /// Must be an lvalue.
+    pub target: Expression,
+
+    /// The new value to be set.
+    ///
+    /// Must have the same type as `target`.
+    pub value: Expression,
+
+    /// The location of source code that produced this instruction.
     pub location: SourceOrigin,
-}
-
-impl AssignInstruction {
-    pub fn new(
-        target: Expression,
-        value: Expression,
-        location: SourceOrigin,
-    ) -> Result<Instruction, CompilationError> {
-        if target.value_category() != ValueCategory::Lvalue {
-            let error = CompilationError::assignment_target_not_lvalue(target.location());
-            return Err(error);
-        }
-
-        let target_type = target.type_();
-        let value_type = value.type_();
-
-        if *target_type != *value_type {
-            let error = CompilationError::assignment_type_mismatch(&target, &value, location);
-            return Err(error);
-        }
-
-        Ok(Instruction::Assign(AssignInstruction {
-            target: Box::new(target),
-            value: Box::new(value),
-            location,
-        }))
-    }
 }

@@ -32,11 +32,11 @@ pub fn compile_field_access_expr(
     };
 
     program::Expression::new(
-        program::ExpressionKind::FieldAccess(program::FieldAccessExpr {
+        program::FieldAccessExpr {
             receiver: Box::new(receiver),
             field,
             location: SourceOrigin::Plain(expression.span),
-        }),
+        },
         context.program.types_mut(),
     )
 }

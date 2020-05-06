@@ -23,11 +23,13 @@ pub fn compile_unary_op_expression(
                 context.errors.push(error);
             }
 
-            let kind = program::ExpressionKind::BooleanOp(program::BooleanOpExpr {
-                op: program::BooleanOp::Not(Box::new(operand)),
-                location: SourceOrigin::Plain(expression.span),
-            });
-            program::Expression::new(kind, context.program.types_mut())
+            program::Expression::new(
+                program::BooleanOpExpr {
+                    op: program::BooleanOp::Not(Box::new(operand)),
+                    location: SourceOrigin::Plain(expression.span),
+                },
+                context.program.types_mut(),
+            )
         }
     }
 }

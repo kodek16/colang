@@ -1,8 +1,7 @@
 use crate::errors::CompilationError;
-use crate::program::{Expression, ExpressionKind, Type, TypeRegistry, ValueCategory};
+use crate::program::expressions::ExpressionKind;
+use crate::program::{Expression, Type, TypeRegistry, ValueCategory};
 use crate::source::{InputSpan, SourceOrigin};
-
-use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -17,13 +16,11 @@ pub enum LiteralExpr {
 
 impl LiteralExpr {
     pub fn int(value: i32, types: &mut TypeRegistry, span: InputSpan) -> Expression {
-        let kind = ExpressionKind::Literal(LiteralExpr::Int(value, span));
-        Expression::new(kind, types)
+        Expression::new(LiteralExpr::Int(value, span), types)
     }
 
     pub fn bool(value: bool, types: &mut TypeRegistry, span: InputSpan) -> Expression {
-        let kind = ExpressionKind::Literal(LiteralExpr::Bool(value, span));
-        Expression::new(kind, types)
+        Expression::new(LiteralExpr::Bool(value, span), types)
     }
 
     pub fn char(
@@ -39,8 +36,7 @@ impl LiteralExpr {
         };
 
         let result = literal[0];
-        let kind = ExpressionKind::Literal(LiteralExpr::Char(result, span));
-        Ok(Expression::new(kind, types))
+        Ok(Expression::new(LiteralExpr::Char(result, span), types))
     }
 
     pub fn string(
@@ -51,14 +47,13 @@ impl LiteralExpr {
         let literal = unescape(value, span)?;
         let literal = String::from_utf8(literal)
             .map_err(|_| CompilationError::literal_not_utf8(SourceOrigin::Plain(span)))?;
-        let kind = ExpressionKind::Literal(LiteralExpr::String(literal, span));
 
-        Ok(Expression::new(kind, types))
+        Ok(Expression::new(LiteralExpr::String(literal, span), types))
     }
 }
 
-impl ExpressionKindImpl for LiteralExpr {
-    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+impl ExpressionKind for LiteralExpr {
+    fn type_(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
         Rc::clone(match self {
             LiteralExpr::Int(_, _) => types.int(),
             LiteralExpr::Bool(_, _) => types.bool(),
@@ -67,7 +62,7 @@ impl ExpressionKindImpl for LiteralExpr {
         })
     }
 
-    fn calculate_value_category(&self) -> ValueCategory {
+    fn value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
     }
 

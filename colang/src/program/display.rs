@@ -195,24 +195,24 @@ impl ToSexp for ReturnInstruction {
 
 impl ToSexp for Expression {
     fn to_sexp(&self) -> Sexp {
-        use ExpressionKind::*;
-        match self.kind() {
-            Address(expr) => expr.to_sexp(),
-            ArrayFromCopy(expr) => expr.to_sexp(),
-            ArrayFromElements(expr) => expr.to_sexp(),
-            Block(expr) => expr.to_sexp(),
-            BooleanOp(expr) => expr.to_sexp(),
-            Call(expr) => expr.to_sexp(),
-            Deref(expr) => expr.to_sexp(),
-            FieldAccess(expr) => expr.to_sexp(),
-            If(expr) => expr.to_sexp(),
-            Is(expr) => expr.to_sexp(),
-            Literal(expr) => expr.to_sexp(),
-            New(expr) => expr.to_sexp(),
-            Null(expr) => expr.to_sexp(),
-            Variable(expr) => expr.to_sexp(),
+        use ExpressionImpl::*;
+        match **self {
+            Address(ref expr) => expr.to_sexp(),
+            ArrayFromCopy(ref expr) => expr.to_sexp(),
+            ArrayFromElements(ref expr) => expr.to_sexp(),
+            Block(ref expr) => expr.to_sexp(),
+            BooleanOp(ref expr) => expr.to_sexp(),
+            Call(ref expr) => expr.to_sexp(),
+            Deref(ref expr) => expr.to_sexp(),
+            FieldAccess(ref expr) => expr.to_sexp(),
+            If(ref expr) => expr.to_sexp(),
+            Is(ref expr) => expr.to_sexp(),
+            Literal(ref expr) => expr.to_sexp(),
+            New(ref expr) => expr.to_sexp(),
+            Null(ref expr) => expr.to_sexp(),
+            Variable(ref expr) => expr.to_sexp(),
             Empty(_) => sexp_str!("empty"),
-            Error(_) => sexp_str!("error"),
+            Err(_) => sexp_str!("error"),
         }
     }
 }

@@ -168,6 +168,8 @@ pub use expressions::block::{BlockBuilder, BlockExpr};
 pub use expressions::boolean_op::{BooleanOp, BooleanOpExpr};
 pub use expressions::call::CallExpr;
 pub use expressions::deref::DerefExpr;
+pub use expressions::empty::EmptyExpr;
+pub use expressions::error::ErrorExpr;
 pub use expressions::field_access::FieldAccessExpr;
 pub use expressions::if_::IfExpr;
 pub use expressions::is::IsExpr;
@@ -175,7 +177,7 @@ pub use expressions::literal::LiteralExpr;
 pub use expressions::new::NewExpr;
 pub use expressions::null::NullExpr;
 pub use expressions::variable::VariableExpr;
-pub use expressions::{Expression, ExpressionKind};
+pub use expressions::{Expression, ExpressionImpl, ExpressionKind};
 
 pub use field::{Field, FieldId};
 pub use function::{Function, FunctionId};

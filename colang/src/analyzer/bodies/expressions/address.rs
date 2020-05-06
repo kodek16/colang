@@ -1,7 +1,7 @@
 use super::compile_expression;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::{Type, ValueCategory};
+use crate::program::{ExpressionKind, Type, ValueCategory};
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::cell::RefCell;
@@ -23,10 +23,10 @@ pub fn compile_address_expr(
     }
 
     program::Expression::new(
-        program::ExpressionKind::Address(program::AddressExpr {
+        program::AddressExpr {
             target: Box::new(target),
             location: SourceOrigin::Plain(expression.span),
-        }),
+        },
         context.program.types_mut(),
     )
 }

@@ -4,7 +4,8 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::ast;
 use crate::program::{
-    Expression, ExpressionKind, Function, Type, TypeCycleThroughFields, TypeTemplate, Variable,
+    Expression, ExpressionImpl, ExpressionKind, Function, Type, TypeCycleThroughFields,
+    TypeTemplate, Variable,
 };
 use crate::scope::{GeneralNamedEntity, NamedEntityKind};
 use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
@@ -1048,8 +1049,8 @@ impl CompilationError {
 
 fn maybe_explain_expression_type(expression: &Expression, error: &mut CompilationError) {
     fn explain_root_causes(expression: &Expression, error: &mut CompilationError) {
-        match expression.kind() {
-            ExpressionKind::Block(block) => {
+        match **expression {
+            ExpressionImpl::Block(ref block) => {
                 if !block.value.is_empty() {
                     explain_root_causes(&block.value, error);
                 } else if let Some(instruction) = block.instructions.last() {
@@ -1075,8 +1076,8 @@ fn maybe_explain_expression_type(expression: &Expression, error: &mut Compilatio
         }
     }
 
-    match expression.kind() {
-        ExpressionKind::Block(_) => explain_root_causes(expression, error),
+    match **expression {
+        ExpressionImpl::Block(_) => explain_root_causes(expression, error),
         _ => (),
     }
 }

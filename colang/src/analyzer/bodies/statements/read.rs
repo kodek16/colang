@@ -1,7 +1,7 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::{BlockBuilder, ValueCategory};
+use crate::program::{BlockBuilder, ExpressionKind, ValueCategory};
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 

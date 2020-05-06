@@ -170,27 +170,26 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         expression: &Expression,
     ) -> ExprWriteResult {
+        use ExpressionImpl::*;
         let type_ = expression.type_().borrow();
-        match expression.kind() {
-            ExpressionKind::Address(ref expr) => self.write_address_expr(names, expr),
-            ExpressionKind::ArrayFromCopy(ref expr) => self.write_array_from_copy_expr(names, expr),
-            ExpressionKind::ArrayFromElements(ref expr) => {
-                self.write_array_from_elements_expr(names, expr)
-            }
-            ExpressionKind::Block(ref block) => self.write_block_expr(names, block, &type_),
-            ExpressionKind::BooleanOp(ref expr) => self.write_boolean_op_expr(names, expr),
-            ExpressionKind::Call(ref expr) => self.write_call_expr(names, expr),
-            ExpressionKind::Deref(ref expr) => self.write_deref_expr(names, expr),
-            ExpressionKind::FieldAccess(ref expr) => self.write_field_access_expr(names, expr),
-            ExpressionKind::If(ref expr) => self.write_if_expr(names, expr, &type_),
-            ExpressionKind::Is(ref expr) => self.write_is_expr(names, expr),
-            ExpressionKind::Literal(ref expr) => self.write_literal_expr(names, expr),
-            ExpressionKind::New(ref expr) => self.write_new_expr(names, expr),
-            ExpressionKind::Null(ref expr) => self.write_null_expr(names, expr),
-            ExpressionKind::Variable(ref expr) => self.write_variable_expr(names, expr),
+        match **expression {
+            Address(ref expr) => self.write_address_expr(names, expr),
+            ArrayFromCopy(ref expr) => self.write_array_from_copy_expr(names, expr),
+            ArrayFromElements(ref expr) => self.write_array_from_elements_expr(names, expr),
+            Block(ref block) => self.write_block_expr(names, block, &type_),
+            BooleanOp(ref expr) => self.write_boolean_op_expr(names, expr),
+            Call(ref expr) => self.write_call_expr(names, expr),
+            Deref(ref expr) => self.write_deref_expr(names, expr),
+            FieldAccess(ref expr) => self.write_field_access_expr(names, expr),
+            If(ref expr) => self.write_if_expr(names, expr, &type_),
+            Is(ref expr) => self.write_is_expr(names, expr),
+            Literal(ref expr) => self.write_literal_expr(names, expr),
+            New(ref expr) => self.write_new_expr(names, expr),
+            Null(ref expr) => self.write_null_expr(names, expr),
+            Variable(ref expr) => self.write_variable_expr(names, expr),
 
-            ExpressionKind::Empty(_) => Ok(None),
-            ExpressionKind::Error(_) => panic!("Error expression encountered"),
+            Empty(_) => Ok(None),
+            Err(_) => panic!("Error expression encountered"),
         }
     }
 

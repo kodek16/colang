@@ -1,4 +1,4 @@
-use crate::program::expressions::ExpressionKindImpl;
+use crate::program::expressions::ExpressionKind;
 use crate::program::{Expression, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -9,12 +9,12 @@ pub struct AddressExpr {
     pub location: SourceOrigin,
 }
 
-impl ExpressionKindImpl for AddressExpr {
-    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+impl ExpressionKind for AddressExpr {
+    fn type_(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
         types.pointer_to(&self.target.type_())
     }
 
-    fn calculate_value_category(&self) -> ValueCategory {
+    fn value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
     }
 

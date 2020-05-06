@@ -34,11 +34,11 @@ pub fn compile_call_expr(
     }
 
     program::Expression::new(
-        program::ExpressionKind::Call(program::CallExpr {
+        program::CallExpr {
             function,
             arguments,
             location: SourceOrigin::Plain(expression.span),
-        }),
+        },
         context.program.types_mut(),
     )
 }

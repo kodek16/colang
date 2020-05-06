@@ -202,23 +202,24 @@ fn run_return(instruction: &ReturnInstruction, state: &mut State) -> RunResult<(
 }
 
 fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value> {
-    match expression.kind() {
-        ExpressionKind::Variable(e) => run_variable_expr(e, state),
-        ExpressionKind::Literal(e) => run_literal_expr(e, state),
-        ExpressionKind::Address(e) => run_address_expr(e, state),
-        ExpressionKind::Deref(e) => run_deref_expr(e, state),
-        ExpressionKind::New(e) => run_new_expr(e, state),
-        ExpressionKind::Is(e) => run_is_expr(e, state),
-        ExpressionKind::Null(e) => run_null_expr(e, state),
-        ExpressionKind::ArrayFromElements(e) => run_array_from_elements_expr(e, state),
-        ExpressionKind::ArrayFromCopy(e) => run_array_from_copy_expr(e, state),
-        ExpressionKind::BooleanOp(e) => run_boolean_op_expr(e, state),
-        ExpressionKind::Call(e) => run_call_expr(e, state),
-        ExpressionKind::FieldAccess(e) => run_field_access_expr(e, state),
-        ExpressionKind::If(e) => run_if_expr(e, state),
-        ExpressionKind::Block(e) => run_block_expr(e, state),
-        ExpressionKind::Empty(_) => Ok(Value::Rvalue(Rvalue::Void)),
-        ExpressionKind::Error(_) => panic_error(),
+    use ExpressionImpl::*;
+    match **expression {
+        Variable(ref expr) => run_variable_expr(expr, state),
+        Literal(ref expr) => run_literal_expr(expr, state),
+        Address(ref expr) => run_address_expr(expr, state),
+        Deref(ref expr) => run_deref_expr(expr, state),
+        New(ref expr) => run_new_expr(expr, state),
+        Is(ref expr) => run_is_expr(expr, state),
+        Null(ref expr) => run_null_expr(expr, state),
+        ArrayFromElements(ref expr) => run_array_from_elements_expr(expr, state),
+        ArrayFromCopy(ref expr) => run_array_from_copy_expr(expr, state),
+        BooleanOp(ref expr) => run_boolean_op_expr(expr, state),
+        Call(ref expr) => run_call_expr(expr, state),
+        FieldAccess(ref expr) => run_field_access_expr(expr, state),
+        If(ref expr) => run_if_expr(expr, state),
+        Block(ref expr) => run_block_expr(expr, state),
+        Empty(_) => Ok(Value::Rvalue(Rvalue::Void)),
+        Err(_) => panic_error(),
     }
 }
 

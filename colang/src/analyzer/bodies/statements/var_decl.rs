@@ -82,10 +82,10 @@ fn compile_var_decl_entry(
 
         let initialization = program::Instruction::Assign(program::AssignInstruction {
             target: program::Expression::new(
-                program::ExpressionKind::Variable(program::VariableExpr {
+                program::VariableExpr {
                     variable,
                     location: SourceOrigin::Plain(name.span),
-                }),
+                },
                 context.program.types_mut(),
             ),
             value: initializer,

@@ -1,9 +1,8 @@
-use crate::program::{
-    Expression, ExpressionKind, Instruction, Type, TypeRegistry, ValueCategory, Variable,
-};
+use crate::program::expressions::empty::EmptyExpr;
+use crate::program::expressions::{Expression, ExpressionKind};
+use crate::program::instructions::Instruction;
+use crate::program::{Type, TypeRegistry, ValueCategory, Variable};
 use crate::source::{InputSpan, SourceOrigin};
-
-use crate::program::expressions::ExpressionKindImpl;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -14,12 +13,12 @@ pub struct BlockExpr {
     pub location: SourceOrigin,
 }
 
-impl ExpressionKindImpl for BlockExpr {
-    fn calculate_type(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+impl ExpressionKind for BlockExpr {
+    fn type_(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
         Rc::clone(&self.value.type_())
     }
 
-    fn calculate_value_category(&self) -> ValueCategory {
+    fn value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
     }
 
@@ -56,17 +55,23 @@ impl BlockBuilder {
         types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Expression {
-        let value =
-            Box::new(final_expr.unwrap_or_else(|| {
-                Expression::empty(SourceOrigin::MissingBlockValue(span), types)
-            }));
+        let value = Box::new(final_expr.unwrap_or_else(|| {
+            Expression::new(
+                EmptyExpr {
+                    location: SourceOrigin::MissingBlockValue(span),
+                },
+                types,
+            )
+        }));
 
-        let kind = ExpressionKind::Block(BlockExpr {
-            local_variables: self.local_variables,
-            instructions: self.instructions,
-            value,
-            location: SourceOrigin::Plain(span),
-        });
-        Expression::new(kind, types)
+        Expression::new(
+            BlockExpr {
+                local_variables: self.local_variables,
+                instructions: self.instructions,
+                value,
+                location: SourceOrigin::Plain(span),
+            },
+            types,
+        )
     }
 }

@@ -1,3 +1,5 @@
+use crate::program::expressions::empty::EmptyExpr;
+use crate::program::expressions::error::ErrorExpr;
 use crate::program::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -111,29 +113,31 @@ fn clone_write_instruction(
 }
 
 fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expression {
-    use ExpressionKind::*;
-    let kind = match expression.kind() {
-        Address(expression) => Address(clone_address_expr(expression, context)),
-        ArrayFromCopy(expression) => ArrayFromCopy(clone_array_from_copy_expr(expression, context)),
-        ArrayFromElements(expression) => {
+    use ExpressionImpl::*;
+    let expression = match **expression {
+        Address(ref expression) => Address(clone_address_expr(expression, context)),
+        ArrayFromCopy(ref expression) => {
+            ArrayFromCopy(clone_array_from_copy_expr(expression, context))
+        }
+        ArrayFromElements(ref expression) => {
             ArrayFromElements(clone_array_from_elements_expr(expression, context))
         }
-        Block(expression) => Block(clone_block_expr(expression, context)),
-        BooleanOp(expression) => BooleanOp(clone_boolean_op_expr(expression, context)),
-        Call(expression) => Call(clone_call_expr(expression, context)),
-        Deref(expression) => Deref(clone_deref_expr(expression, context)),
-        FieldAccess(expression) => FieldAccess(clone_field_access_expr(expression, context)),
-        If(expression) => If(clone_if_expr(expression, context)),
-        Is(expression) => Is(clone_is_expr(expression, context)),
-        Literal(expression) => Literal(clone_literal_expr(expression, context)),
-        New(expression) => New(clone_new_expr(expression, context)),
-        Null(expression) => Null(clone_null_expr(expression, context)),
-        Variable(expression) => Variable(clone_variable_expr(expression, context)),
-        Empty(location) => Empty(*location),
-        Error(location) => Error(*location),
+        Block(ref expression) => Block(clone_block_expr(expression, context)),
+        BooleanOp(ref expression) => BooleanOp(clone_boolean_op_expr(expression, context)),
+        Call(ref expression) => Call(clone_call_expr(expression, context)),
+        Deref(ref expression) => Deref(clone_deref_expr(expression, context)),
+        Empty(ref expression) => Empty(clone_empty_expr(expression, context)),
+        Err(ref expression) => Err(clone_error_expr(expression, context)),
+        FieldAccess(ref expression) => FieldAccess(clone_field_access_expr(expression, context)),
+        If(ref expression) => If(clone_if_expr(expression, context)),
+        Is(ref expression) => Is(clone_is_expr(expression, context)),
+        Literal(ref expression) => Literal(clone_literal_expr(expression, context)),
+        New(ref expression) => New(clone_new_expr(expression, context)),
+        Null(ref expression) => Null(clone_null_expr(expression, context)),
+        Variable(ref expression) => Variable(clone_variable_expr(expression, context)),
     };
 
-    Expression::new(kind, context.types)
+    Expression::new(expression, context.types)
 }
 
 fn clone_address_expr(expression: &AddressExpr, context: &mut CloneContext) -> AddressExpr {
@@ -235,6 +239,18 @@ fn clone_call_expr(expression: &CallExpr, context: &mut CloneContext) -> CallExp
 fn clone_deref_expr(expression: &DerefExpr, context: &mut CloneContext) -> DerefExpr {
     DerefExpr {
         pointer: Box::new(clone_expression(&expression.pointer, context)),
+        location: expression.location,
+    }
+}
+
+fn clone_empty_expr(expression: &EmptyExpr, _: &mut CloneContext) -> EmptyExpr {
+    EmptyExpr {
+        location: expression.location,
+    }
+}
+
+fn clone_error_expr(expression: &ErrorExpr, _: &mut CloneContext) -> ErrorExpr {
+    ErrorExpr {
         location: expression.location,
     }
 }

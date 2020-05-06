@@ -1,7 +1,6 @@
 use super::compile_expression;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::ExpressionKind;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -25,11 +24,12 @@ pub fn compile_array_from_copy_expr(
         context.errors.push(error);
     }
 
-    let kind = ExpressionKind::ArrayFromCopy(program::ArrayFromCopyExpr {
-        element: Box::new(element),
-        size: Box::new(size),
-        location: SourceOrigin::Plain(expression.span),
-    });
-
-    program::Expression::new(kind, context.program.types_mut())
+    program::Expression::new(
+        program::ArrayFromCopyExpr {
+            element: Box::new(element),
+            size: Box::new(size),
+            location: SourceOrigin::Plain(expression.span),
+        },
+        context.program.types_mut(),
+    )
 }

@@ -1,4 +1,4 @@
-use crate::program::expressions::ExpressionKindImpl;
+use crate::program::expressions::ExpressionKind;
 use crate::program::{Expression, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -12,12 +12,12 @@ pub struct ArrayFromElementsExpr {
     pub element_type: Rc<RefCell<Type>>,
 }
 
-impl ExpressionKindImpl for ArrayFromElementsExpr {
-    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+impl ExpressionKind for ArrayFromElementsExpr {
+    fn type_(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
         types.array_of(&self.element_type)
     }
 
-    fn calculate_value_category(&self) -> ValueCategory {
+    fn value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
     }
 

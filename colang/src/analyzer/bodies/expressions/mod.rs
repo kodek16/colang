@@ -22,7 +22,7 @@ mod variable;
 
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::Type;
+use crate::program::{ExpressionKind, Type};
 use crate::{ast, program};
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -37,10 +37,12 @@ pub fn compile_is_expr(
         }
     }
 
-    let kind = program::ExpressionKind::Is(program::IsExpr {
-        lhs: Box::new(lhs),
-        rhs: Box::new(rhs),
-        location: SourceOrigin::Plain(expression.span),
-    });
-    program::Expression::new(kind, context.program.types_mut())
+    program::Expression::new(
+        program::IsExpr {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            location: SourceOrigin::Plain(expression.span),
+        },
+        context.program.types_mut(),
+    )
 }

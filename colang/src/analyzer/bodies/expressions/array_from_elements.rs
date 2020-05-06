@@ -1,7 +1,7 @@
 use super::compile_expression;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::{ExpressionKind, Type};
+use crate::program::Type;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::cell::RefCell;
@@ -55,11 +55,12 @@ pub fn compile_array_from_elements_expr(
         return program::Expression::error(expression.span);
     }
 
-    let kind = ExpressionKind::ArrayFromElements(program::ArrayFromElementsExpr {
-        elements,
-        element_type: inferred_type,
-        location: SourceOrigin::Plain(expression.span),
-    });
-
-    program::Expression::new(kind, types)
+    program::Expression::new(
+        program::ArrayFromElementsExpr {
+            elements,
+            element_type: inferred_type,
+            location: SourceOrigin::Plain(expression.span),
+        },
+        types,
+    )
 }

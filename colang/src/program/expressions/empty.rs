@@ -4,14 +4,13 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct NewExpr {
-    pub target_type: Rc<RefCell<Type>>,
+pub struct EmptyExpr {
     pub location: SourceOrigin,
 }
 
-impl ExpressionKind for NewExpr {
+impl ExpressionKind for EmptyExpr {
     fn type_(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
-        types.pointer_to(&self.target_type)
+        Rc::clone(types.void())
     }
 
     fn value_category(&self) -> ValueCategory {

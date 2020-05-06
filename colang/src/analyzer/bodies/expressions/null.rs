@@ -15,13 +15,13 @@ pub fn compile_null_expr(
     let target_type_hint = type_hint.and_then(|hint| hint.borrow().pointer_target_type());
 
     match target_type_hint {
-        Some(target_type) => {
-            let kind = program::ExpressionKind::Null(program::NullExpr {
+        Some(target_type) => program::Expression::new(
+            program::NullExpr {
                 target_type,
                 location: SourceOrigin::Plain(expression.span),
-            });
-            program::Expression::new(kind, context.program.types_mut())
-        }
+            },
+            context.program.types_mut(),
+        ),
         None => {
             let error = CompilationError::cannot_infer_null_pointer_type(SourceOrigin::Plain(span));
             context.errors.push(error);

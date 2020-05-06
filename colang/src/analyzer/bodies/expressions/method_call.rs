@@ -50,10 +50,10 @@ pub fn compile_method_call_expr(
         // self-by-pointer
         if receiver.value_category() == ValueCategory::Lvalue {
             program::Expression::new(
-                program::ExpressionKind::Address(program::AddressExpr {
+                program::AddressExpr {
                     target: Box::new(receiver),
                     location: SourceOrigin::AddressedForMethodCall(receiver_span),
-                }),
+                },
                 context.program.types_mut(),
             )
         } else {
@@ -81,11 +81,11 @@ pub fn compile_method_call_expr(
     }
 
     program::Expression::new(
-        program::ExpressionKind::Call(program::CallExpr {
+        program::CallExpr {
             function: method,
             arguments,
             location: SourceOrigin::Plain(expression.span),
-        }),
+        },
         context.program.types_mut(),
     )
 }

@@ -1,7 +1,7 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::{BlockBuilder, InternalFunctionTag, TypeId};
+use crate::program::{BlockBuilder, ExpressionKind, InternalFunctionTag, TypeId};
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -26,11 +26,11 @@ pub fn compile_write_stmt(
                 .internal_function(InternalFunctionTag::IntToString);
 
             program::Expression::new(
-                program::ExpressionKind::Call(program::CallExpr {
+                program::CallExpr {
                     function: Rc::clone(conversion),
                     arguments: vec![expression],
                     location: SourceOrigin::Stringified(location.as_plain()),
-                }),
+                },
                 context.program.types_mut(),
             )
         }

@@ -17,10 +17,10 @@ pub fn compile_new_expr(
     assert!(!target_type.borrow().is_void());
 
     program::Expression::new(
-        program::ExpressionKind::New(program::NewExpr {
+        program::NewExpr {
             target_type,
             location: SourceOrigin::Plain(expression.span),
-        }),
+        },
         context.program.types_mut(),
     )
 }

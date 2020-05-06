@@ -2,6 +2,7 @@ use super::compile_expression;
 use crate::analyzer::bodies::check_condition_is_bool;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
+use crate::program::ExpressionKind;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -30,7 +31,12 @@ pub fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> progr
     }
 
     let else_ = else_.unwrap_or_else(|| {
-        program::Expression::empty(SourceOrigin::MissingElse(span), context.program.types())
+        program::Expression::new(
+            program::EmptyExpr {
+                location: SourceOrigin::MissingElse(span),
+            },
+            context.program.types_mut(),
+        )
     });
     let else_type = else_.type_();
 
@@ -45,12 +51,12 @@ pub fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> progr
     }
 
     program::Expression::new(
-        program::ExpressionKind::If(program::IfExpr {
+        program::IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Box::new(else_),
             location: SourceOrigin::Plain(span),
-        }),
+        },
         context.program.types_mut(),
     )
 }

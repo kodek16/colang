@@ -1,4 +1,4 @@
-use crate::program::expressions::ExpressionKindImpl;
+use crate::program::expressions::ExpressionKind;
 use crate::program::{Expression, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -15,12 +15,12 @@ pub enum BooleanOp {
     Not(Box<Expression>),
 }
 
-impl ExpressionKindImpl for BooleanOpExpr {
-    fn calculate_type(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+impl ExpressionKind for BooleanOpExpr {
+    fn type_(&self, types: &mut TypeRegistry) -> Rc<RefCell<Type>> {
         Rc::clone(types.bool())
     }
 
-    fn calculate_value_category(&self) -> ValueCategory {
+    fn value_category(&self) -> ValueCategory {
         ValueCategory::Rvalue
     }
 

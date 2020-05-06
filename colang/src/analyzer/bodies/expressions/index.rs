@@ -37,20 +37,20 @@ pub fn compile_index_expr(
     }
 
     let pointer = program::Expression::new(
-        program::ExpressionKind::Call(program::CallExpr {
+        program::CallExpr {
             function: method,
             arguments,
             location: SourceOrigin::Plain(expression.span),
-        }),
+        },
         context.program.types_mut(),
     );
 
     if pointer.type_().borrow().is_pointer() {
         program::Expression::new(
-            program::ExpressionKind::Deref(program::DerefExpr {
+            program::DerefExpr {
                 pointer: Box::new(pointer),
                 location: SourceOrigin::DereferencedIndex(expression.span),
-            }),
+            },
             context.program.types_mut(),
         )
     } else {

@@ -10,10 +10,10 @@ pub fn compile_self_expr(
 ) -> program::Expression {
     match context.local().self_ {
         Some(ref variable) => program::Expression::new(
-            program::ExpressionKind::Variable(program::VariableExpr {
+            program::VariableExpr {
                 variable: Rc::clone(&variable),
                 location: SourceOrigin::Plain(expression.span),
-            }),
+            },
             context.program.types_mut(),
         ),
         None => {

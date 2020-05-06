@@ -1,4 +1,4 @@
-use crate::program::expressions::ExpressionKindImpl;
+use crate::program::expressions::ExpressionKind;
 use crate::program::{Expression, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -9,8 +9,8 @@ pub struct DerefExpr {
     pub location: SourceOrigin,
 }
 
-impl ExpressionKindImpl for DerefExpr {
-    fn calculate_type(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+impl ExpressionKind for DerefExpr {
+    fn type_(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
         if let Some(target_type) = self.pointer.type_().borrow().pointer_target_type() {
             target_type
         } else {
@@ -21,7 +21,7 @@ impl ExpressionKindImpl for DerefExpr {
         }
     }
 
-    fn calculate_value_category(&self) -> ValueCategory {
+    fn value_category(&self) -> ValueCategory {
         ValueCategory::Lvalue
     }
 

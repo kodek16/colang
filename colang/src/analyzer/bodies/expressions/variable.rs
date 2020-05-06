@@ -18,10 +18,10 @@ pub fn compile_variable_expr(
             program::Expression::error(expression.span)
         }
         Ok(variable) => program::Expression::new(
-            program::ExpressionKind::Variable(program::VariableExpr {
+            program::VariableExpr {
                 variable,
                 location: SourceOrigin::Plain(expression.span),
-            }),
+            },
             context.program.types_mut(),
         ),
         Err(error) => {

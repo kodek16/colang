@@ -36,9 +36,11 @@ pub fn compile_return_stmt(
         return;
     }
 
-    let expression = expression.unwrap_or(program::Expression::empty(
-        SourceOrigin::MissingReturnValue(statement.span),
-        context.program.types(),
+    let expression = expression.unwrap_or(program::Expression::new(
+        program::EmptyExpr {
+            location: SourceOrigin::MissingReturnValue(statement.span),
+        },
+        context.program.types_mut(),
     ));
 
     if expression.is_error() {

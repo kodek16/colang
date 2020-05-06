@@ -77,24 +77,26 @@ pub trait CodeVisitor {
     }
 
     fn walk_expression(&mut self, expression: &mut Expression) {
-        use ExpressionKind::*;
-        match expression.kind_mut() {
-            Address(expression) => self.visit_address_expr(expression),
-            ArrayFromCopy(expression) => self.visit_array_from_copy_expr(expression),
-            ArrayFromElements(expression) => self.visit_array_from_elements_expr(expression),
-            Block(expression) => self.visit_block_expr(expression),
-            BooleanOp(expression) => self.visit_boolean_op_expr(expression),
-            Call(expression) => self.visit_call_expr(expression),
-            Deref(expression) => self.visit_deref_expr(expression),
-            FieldAccess(expression) => self.visit_field_access_expr(expression),
-            If(expression) => self.visit_if_expr(expression),
-            Is(expression) => self.visit_is_expr(expression),
-            Literal(expression) => self.visit_literal_expr(expression),
-            New(expression) => self.visit_new_expr(expression),
-            Null(expression) => self.visit_null_expr(expression),
-            Variable(expression) => self.visit_variable_expr(expression),
+        use ExpressionImpl::*;
+        match **expression {
+            Address(ref mut expression) => self.visit_address_expr(expression),
+            ArrayFromCopy(ref mut expression) => self.visit_array_from_copy_expr(expression),
+            ArrayFromElements(ref mut expression) => {
+                self.visit_array_from_elements_expr(expression)
+            }
+            Block(ref mut expression) => self.visit_block_expr(expression),
+            BooleanOp(ref mut expression) => self.visit_boolean_op_expr(expression),
+            Call(ref mut expression) => self.visit_call_expr(expression),
+            Deref(ref mut expression) => self.visit_deref_expr(expression),
+            FieldAccess(ref mut expression) => self.visit_field_access_expr(expression),
+            If(ref mut expression) => self.visit_if_expr(expression),
+            Is(ref mut expression) => self.visit_is_expr(expression),
+            Literal(ref mut expression) => self.visit_literal_expr(expression),
+            New(ref mut expression) => self.visit_new_expr(expression),
+            Null(ref mut expression) => self.visit_null_expr(expression),
+            Variable(ref mut expression) => self.visit_variable_expr(expression),
             Empty(_) => (),
-            Error(_) => (),
+            Err(_) => (),
         };
         expression.recalculate(self.types())
     }

@@ -1,4 +1,4 @@
-use crate::program::expressions::ExpressionKindImpl;
+use crate::program::expressions::ExpressionKind;
 use crate::program::{Expression, Field, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -10,12 +10,12 @@ pub struct FieldAccessExpr {
     pub location: SourceOrigin,
 }
 
-impl ExpressionKindImpl for FieldAccessExpr {
-    fn calculate_type(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
+impl ExpressionKind for FieldAccessExpr {
+    fn type_(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
         Rc::clone(&self.field.borrow().type_)
     }
 
-    fn calculate_value_category(&self) -> ValueCategory {
+    fn value_category(&self) -> ValueCategory {
         self.receiver.value_category()
     }
 

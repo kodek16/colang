@@ -7,7 +7,7 @@ use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::errors::CompilationError;
 use crate::program::function::FunctionBody;
-use crate::program::{Function, Type, Variable};
+use crate::program::{ExpressionKind, Function, Type, Variable};
 use crate::scope::VariableEntity;
 use crate::source::{InputSpan, SourceOrigin};
 use crate::{ast, program, CompilerContext};
@@ -131,10 +131,10 @@ fn maybe_deref(
 
     if expression.type_().borrow().is_pointer() {
         program::Expression::new(
-            program::ExpressionKind::Deref(program::DerefExpr {
+            program::DerefExpr {
                 pointer: Box::new(expression),
                 location: SourceOrigin::AutoDeref(location.as_plain()),
-            }),
+            },
             context.program.types_mut(),
         )
     } else {

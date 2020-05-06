@@ -90,11 +90,11 @@ fn compile_method_backed_binary_op_expr(
     }
 
     program::Expression::new(
-        program::ExpressionKind::Call(program::CallExpr {
+        program::CallExpr {
             function,
             arguments,
             location: SourceOrigin::Plain(span),
-        }),
+        },
         context.program.types_mut(),
     )
 }
@@ -122,9 +122,11 @@ fn compile_logical_binary_op_expr(
         _ => panic!("`{}` is not a logical operator", operator.to_string()),
     };
 
-    let kind = program::ExpressionKind::BooleanOp(program::BooleanOpExpr {
-        op,
-        location: SourceOrigin::Plain(span),
-    });
-    program::Expression::new(kind, context.program.types_mut())
+    program::Expression::new(
+        program::BooleanOpExpr {
+            op,
+            location: SourceOrigin::Plain(span),
+        },
+        context.program.types_mut(),
+    )
 }

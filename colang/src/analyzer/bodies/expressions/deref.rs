@@ -27,10 +27,10 @@ pub fn compile_deref_expr(
     }
 
     program::Expression::new(
-        program::ExpressionKind::Deref(program::DerefExpr {
+        program::DerefExpr {
             pointer: Box::new(pointer),
             location: SourceOrigin::Plain(expression.span),
-        }),
+        },
         context.program.types_mut(),
     )
 }

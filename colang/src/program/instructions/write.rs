@@ -1,3 +1,4 @@
+use crate::program::instructions::InstructionKind;
 use crate::program::Expression;
 use crate::source::SourceOrigin;
 
@@ -10,4 +11,10 @@ pub struct WriteInstruction {
 
     /// The location in the source code that produced this instruction.
     pub location: SourceOrigin,
+}
+
+impl InstructionKind for WriteInstruction {
+    fn location(&self) -> SourceOrigin {
+        self.location
+    }
 }

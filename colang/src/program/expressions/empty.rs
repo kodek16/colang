@@ -4,7 +4,12 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// A no-op expression of type `void`.
 pub struct EmptyExpr {
+    /// The location of source code that produced this expression.
+    ///
+    /// This is usually an annotated `InputSpan` containing information about why exactly the
+    /// expression is empty, and not just `SourceOrigin::Plain`.
     pub location: SourceOrigin,
 }
 

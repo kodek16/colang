@@ -1,7 +1,8 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::{BlockBuilder, ExpressionKind, ValueCategory};
+use crate::program::expressions::block::BlockBuilder;
+use crate::program::{ExpressionKind, ValueCategory};
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -36,10 +37,9 @@ pub fn compile_assign_stmt(
         return;
     }
 
-    let instruction = program::Instruction::Assign(program::AssignInstruction {
+    current_block.append_instruction(program::AssignInstruction {
         target: lhs,
         value: rhs,
         location: SourceOrigin::Plain(statement.span),
     });
-    current_block.append_instruction(instruction);
 }

@@ -4,7 +4,11 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression signifying a user error.
+///
+/// This expression cannot be present in a valid program.
 pub struct ErrorExpr {
+    /// The location of source code that produced an error.
     pub location: SourceOrigin,
 }
 

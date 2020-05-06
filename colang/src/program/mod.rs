@@ -3,10 +3,10 @@
 //! backends.
 
 mod display;
-mod expressions;
+pub(crate) mod expressions;
 mod field;
 pub(crate) mod function;
-mod instructions;
+pub(crate) mod instructions;
 pub(crate) mod internal;
 pub mod transforms;
 mod typing;
@@ -164,7 +164,7 @@ pub enum ValueCategory {
 pub use expressions::address::AddressExpr;
 pub use expressions::array_from_copy::ArrayFromCopyExpr;
 pub use expressions::array_from_elements::ArrayFromElementsExpr;
-pub use expressions::block::{BlockBuilder, BlockExpr};
+pub use expressions::block::BlockExpr;
 pub use expressions::boolean_op::{BooleanOp, BooleanOpExpr};
 pub use expressions::call::CallExpr;
 pub use expressions::deref::DerefExpr;
@@ -194,4 +194,4 @@ pub use instructions::read::ReadInstruction;
 pub use instructions::return_::ReturnInstruction;
 pub use instructions::while_::WhileInstruction;
 pub use instructions::write::WriteInstruction;
-pub use instructions::Instruction;
+pub use instructions::{Instruction, InstructionKind};

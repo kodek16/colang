@@ -1,7 +1,8 @@
 use super::compile_expression;
 use crate::analyzer::bodies::statements::compile_statement;
 use crate::context::CompilerContext;
-use crate::program::{BlockBuilder, Type};
+use crate::program::expressions::block::BlockBuilder;
+use crate::program::Type;
 use crate::{ast, program};
 use std::cell::RefCell;
 use std::rc::Rc;

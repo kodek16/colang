@@ -4,8 +4,8 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::ast;
 use crate::program::{
-    Expression, ExpressionImpl, ExpressionKind, Function, Type, TypeCycleThroughFields,
-    TypeTemplate, Variable,
+    Expression, ExpressionImpl, ExpressionKind, Function, InstructionKind, Type,
+    TypeCycleThroughFields, TypeTemplate, Variable,
 };
 use crate::scope::{GeneralNamedEntity, NamedEntityKind};
 use crate::source::{InputSpan, InputSpanFile, SourceOrigin};

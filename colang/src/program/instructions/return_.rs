@@ -1,3 +1,4 @@
+use crate::program::instructions::InstructionKind;
 use crate::program::Expression;
 use crate::source::SourceOrigin;
 
@@ -12,4 +13,10 @@ pub struct ReturnInstruction {
 
     /// The location of the source code that produced this instruction.
     pub location: SourceOrigin,
+}
+
+impl InstructionKind for ReturnInstruction {
+    fn location(&self) -> SourceOrigin {
+        self.location
+    }
 }

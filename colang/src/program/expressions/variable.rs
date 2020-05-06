@@ -4,8 +4,16 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression that accesses the value of a variable currently in scope.
+///
+/// This expression is always an lvalue.
 pub struct VariableExpr {
+    /// The variable to be accessed.
+    ///
+    /// Must be in scope at the point where expression is defined.
     pub variable: Rc<RefCell<Variable>>,
+
+    /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 

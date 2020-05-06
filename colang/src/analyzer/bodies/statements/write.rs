@@ -1,7 +1,8 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::{BlockBuilder, ExpressionKind, InternalFunctionTag, TypeId};
+use crate::program::expressions::block::BlockBuilder;
+use crate::program::{ExpressionKind, InternalFunctionTag, TypeId};
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -41,12 +42,10 @@ pub fn compile_write_stmt(
         }
     };
 
-    let instruction = program::Instruction::Write(program::WriteInstruction {
+    current_block.append_instruction(program::WriteInstruction {
         expression: stringified_expr,
         location: SourceOrigin::Plain(statement.span),
     });
-
-    current_block.append_instruction(instruction);
 
     if statement.newline {
         let newline = program::Expression::new(
@@ -56,10 +55,10 @@ pub fn compile_write_stmt(
             },
             context.program.types_mut(),
         );
-        let instruction = program::Instruction::Write(program::WriteInstruction {
+
+        current_block.append_instruction(program::WriteInstruction {
             expression: newline,
             location: SourceOrigin::Plain(statement.span),
-        });
-        current_block.append_instruction(instruction)
+        })
     }
 }

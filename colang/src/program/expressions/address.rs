@@ -4,8 +4,14 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression that takes the memory address of some lvalue.
 pub struct AddressExpr {
+    /// The expression that evaluates to the value to be addressed.
+    ///
+    /// Expression must be lvalue.
     pub target: Box<Expression>,
+
+    /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 

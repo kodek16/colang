@@ -4,10 +4,12 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression that evaluates to a null pointer.
 pub struct NullExpr {
     /// The type that the `null` value supposedly points to.
     pub target_type: Rc<RefCell<Type>>,
 
+    /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 

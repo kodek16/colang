@@ -6,10 +6,28 @@ use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression that runs a sequence of statements followed by a single final expression.
+///
+/// The value of `BlockExpr` is taken from the value of its final expression.
+///
+/// Blocks may have local variables defined in them that get created when the block execution
+/// starts, and destroyed when it ends. Block local variables are still available throughout the
+/// runtime of the final expression.
+///
+/// `BlockExpr` may be `void` if its final expression is `void`.
 pub struct BlockExpr {
+    /// Local variables defined in the block.
     pub local_variables: Vec<Rc<RefCell<Variable>>>,
+
+    /// Instructions that are run when executing the block.
     pub instructions: Vec<Instruction>,
+
+    /// The final expression that produces the value for the whole block.
+    ///
+    /// May be `void` if the block itself is in a void context.
     pub value: Box<Expression>,
+
+    /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 
@@ -45,8 +63,8 @@ impl BlockBuilder {
         self.local_variables.push(variable);
     }
 
-    pub fn append_instruction(&mut self, instruction: Instruction) {
-        self.instructions.push(instruction)
+    pub fn append_instruction(&mut self, instruction: impl Into<Instruction>) {
+        self.instructions.push(instruction.into())
     }
 
     pub fn into_expr(

@@ -4,9 +4,17 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression that constructs an array from a certain number of copies of a base value.
 pub struct ArrayFromCopyExpr {
+    /// The value of this expression becomes the value of every array element.
     pub element: Box<Expression>,
+
+    /// The value of this expression becomes the array size.
+    ///
+    /// Must have type `int`. If evaluated to a non-positive value, this causes a runtime error.
     pub size: Box<Expression>,
+
+    /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 

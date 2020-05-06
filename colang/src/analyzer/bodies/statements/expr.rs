@@ -1,6 +1,6 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
-use crate::program::BlockBuilder;
+use crate::program::expressions::block::BlockBuilder;
 use crate::{ast, program};
 
 pub fn compile_expr_stmt(
@@ -13,6 +13,5 @@ pub fn compile_expr_stmt(
         return;
     }
 
-    let instruction = program::Instruction::Eval(program::EvalInstruction { expression });
-    current_block.append_instruction(instruction);
+    current_block.append_instruction(program::EvalInstruction { expression });
 }

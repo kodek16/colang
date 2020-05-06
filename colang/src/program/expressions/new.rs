@@ -4,8 +4,12 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression that creates a new value on the heap and evaluates to a pointer to it.
 pub struct NewExpr {
+    /// The type of the value to be created on the heap.
     pub target_type: Rc<RefCell<Type>>,
+
+    /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 

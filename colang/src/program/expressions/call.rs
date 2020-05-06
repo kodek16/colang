@@ -4,9 +4,21 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression that executes a function with certain arguments.
+///
+/// The return value of the function becomes the value of the expression. If the function returns
+/// `void`, the expression is `void`, and so only allowed in void contexts.
 pub struct CallExpr {
+    /// The function to be executed.
     pub function: Rc<RefCell<Function>>,
+
+    /// The expressions that evaluate to arguments that are passed to `function`.
+    ///
+    /// The number of arguments must match the number of function parameters, and every argument
+    /// must have the same type as its corresponding parameter.
     pub arguments: Vec<Expression>,
+
+    /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 

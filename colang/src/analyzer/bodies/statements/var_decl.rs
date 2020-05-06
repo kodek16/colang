@@ -2,7 +2,8 @@ use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::type_exprs;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::{BlockBuilder, Type, Variable};
+use crate::program::expressions::block::BlockBuilder;
+use crate::program::{Type, Variable};
 use crate::scope::VariableEntity;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
@@ -80,7 +81,7 @@ fn compile_var_decl_entry(
             return;
         }
 
-        let initialization = program::Instruction::Assign(program::AssignInstruction {
+        current_block.append_instruction(program::AssignInstruction {
             target: program::Expression::new(
                 program::VariableExpr {
                     variable,
@@ -91,7 +92,5 @@ fn compile_var_decl_entry(
             value: initializer,
             location: SourceOrigin::Plain(declaration.span),
         });
-
-        current_block.append_instruction(initialization);
     }
 }

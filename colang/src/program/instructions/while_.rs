@@ -1,3 +1,4 @@
+use crate::program::instructions::InstructionKind;
 use crate::program::{Expression, Instruction};
 use crate::source::SourceOrigin;
 
@@ -13,4 +14,10 @@ pub struct WhileInstruction {
 
     /// The location of the source code that produced this instruction.
     pub location: SourceOrigin,
+}
+
+impl InstructionKind for WhileInstruction {
+    fn location(&self) -> SourceOrigin {
+        self.location
+    }
 }

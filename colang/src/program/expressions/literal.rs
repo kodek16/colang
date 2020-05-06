@@ -4,16 +4,28 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression that evaluates to a constant defined directly in the program.
 pub struct LiteralExpr {
+    /// The value of the constant.
     pub value: LiteralValue,
+
+    /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 
+/// A constant value contained in `LiteralExpr` and defined directly in the program.
 #[derive(Clone)]
 pub enum LiteralValue {
+    /// A constant value of type `int`.
     Int(i32),
+
+    /// A constant value of type `bool`.
     Bool(bool),
+
+    /// A constant value of type `char`.
     Char(u8),
+
+    /// A constant value of type `string`.
     String(String),
 }
 

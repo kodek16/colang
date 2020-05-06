@@ -8,7 +8,7 @@ mod write;
 
 use crate::ast;
 use crate::context::CompilerContext;
-use crate::program::BlockBuilder;
+use crate::program::expressions::block::BlockBuilder;
 
 pub fn compile_statement(
     statement: ast::Statement,

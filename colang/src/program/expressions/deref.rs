@@ -4,8 +4,16 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// An expression that accesses the value pointer to by some pointer.
+///
+/// This expression is always an lvalue.
 pub struct DerefExpr {
+    /// The expression evaluating to the pointer to the target value.
+    ///
+    /// Must have a pointer type.
     pub pointer: Box<Expression>,
+
+    /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 

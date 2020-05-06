@@ -1,7 +1,8 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::{BlockBuilder, ExpressionKind, ValueCategory};
+use crate::program::expressions::block::BlockBuilder;
+use crate::program::{ExpressionKind, ValueCategory};
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 
@@ -50,11 +51,9 @@ fn compile_read_entry(
         }
     }
 
-    let instruction = program::Instruction::Read(program::ReadInstruction {
+    current_block.append_instruction(program::ReadInstruction {
         target,
         whole_line,
         location: SourceOrigin::Plain(entry.span),
     });
-
-    current_block.append_instruction(instruction);
 }

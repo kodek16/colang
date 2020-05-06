@@ -1,7 +1,7 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::BlockBuilder;
+use crate::program::expressions::block::BlockBuilder;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -54,9 +54,8 @@ pub fn compile_return_stmt(
         return;
     }
 
-    let instruction = program::Instruction::Return(program::ReturnInstruction {
+    current_block.append_instruction(program::ReturnInstruction {
         expression,
         location: SourceOrigin::Plain(statement.span),
     });
-    current_block.append_instruction(instruction);
 }

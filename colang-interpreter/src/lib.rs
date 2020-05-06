@@ -230,11 +230,11 @@ fn run_variable_expr(expression: &VariableExpr, state: &State) -> RunResult<Valu
 }
 
 fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
-    let value = match expression {
-        LiteralExpr::Int(value, _) => Value::Rvalue(Rvalue::Int(*value)),
-        LiteralExpr::Bool(value, _) => Value::Rvalue(Rvalue::Bool(*value)),
-        LiteralExpr::Char(value, _) => Value::Rvalue(Rvalue::Char(*value)),
-        LiteralExpr::String(value, _) => Value::Rvalue(Rvalue::new_string(value)),
+    let value = match &expression.value {
+        LiteralValue::Int(value) => Value::Rvalue(Rvalue::Int(*value)),
+        LiteralValue::Bool(value) => Value::Rvalue(Rvalue::Bool(*value)),
+        LiteralValue::Char(value) => Value::Rvalue(Rvalue::Char(*value)),
+        LiteralValue::String(value) => Value::Rvalue(Rvalue::new_string(value)),
     };
     Ok(value)
 }

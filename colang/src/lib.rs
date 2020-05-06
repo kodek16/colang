@@ -10,6 +10,7 @@ use lalrpop_util::lalrpop_mod;
 mod analyzer;
 mod ast;
 mod context;
+mod escapes;
 mod scope;
 mod utils;
 lalrpop_mod!(grammar);

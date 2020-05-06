@@ -276,7 +276,10 @@ fn clone_if_expr(expression: &IfExpr, context: &mut CloneContext) -> IfExpr {
 }
 
 fn clone_literal_expr(expression: &LiteralExpr, _: &mut CloneContext) -> LiteralExpr {
-    expression.clone()
+    LiteralExpr {
+        value: expression.value.clone(),
+        location: expression.location,
+    }
 }
 
 fn clone_is_expr(expression: &IsExpr, context: &mut CloneContext) -> IsExpr {

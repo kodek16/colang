@@ -1,20 +1,35 @@
 use crate::context::CompilerContext;
-use crate::{ast, program};
+use crate::errors::CompilationError;
+use crate::source::SourceOrigin;
+use crate::{ast, escapes, program};
 
 pub fn compile_string_literal_expr(
     expression: ast::StringLiteralExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let result = program::LiteralExpr::string(
-        &expression.value,
-        context.program.types_mut(),
-        expression.span,
-    );
-    match result {
-        Ok(expression) => expression,
+    let literal = escapes::unescape(&expression.value, expression.span);
+    let literal = match literal {
+        Ok(literal) => literal,
         Err(error) => {
             context.errors.push(error);
-            program::Expression::error(expression.span)
+            return program::Expression::error(expression.span);
         }
-    }
+    };
+
+    let literal = match String::from_utf8(literal) {
+        Ok(literal) => literal,
+        Err(_) => {
+            let error = CompilationError::literal_not_utf8(SourceOrigin::Plain(expression.span));
+            context.errors.push(error);
+            return program::Expression::error(expression.span);
+        }
+    };
+
+    program::Expression::new(
+        program::LiteralExpr {
+            value: program::LiteralValue::String(literal),
+            location: SourceOrigin::Plain(expression.span),
+        },
+        context.program.types_mut(),
+    )
 }

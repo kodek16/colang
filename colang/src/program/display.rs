@@ -1,9 +1,7 @@
 use crate::program::*;
-
+use sexp::{sexp_int, sexp_list, sexp_str, Atom, Sexp, ToSexp};
 use std::fmt;
 use std::fmt::{Display, Formatter};
-
-use sexp::{sexp_int, sexp_list, sexp_str, Atom, Sexp, ToSexp};
 
 impl Display for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -325,15 +323,15 @@ impl ToSexp for LiteralExpr {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(
             sexp_str!("literal"),
-            match self {
-                LiteralExpr::Int(value, _) => sexp_int!(*value),
-                LiteralExpr::Bool(value, _) => sexp_list!(
+            match &self.value {
+                LiteralValue::Int(value) => sexp_int!(*value),
+                LiteralValue::Bool(value) => sexp_list!(
                     sexp_str!("bool"),
-                    sexp_str!(if *value { "true" } else { "false " })
+                    sexp_str!(if *value { "true" } else { "false" })
                 ),
-                LiteralExpr::Char(value, _) =>
+                LiteralValue::Char(value) =>
                     sexp_list!(sexp_str!("char"), sexp_int!(*value as i32)),
-                LiteralExpr::String(value, _) => sexp_list!(sexp_str!("string"), sexp_str!(&value)),
+                LiteralValue::String(value) => sexp_list!(sexp_str!("string"), sexp_str!(&value)),
             }
         )
     }

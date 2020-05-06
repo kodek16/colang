@@ -173,7 +173,7 @@ pub use expressions::error::ErrorExpr;
 pub use expressions::field_access::FieldAccessExpr;
 pub use expressions::if_::IfExpr;
 pub use expressions::is::IsExpr;
-pub use expressions::literal::LiteralExpr;
+pub use expressions::literal::{LiteralExpr, LiteralValue};
 pub use expressions::new::NewExpr;
 pub use expressions::null::NullExpr;
 pub use expressions::variable::VariableExpr;

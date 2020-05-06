@@ -430,11 +430,11 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         expression: &LiteralExpr,
     ) -> ExprWriteResult {
-        match expression {
-            LiteralExpr::Int(x, _) => Ok(Some(format!("{}", x))),
-            LiteralExpr::Char(c, _) => Ok(Some(format!("'\\x{:x}'", c))),
-            LiteralExpr::Bool(b, _) => Ok(Some(String::from(if *b { "1" } else { "0" }))),
-            LiteralExpr::String(s, _) => {
+        match &expression.value {
+            LiteralValue::Int(x) => Ok(Some(format!("{}", x))),
+            LiteralValue::Char(c) => Ok(Some(format!("'\\x{:x}'", c))),
+            LiteralValue::Bool(b) => Ok(Some(String::from(if *b { "1" } else { "0" }))),
+            LiteralValue::String(s) => {
                 let literal_name = names.expression_name();
                 let expression_name = names.expression_name();
                 write!(

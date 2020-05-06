@@ -49,9 +49,13 @@ pub fn compile_write_stmt(
     current_block.append_instruction(instruction);
 
     if statement.newline {
-        let newline =
-            program::LiteralExpr::string("\n", context.program.types_mut(), statement.span)
-                .expect("Couldn't construct '\\n' string literal");
+        let newline = program::Expression::new(
+            program::LiteralExpr {
+                value: program::LiteralValue::String("\n".to_string()),
+                location: SourceOrigin::Plain(statement.span),
+            },
+            context.program.types_mut(),
+        );
         let instruction = program::Instruction::Write(program::WriteInstruction {
             expression: newline,
             location: SourceOrigin::Plain(statement.span),

@@ -1,11 +1,17 @@
 //! Definitions and handling routines for CO functions (including methods).
 
+mod clone;
+
+use crate::program::expressions::array_from_elements::ArrayFromElementsExpr;
+use crate::program::expressions::block::BlockExpr;
+use crate::program::expressions::call::CallExpr;
+use crate::program::expressions::field_access::FieldAccessExpr;
+use crate::program::expressions::new::NewExpr;
+use crate::program::expressions::null::NullExpr;
+use crate::program::expressions::Expression;
 use crate::program::internal::InternalFunctionTag;
 use crate::program::visitors::visitor::LocalVisitor;
-use crate::program::{
-    visitors, ArrayFromElementsExpr, BlockExpr, CallExpr, Expression, FieldAccessExpr, NewExpr,
-    NullExpr, SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
-};
+use crate::program::{SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -304,7 +310,7 @@ impl Function {
                     _ => panic!("Base function body has not been filled"),
                 };
 
-                let mut new_body = visitors::clone::clone_function_body(
+                let mut new_body = clone::clone_function_body(
                     base_body,
                     &base.parameters,
                     &function.borrow().parameters,

@@ -8,9 +8,9 @@ mod field;
 pub(crate) mod function;
 pub(crate) mod instructions;
 pub(crate) mod internal;
-pub mod visitors;
 mod typing;
 mod variable;
+pub mod visitors;
 
 use std::cell::RefCell;
 use std::collections::HashMap;

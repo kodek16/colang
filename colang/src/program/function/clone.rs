@@ -1,5 +1,5 @@
-use crate::program::expressions::empty::EmptyExpr;
-use crate::program::expressions::error::ErrorExpr;
+//! Cloning function bodies for instantiation.
+
 use crate::program::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -14,6 +14,14 @@ struct CloneContext<'a> {
     types: &'a mut TypeRegistry,
 }
 
+/// Creates a copy of a function body performing a transformation on local variables.
+///
+/// The created copy is "deep": it is supposed to represent a body of a new, different function
+/// based on the source function. This can be used to instantiate function bodies from the
+/// base function bodies.
+///
+/// `variable_clone_fn` defines how the local variables in the copied function body are created
+/// from the original variables.
 pub fn clone_function_body(
     source_body: Rc<RefCell<Expression>>,
     source_parameters: &Vec<Rc<RefCell<Variable>>>,

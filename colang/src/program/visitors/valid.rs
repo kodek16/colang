@@ -1,13 +1,18 @@
-//! Last-resort validity checking is handled by this module. Erroneous programs should
-//! be not produced by the analyzer in the first place, so this module is not concerned with
-//! error recovery (which is the responsibility of the analyzer), but with simply checking
-//! if all assumptions hold.
+//! Last-resort validity checking.
 
 use crate::program::visitors::visitor::LocalVisitor;
 use crate::program::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// Program processor that handles last-resort validity checking.
+///
+/// Erroneous programs should not be produced by the analyzer in the first place, but this processor
+/// exists as an additional level of protection that discovers potential errors in the compiler
+/// before the code reaches the backend.
+///
+/// It does not perform error recovery (which is the responsibility of the analyzer),
+/// instead it simply checks if all assumptions hold and reports an error otherwise.
 pub struct ValidityChecker<'a> {
     program: &'a mut Program,
     errors: Vec<String>,
@@ -17,7 +22,7 @@ impl<'a> ValidityChecker<'a> {
     pub fn new(program: &mut Program) -> ValidityChecker {
         ValidityChecker {
             program,
-            errors: vec![],
+            errors: Vec::new(),
         }
     }
 
@@ -73,7 +78,6 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
 
     fn visit_expression(&mut self, expression: &mut Expression) {
         self.walk_expression(expression);
-
         let expression_type = expression.type_().borrow();
         if expression_type.depends_on_type_parameter_placeholders() {
             self.errors.push(format!(
@@ -118,7 +122,6 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
     fn visit_call_expr(&mut self, expression: &mut CallExpr) {
         self.walk(expression);
         let parameters = &expression.function.borrow().parameters;
-
         if parameters.len() != expression.arguments.len() {
             self.errors.push(format!(
                 "call expression expected {} parameters, got {}",
@@ -169,6 +172,7 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
     }
 
     fn visit_new_expr(&mut self, expression: &mut NewExpr) {
+        self.walk(expression);
         if expression.target_type.borrow().is_void() {
             self.errors
                 .push(format!("`new` expression for type `void`"));

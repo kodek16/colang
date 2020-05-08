@@ -1,5 +1,5 @@
 use crate::program::expressions::ExpressionKind;
-use crate::program::visitors::node::LocalCodeNode;
+use crate::program::visitors::LocalCodeNode;
 use crate::program::{Expression, Function, Instruction, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;

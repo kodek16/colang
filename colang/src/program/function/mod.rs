@@ -10,7 +10,7 @@ use crate::program::expressions::new::NewExpr;
 use crate::program::expressions::null::NullExpr;
 use crate::program::expressions::Expression;
 use crate::program::internal::InternalFunctionTag;
-use crate::program::visitors::visitor::LocalVisitor;
+use crate::program::visitors::LocalVisitor;
 use crate::program::{SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;

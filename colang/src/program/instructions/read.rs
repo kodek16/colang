@@ -1,5 +1,5 @@
 use crate::program::instructions::InstructionKind;
-use crate::program::visitors::node::LocalCodeNode;
+use crate::program::visitors::LocalCodeNode;
 use crate::program::{Expression, Instruction};
 use crate::source::SourceOrigin;
 

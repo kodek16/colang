@@ -1,9 +1,12 @@
-use crate::program::visitors::node::LocalCodeNode;
+use crate::program::visitors::LocalCodeNode;
 use crate::program::*;
 
-/// A trait that can be used as a framework for function body code processors and rewriters.
+/// A framework trait for function body code processors and rewriters.
 ///
 /// Unlike `GlobalVisitor`, this trait is concerned with "local", i.e. function body code.
+///
+/// Users of the trait should generally override the `visit_*` methods they care about, always
+/// remembering to delegate to `walk` for traversing the subtree.
 pub trait LocalVisitor {
     fn types(&mut self) -> &mut TypeRegistry;
 

@@ -1,6 +1,6 @@
 use crate::program::expressions::{Expression, ExpressionKind};
 use crate::program::instructions::InstructionKind;
-use crate::program::visitors::node::LocalCodeNode;
+use crate::program::visitors::LocalCodeNode;
 use crate::program::Instruction;
 use crate::source::SourceOrigin;
 

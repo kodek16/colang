@@ -1,7 +1,7 @@
 use crate::program::expressions::empty::EmptyExpr;
 use crate::program::expressions::{Expression, ExpressionKind};
 use crate::program::instructions::Instruction;
-use crate::program::visitors::node::LocalCodeNode;
+use crate::program::visitors::LocalCodeNode;
 use crate::program::{Type, TypeRegistry, ValueCategory, Variable};
 use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;

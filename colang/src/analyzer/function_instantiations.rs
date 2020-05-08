@@ -5,7 +5,7 @@ use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast::FunctionDef;
 use crate::errors::CompilationError;
 use crate::program::function::FunctionBody;
-use crate::program::visitors::visitor::LocalVisitor;
+use crate::program::visitors::LocalVisitor;
 use crate::program::{CallExpr, Function, Program, Type, TypeRegistry};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;

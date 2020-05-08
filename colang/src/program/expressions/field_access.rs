@@ -1,5 +1,6 @@
 use crate::program::expressions::ExpressionKind;
-use crate::program::{Expression, Field, Type, TypeRegistry, ValueCategory};
+use crate::program::visitors::node::LocalCodeNode;
+use crate::program::{Expression, Field, Instruction, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -31,5 +32,18 @@ impl ExpressionKind for FieldAccessExpr {
 
     fn location(&self) -> SourceOrigin {
         self.location
+    }
+}
+
+impl<'a> LocalCodeNode<'a> for FieldAccessExpr {
+    type InstrIter = std::iter::Empty<&'a mut Instruction>;
+    type ExprIter = std::iter::Once<&'a mut Expression>;
+
+    fn child_instructions(&'a mut self) -> Self::InstrIter {
+        std::iter::empty()
+    }
+
+    fn child_expressions(&'a mut self) -> Self::ExprIter {
+        std::iter::once(&mut self.receiver)
     }
 }

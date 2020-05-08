@@ -1,4 +1,5 @@
 use crate::program::instructions::InstructionKind;
+use crate::program::visitors::node::LocalCodeNode;
 use crate::program::{Expression, Instruction};
 use crate::source::SourceOrigin;
 
@@ -19,5 +20,18 @@ pub struct WhileInstruction {
 impl InstructionKind for WhileInstruction {
     fn location(&self) -> SourceOrigin {
         self.location
+    }
+}
+
+impl<'a> LocalCodeNode<'a> for WhileInstruction {
+    type InstrIter = std::iter::Once<&'a mut Instruction>;
+    type ExprIter = std::iter::Once<&'a mut Expression>;
+
+    fn child_instructions(&'a mut self) -> Self::InstrIter {
+        std::iter::once(&mut self.body)
+    }
+
+    fn child_expressions(&'a mut self) -> Self::ExprIter {
+        std::iter::once(&mut self.cond)
     }
 }

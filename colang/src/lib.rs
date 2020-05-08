@@ -1,5 +1,5 @@
 //! This crate contains the CO compiler _frontend_: the part of the compiler which
-//! transforms the source code into an intermediate representation defined in `program` and
+//! visitors the source code into an intermediate representation defined in `program` and
 //! subsequently consumed by some compiler _backend_.
 //!
 //! All static checks are performed during this phase. The generated IR is guaranteed to be
@@ -24,7 +24,7 @@ pub mod stdlib;
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
-use crate::program::transforms::valid::ValidityChecker;
+use crate::program::visitors::valid::ValidityChecker;
 use crate::scope::FunctionEntity;
 use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
 use std::rc::Rc;

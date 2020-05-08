@@ -1,10 +1,10 @@
 //! Definitions and handling routines for CO functions (including methods).
 
 use crate::program::internal::InternalFunctionTag;
-use crate::program::transforms::visitor::CodeVisitor;
+use crate::program::visitors::visitor::LocalVisitor;
 use crate::program::{
-    transforms, ArrayFromElementsExpr, CallExpr, Expression, FieldAccessExpr, NewExpr, NullExpr,
-    SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
+    visitors, ArrayFromElementsExpr, BlockExpr, CallExpr, Expression, FieldAccessExpr, NewExpr,
+    NullExpr, SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable,
 };
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -304,7 +304,7 @@ impl Function {
                     _ => panic!("Base function body has not been filled"),
                 };
 
-                let mut new_body = transforms::clone::clone_function_body(
+                let mut new_body = visitors::clone::clone_function_body(
                     base_body,
                     &base.parameters,
                     &function.borrow().parameters,
@@ -368,19 +368,39 @@ struct InstantiatedMethodBodyRewriter<'a> {
     types: &'a mut TypeRegistry,
 }
 
-impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
+impl<'a> LocalVisitor for InstantiatedMethodBodyRewriter<'a> {
     fn types(&mut self) -> &mut TypeRegistry {
         self.types
     }
 
     fn visit_array_from_elements_expr(&mut self, expression: &mut ArrayFromElementsExpr) {
-        self.walk_array_from_elements_expr(expression);
+        self.walk(expression);
         expression.element_type =
             Type::substitute(&expression.element_type, self.type_arguments, self.types);
     }
 
+    fn visit_block_expr(&mut self, block: &mut BlockExpr) {
+        for variable in &block.local_variables {
+            let variable = variable.borrow();
+
+            // The base variable type and the type arguments are assumed to be fully complete at this
+            // point, so we can assume no errors will occur.
+            // We do it here and not in `Variable::instantiate_local_variable` because running this code
+            // for method parameters is likely to cause a stack overflow by infinite loop.
+            Type::ensure_is_fully_complete(Rc::clone(&variable.type_), self.types)
+                .map_err(|_| ())
+                .expect(&format!(
+                    "Infinite type chain encountered while instantiating variable `{}` of type `{}",
+                    variable.name,
+                    variable.type_.borrow().name
+                ));
+        }
+
+        self.walk(block);
+    }
+
     fn visit_call_expr(&mut self, expression: &mut CallExpr) {
-        self.walk_call_expr(expression);
+        self.walk(expression);
         if expression.arguments.is_empty() {
             return;
         }
@@ -403,7 +423,7 @@ impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
     }
 
     fn visit_field_access_expr(&mut self, expression: &mut FieldAccessExpr) {
-        self.walk_field_access_expr(expression);
+        self.walk(expression);
 
         let receiver_type = expression.receiver.type_().borrow();
         if !receiver_type
@@ -420,30 +440,16 @@ impl<'a> CodeVisitor for InstantiatedMethodBodyRewriter<'a> {
     }
 
     fn visit_new_expr(&mut self, expression: &mut NewExpr) {
-        self.walk_new_expr(expression);
+        self.walk(expression);
 
         expression.target_type =
             Type::substitute(&expression.target_type, self.type_arguments, self.types);
     }
 
     fn visit_null_expr(&mut self, expression: &mut NullExpr) {
-        self.walk_null_expr(expression);
+        self.walk(expression);
 
         expression.target_type =
             Type::substitute(&expression.target_type, self.type_arguments, self.types);
-    }
-
-    fn visit_local_variable(&mut self, variable: &mut Variable) {
-        // The base variable type and the type arguments are assumed to be fully complete at this
-        // point, so we can assume no errors will occur.
-        // We do it here and not in `Variable::instantiate_local_variable` because running this code
-        // for method parameters is likely to cause a stack overflow by infinite loop.
-        Type::ensure_is_fully_complete(Rc::clone(&variable.type_), self.types)
-            .map_err(|_| ())
-            .expect(&format!(
-                "Infinite type chain encountered while instantiating variable `{}` of type `{}",
-                variable.name,
-                variable.type_.borrow().name
-            ));
     }
 }

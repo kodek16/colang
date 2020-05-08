@@ -5,7 +5,7 @@ use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast::FunctionDef;
 use crate::errors::CompilationError;
 use crate::program::function::FunctionBody;
-use crate::program::transforms::visitor::CodeVisitor;
+use crate::program::visitors::visitor::LocalVisitor;
 use crate::program::{CallExpr, Function, Program, Type, TypeRegistry};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
@@ -81,13 +81,13 @@ impl<'a> CallVisitor<'a> {
     }
 }
 
-impl<'a> CodeVisitor for CallVisitor<'a> {
+impl<'a> LocalVisitor for CallVisitor<'a> {
     fn types(&mut self) -> &mut TypeRegistry {
         self.types
     }
 
     fn visit_call_expr(&mut self, expression: &mut CallExpr) {
-        self.walk_call_expr(expression);
+        self.walk(expression);
         self.called_functions
             .push((expression.location, Rc::clone(&expression.function)));
     }

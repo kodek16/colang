@@ -1,5 +1,6 @@
 use crate::program::expressions::ExpressionKind;
-use crate::program::{Expression, Type, TypeRegistry, ValueCategory};
+use crate::program::visitors::node::LocalCodeNode;
+use crate::program::{Expression, Instruction, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -36,5 +37,18 @@ impl ExpressionKind for IfExpr {
 
     fn location(&self) -> SourceOrigin {
         self.location
+    }
+}
+
+impl<'a> LocalCodeNode<'a> for IfExpr {
+    type InstrIter = std::iter::Empty<&'a mut Instruction>;
+    type ExprIter = std::vec::IntoIter<&'a mut Expression>;
+
+    fn child_instructions(&'a mut self) -> Self::InstrIter {
+        std::iter::empty()
+    }
+
+    fn child_expressions(&'a mut self) -> Self::ExprIter {
+        vec![&mut *self.cond, &mut *self.then, &mut *self.else_].into_iter()
     }
 }

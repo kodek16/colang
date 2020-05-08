@@ -1,6 +1,7 @@
 use crate::program::expressions::empty::EmptyExpr;
 use crate::program::expressions::{Expression, ExpressionKind};
 use crate::program::instructions::Instruction;
+use crate::program::visitors::node::LocalCodeNode;
 use crate::program::{Type, TypeRegistry, ValueCategory, Variable};
 use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;
@@ -91,5 +92,18 @@ impl BlockBuilder {
             },
             types,
         )
+    }
+}
+
+impl<'a> LocalCodeNode<'a> for BlockExpr {
+    type InstrIter = std::slice::IterMut<'a, Instruction>;
+    type ExprIter = std::iter::Once<&'a mut Expression>;
+
+    fn child_instructions(&'a mut self) -> Self::InstrIter {
+        self.instructions.iter_mut()
+    }
+
+    fn child_expressions(&'a mut self) -> Self::ExprIter {
+        std::iter::once(&mut self.value)
     }
 }

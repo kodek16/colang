@@ -1,5 +1,6 @@
 use crate::program::instructions::InstructionKind;
-use crate::program::Expression;
+use crate::program::visitors::node::LocalCodeNode;
+use crate::program::{Expression, Instruction};
 use crate::source::SourceOrigin;
 
 /// An instruction that updates an lvalue setting it to a new value.
@@ -21,5 +22,18 @@ pub struct AssignInstruction {
 impl InstructionKind for AssignInstruction {
     fn location(&self) -> SourceOrigin {
         self.location
+    }
+}
+
+impl<'a> LocalCodeNode<'a> for AssignInstruction {
+    type InstrIter = std::iter::Empty<&'a mut Instruction>;
+    type ExprIter = std::vec::IntoIter<&'a mut Expression>;
+
+    fn child_instructions(&'a mut self) -> Self::InstrIter {
+        std::iter::empty()
+    }
+
+    fn child_expressions(&'a mut self) -> Self::ExprIter {
+        vec![&mut self.target, &mut self.value].into_iter()
     }
 }

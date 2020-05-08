@@ -1,5 +1,6 @@
 use crate::program::instructions::InstructionKind;
-use crate::program::Expression;
+use crate::program::visitors::node::LocalCodeNode;
+use crate::program::{Expression, Instruction};
 use crate::source::SourceOrigin;
 
 /// An instruction that reads from stdin and stores the result in an lvalue.
@@ -20,5 +21,18 @@ pub struct ReadInstruction {
 impl InstructionKind for ReadInstruction {
     fn location(&self) -> SourceOrigin {
         self.location
+    }
+}
+
+impl<'a> LocalCodeNode<'a> for ReadInstruction {
+    type InstrIter = std::iter::Empty<&'a mut Instruction>;
+    type ExprIter = std::iter::Once<&'a mut Expression>;
+
+    fn child_instructions(&'a mut self) -> Self::InstrIter {
+        std::iter::empty()
+    }
+
+    fn child_expressions(&'a mut self) -> Self::ExprIter {
+        std::iter::once(&mut self.target)
     }
 }

@@ -13,10 +13,10 @@
 //! through the AST. There are also passes later in the pipeline which do not use the AST directly
 //! anymore, they are defined elsewhere.
 
+pub mod basic_types;
 pub mod bodies;
 pub mod complete_types;
 pub mod function_instantiations;
 pub mod global_structure;
-pub mod basic_types;
 pub mod type_exprs;
 pub mod visitor;

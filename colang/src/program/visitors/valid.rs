@@ -3,7 +3,7 @@
 //! error recovery (which is the responsibility of the analyzer), but with simply checking
 //! if all assumptions hold.
 
-use crate::program::transforms::visitor::CodeVisitor;
+use crate::program::visitors::visitor::LocalVisitor;
 use crate::program::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -35,13 +35,13 @@ impl<'a> ValidityChecker<'a> {
     }
 }
 
-impl<'a> CodeVisitor for ValidityChecker<'a> {
+impl<'a> LocalVisitor for ValidityChecker<'a> {
     fn types(&mut self) -> &mut TypeRegistry {
         self.program.types_mut()
     }
 
     fn visit_write(&mut self, instruction: &mut WriteInstruction) {
-        self.walk_write(instruction);
+        self.walk(instruction);
         if !instruction.expression.type_().borrow().is_string() {
             self.errors.push(format!(
                 "`write` instruction expression has type `{}`",
@@ -51,7 +51,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_while(&mut self, instruction: &mut WhileInstruction) {
-        self.walk_while(instruction);
+        self.walk(instruction);
         if !instruction.cond.type_().borrow().is_bool() {
             self.errors.push(format!(
                 "`while` condition has type `{}`",
@@ -61,7 +61,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_assign(&mut self, instruction: &mut AssignInstruction) {
-        self.walk_assign(instruction);
+        self.walk(instruction);
         if instruction.target.type_() != instruction.value.type_() {
             self.errors.push(format!(
                 "`assign` instruction target has type `{}`, value has different type `{}`",
@@ -84,7 +84,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_address_expr(&mut self, expression: &mut AddressExpr) {
-        self.walk_address_expr(expression);
+        self.walk(expression);
         if expression.target.value_category() != ValueCategory::Lvalue {
             self.errors
                 .push("attempt to take address of rvalue".to_string());
@@ -92,7 +92,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_array_from_copy_expr(&mut self, expression: &mut ArrayFromCopyExpr) {
-        self.walk_array_from_copy_expr(expression);
+        self.walk(expression);
         if !expression.size.type_().borrow().is_int() {
             self.errors.push(format!(
                 "array-from-copy expr has size of type `{}`",
@@ -102,7 +102,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_array_from_elements_expr(&mut self, expression: &mut ArrayFromElementsExpr) {
-        self.walk_array_from_elements_expr(expression);
+        self.walk(expression);
         let element_type = expression.element_type.borrow();
         for element in expression.elements.iter() {
             if *element.type_().borrow() != *element_type {
@@ -116,7 +116,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_call_expr(&mut self, expression: &mut CallExpr) {
-        self.walk_call_expr(expression);
+        self.walk(expression);
         let parameters = &expression.function.borrow().parameters;
 
         if parameters.len() != expression.arguments.len() {
@@ -129,7 +129,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_deref_expr(&mut self, expression: &mut DerefExpr) {
-        self.walk_deref_expr(expression);
+        self.walk(expression);
         if !expression.pointer.type_().borrow().is_pointer() {
             self.errors.push(format!(
                 "deref expr for target of non-pointer type `{}`",
@@ -139,7 +139,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_field_access_expr(&mut self, expression: &mut FieldAccessExpr) {
-        self.walk_field_access_expr(expression);
+        self.walk(expression);
         let receiver_type = expression.receiver.type_().borrow();
         if !receiver_type.fields.iter().any(|f| *f == expression.field) {
             self.errors.push(format!(
@@ -151,7 +151,7 @@ impl<'a> CodeVisitor for ValidityChecker<'a> {
     }
 
     fn visit_if_expr(&mut self, expression: &mut IfExpr) {
-        self.walk_if_expr(expression);
+        self.walk(expression);
         if !expression.cond.type_().borrow().is_bool() {
             self.errors.push(format!(
                 "`if` condition has type `{}`",

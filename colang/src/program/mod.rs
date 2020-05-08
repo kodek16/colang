@@ -8,7 +8,7 @@ mod field;
 pub(crate) mod function;
 pub(crate) mod instructions;
 pub(crate) mod internal;
-pub mod transforms;
+pub mod visitors;
 mod typing;
 mod variable;
 

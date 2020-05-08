@@ -8,6 +8,10 @@ use crate::scope::{FreeScope, FunctionEntity};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// A unique identifier of an internal function.
+///
+/// Internal functions have to be treated specially by backends. This identifier helps backend
+/// understand which function exactly they need to handle.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub enum InternalFunctionTag {
     Assert,

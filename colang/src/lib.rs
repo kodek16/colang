@@ -124,7 +124,7 @@ fn analyze(
         .scope
         .lookup::<FunctionEntity>("main", SourceOrigin::Plain(InputSpan::top_of_file()));
     if let Ok(main_function) = main_function {
-        context.program.fill_main_function(main_function);
+        context.program.main_function = Some(main_function);
     } else {
         let error = CompilationError::main_function_not_found();
         context.errors.push(error);

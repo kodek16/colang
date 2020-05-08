@@ -1,6 +1,6 @@
-//! This module defines various types that bind generated program IR with the actual source code.
+//! Bindings between generated program IR and the actual source code.
 
-/// Represents a substring (interval) of a file with source code.
+/// A substring (interval) of a file with source code.
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub struct InputSpan {
     /// Source file identifier.
@@ -41,7 +41,7 @@ impl InputSpan {
     }
 }
 
-/// Represents the original location in source code of some target language expression or statement.
+/// The original location in source code of some target language expression or statement.
 ///
 /// If an expression was synthesised (e.g. through auto-deref), this information is also contained
 /// in its `SourceOrigin` so that it can be included in potential error messages.

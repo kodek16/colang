@@ -1,3 +1,5 @@
+//! Debug printing for program IR through s-expressions.
+
 use crate::program::*;
 use sexp::{sexp_int, sexp_list, sexp_str, Atom, Sexp, ToSexp};
 use std::fmt;
@@ -25,8 +27,7 @@ impl ToSexp for Program {
             sexp_list!(
                 sexp_str!("functions"),
                 Sexp::List(
-                    self.user_functions
-                        .iter()
+                    self.all_user_functions()
                         .map(|function| function.borrow().to_full_sexp())
                         .collect()
                 ),

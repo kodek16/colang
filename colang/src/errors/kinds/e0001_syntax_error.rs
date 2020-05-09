@@ -1,6 +1,6 @@
 use crate::ast::ParseError;
-use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
 use crate::errors::CompilationError;
+use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
 
 pub fn syntax_error(err: ParseError, file: InputSpanFile) -> CompilationError {
     let (message, location) = match err {

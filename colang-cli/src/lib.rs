@@ -1,51 +1,83 @@
+use clap::{App, AppSettings, Arg, SubCommand};
 use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-use std::env::Args;
-use std::fs;
-
 use colang::backends::Backend;
 use colang::errors::CompilationError;
 use colang_c_target::CBackend;
 use colang_interpreter::InterpreterBackend;
+use std::fs;
+
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 pub struct Config {
     pub source_path: String,
-    pub backend: Box<dyn Backend>,
 
-    /// Instead of executing the program, dump an s-exp representation of it to stdout.
-    pub debug: bool,
+    /// The expected compiler behavior.
+    pub target: Target,
 
     /// A flag for integration tests: this allows to better capture output. There is
     /// no way to set it through command-line.
     pub plaintext_compilation_errors: bool,
 }
 
+/// Expected result of running the compiler.
+pub enum Target {
+    /// Dump the internal debug information from the frontend.
+    Debug,
+
+    /// Expect successful compilation and pass the result to a backend.
+    Run(Box<dyn Backend>),
+}
+
 impl Config {
-    /// Parse command line arguments.
-    pub fn new(args: Args) -> Result<Config, &'static str> {
-        // TODO use a command line parser library.
-        let mut args: Vec<String> = args.skip(1).collect();
+    pub fn new() -> Config {
+        let program = || {
+            Arg::with_name("PROGRAM")
+                .help("Sets the file with the CO program")
+                .required(true)
+                .index(1)
+        };
 
-        let debug = args.iter().any(|a| a == "--debug");
-        let compile = args.iter().any(|a| a == "--compile");
+        let matches = App::new("colang")
+            .version(VERSION)
+            .about("Compiler and interpreter for the CO language")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
+            .subcommand(
+                SubCommand::with_name("run")
+                    .about("Executes the program in an interpreter")
+                    .arg(program()),
+            )
+            .subcommand(
+                SubCommand::with_name("compile")
+                    .about("Compiles the program into C/C++ code")
+                    .arg(program())
+                    .arg(
+                        Arg::with_name("output")
+                            .short("o")
+                            .long("--output")
+                            .takes_value(true)
+                            .help("Sets the path for the generated C/C++ file"),
+                    ),
+            )
+            .subcommand(
+                SubCommand::with_name("internal-dump-ir")
+                    .about("Prints the internal program IR (internal command)")
+                    .arg(program()),
+            )
+            .get_matches();
 
-        // Drop flags.
-        args.retain(|f| !f.starts_with("--"));
+        let (subcommand, sub_matches) = matches.subcommand();
+        let sub_matches = sub_matches.unwrap();
 
-        if args.len() >= 1 {
-            let source_path = args[0].to_owned();
-            Ok(Config {
-                source_path,
-                backend: if compile {
-                    Box::new(CBackend)
-                } else {
-                    Box::new(InterpreterBackend)
-                },
-                debug,
-                plaintext_compilation_errors: false,
-            })
-        } else {
-            return Err("Missing path to source file");
+        Config {
+            source_path: sub_matches.value_of("PROGRAM").unwrap().to_string(),
+            target: match subcommand {
+                "run" => Target::Run(Box::new(InterpreterBackend)),
+                "compile" => Target::Run(Box::new(CBackend::new(sub_matches.value_of("output")))),
+                "internal-dump-ir" => Target::Debug,
+                _ => panic!("Unknown subcommand"),
+            },
+            plaintext_compilation_errors: false,
         }
     }
 }
@@ -71,34 +103,34 @@ pub fn run(config: Config) -> RunResult {
         }
     };
 
-    if config.debug {
-        let result = colang::debug(&source_code);
-        return if result.is_ok() {
-            RunResult::Ok
-        } else {
-            RunResult::CompilerError
-        };
-    }
-
-    let program = match colang::compile(&source_code) {
-        Ok(program) => program,
-        Err(errors) => {
-            report_compilation_errors(
-                &config.source_path,
-                &source_code,
-                &errors,
-                config.plaintext_compilation_errors,
-            );
-            return RunResult::CompilerError;
+    match config.target {
+        Target::Debug => {
+            let result = colang::debug(&source_code);
+            if result.is_ok() {
+                RunResult::Ok
+            } else {
+                RunResult::CompilerError
+            }
         }
-    };
+        Target::Run(backend) => {
+            let program = match colang::compile(&source_code) {
+                Ok(program) => program,
+                Err(errors) => {
+                    report_compilation_errors(
+                        &config.source_path,
+                        &source_code,
+                        &errors,
+                        config.plaintext_compilation_errors,
+                    );
+                    return RunResult::CompilerError;
+                }
+            };
 
-    match config
-        .backend
-        .run(&config.source_path, &source_code, program)
-    {
-        Ok(()) => RunResult::Ok,
-        Err(()) => RunResult::RuntimeError,
+            match backend.run(&config.source_path, &source_code, program) {
+                Ok(()) => RunResult::Ok,
+                Err(()) => RunResult::RuntimeError,
+            }
+        }
     }
 }
 

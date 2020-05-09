@@ -4,13 +4,27 @@ use colang::backends::Backend;
 use colang::program::*;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 mod names;
 mod prelude;
 mod printer;
 
-pub struct CBackend;
+pub struct CBackend {
+    target_path: Option<PathBuf>,
+}
+
+impl CBackend {
+    /// Initializes a C backend.
+    ///
+    /// `target_path` should be the desired path to the generated C file. If omitted, it is
+    /// generated from source path by replacing `.co` extension with `.cpp`.
+    pub fn new(target_path: Option<impl Into<PathBuf>>) -> CBackend {
+        CBackend {
+            target_path: target_path.map(|p| p.into()),
+        }
+    }
+}
 
 impl Backend for CBackend {
     fn run(&self, file_name: &str, _: &str, program: Program) -> Result<(), ()> {
@@ -21,7 +35,10 @@ impl Backend for CBackend {
             .write_program(&mut names, &program)
             .expect("Error occurred while writing the compiled C/C++ program");
 
-        let target_path = Path::new(file_name).with_extension("cpp");
+        let target_path = self
+            .target_path
+            .clone()
+            .unwrap_or_else(|| Path::new(file_name).with_extension("cpp"));
         let mut target_file = match File::create(&target_path) {
             Ok(file) => file,
             Err(error) => {

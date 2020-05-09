@@ -12,8 +12,8 @@ fn good_compile(path: &str) {
         .expect("Could not copy source file to temporary directory");
 
     let status = Command::new(env!("CARGO_BIN_EXE_colang-cli"))
+        .arg("compile")
         .arg(&source_path)
-        .arg("--compile")
         .status()
         .expect("colang-cli failed to execute");
 

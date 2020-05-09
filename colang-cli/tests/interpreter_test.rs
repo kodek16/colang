@@ -1,14 +1,13 @@
 use test_generator::test_resources;
 
-use colang_cli::{Config, RunResult};
+use colang_cli::{Config, RunResult, Target};
 use colang_interpreter::InterpreterBackend;
 
 #[test_resources("colang-cli/tests/samples/good/**/*.co")]
 fn good_interpret(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
-        backend: Box::new(InterpreterBackend),
-        debug: false,
+        target: Target::Run(Box::new(InterpreterBackend)),
         plaintext_compilation_errors: false,
     };
 
@@ -20,8 +19,7 @@ fn good_interpret(path: &str) {
 fn compile_error(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
-        backend: Box::new(InterpreterBackend),
-        debug: false,
+        target: Target::Run(Box::new(InterpreterBackend)),
         plaintext_compilation_errors: true,
     };
 
@@ -33,8 +31,7 @@ fn compile_error(path: &str) {
 fn runtime_error_interpret(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
-        backend: Box::new(InterpreterBackend),
-        debug: false,
+        target: Target::Run(Box::new(InterpreterBackend)),
         plaintext_compilation_errors: false,
     };
 

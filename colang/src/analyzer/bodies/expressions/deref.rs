@@ -1,6 +1,6 @@
 use super::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::program::Type;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
@@ -21,7 +21,7 @@ pub fn compile_deref_expr(
     }
 
     if !pointer.type_().borrow().is_pointer() {
-        let error = CompilationError::can_only_dereference_pointer(&pointer);
+        let error = errors::deref_operand_not_pointer(&pointer);
         context.errors.push(error);
         return program::Expression::error(expression.span);
     }

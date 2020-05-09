@@ -1,8 +1,7 @@
 use super::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
 use crate::source::SourceOrigin;
-use crate::{ast, program};
+use crate::{ast, errors, program};
 
 pub fn compile_unary_op_expression(
     expression: ast::UnaryOperatorExpr,
@@ -16,7 +15,7 @@ pub fn compile_unary_op_expression(
     match expression.operator {
         ast::UnaryOperator::LogicalNot => {
             if !operand.type_().borrow().is_bool() {
-                let error = CompilationError::logical_operator_operand_wrong_type(
+                let error = errors::logical_operator_operand_wrong_type(
                     &expression.operator.to_string(),
                     &operand,
                 );

@@ -5,7 +5,7 @@ mod statements;
 
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::visitor::GlobalVisitor;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::program::function::FunctionBody;
 use crate::program::{ExpressionKind, Function, Type, Variable};
 use crate::scope::VariableEntity;
@@ -113,7 +113,7 @@ fn fill_function_body(
             && !return_type.borrow().is_error()
             && body_type != return_type
         {
-            let error = CompilationError::function_body_type_mismatch(&function.borrow(), &body);
+            let error = errors::function_body_type_mismatch(&function.borrow(), &body);
             context.errors.push(error);
         }
     }
@@ -146,8 +146,7 @@ fn maybe_deref(
 fn check_condition_is_bool(condition: &program::Expression, context: &mut CompilerContext) {
     let cond_type = condition.type_();
     if !cond_type.borrow().is_bool() {
-        let error =
-            CompilationError::condition_is_not_bool(&cond_type.borrow(), condition.location());
+        let error = errors::condition_not_bool(&cond_type.borrow(), condition.location());
         context.errors.push(error);
     }
 }
@@ -161,7 +160,7 @@ fn check_argument_types(
 ) -> Result<(), ()> {
     let function = function.borrow();
     if function.parameters.len() != arguments.len() {
-        let error = CompilationError::call_wrong_number_of_arguments(
+        let error = errors::call_wrong_number_of_arguments(
             &function,
             arguments.len(),
             SourceOrigin::Plain(span),
@@ -175,8 +174,7 @@ fn check_argument_types(
     let mut had_errors = false;
     for (argument, parameter) in arguments.iter().zip(parameters) {
         if *argument.type_() != parameter.borrow().type_ {
-            let error =
-                CompilationError::call_argument_type_mismatch(&argument, &parameter.borrow());
+            let error = errors::call_argument_type_mismatch(&argument, &parameter.borrow());
             context.errors.push(error);
             had_errors = true;
         }

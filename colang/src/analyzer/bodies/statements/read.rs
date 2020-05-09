@@ -1,10 +1,9 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
 use crate::program::expressions::block::BlockBuilder;
 use crate::program::{ExpressionKind, ValueCategory};
 use crate::source::SourceOrigin;
-use crate::{ast, program};
+use crate::{ast, errors, program};
 
 pub fn compile_read_stmt(
     statement: ast::ReadStmt,
@@ -28,7 +27,7 @@ fn compile_read_entry(
     }
 
     if target.value_category() != ValueCategory::Lvalue {
-        let error = CompilationError::read_target_not_lvalue(target.location());
+        let error = errors::read_target_not_lvalue(target.location());
         context.errors.push(error);
         return;
     }
@@ -38,13 +37,13 @@ fn compile_read_entry(
 
         if whole_line {
             if !target_type.is_string() {
-                let error = CompilationError::readln_unsupported_type(&target);
+                let error = errors::readln_unsupported_type(&target);
                 context.errors.push(error);
                 return;
             }
         } else {
             if !target_type.is_int() && !target_type.is_string() {
-                let error = CompilationError::read_unsupported_type(&target);
+                let error = errors::read_unsupported_type(&target);
                 context.errors.push(error);
                 return;
             }

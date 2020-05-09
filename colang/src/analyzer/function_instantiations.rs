@@ -3,7 +3,7 @@
 
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast::FunctionDef;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::program::function::FunctionBody;
 use crate::program::visitors::LocalVisitor;
 use crate::program::{CallExpr, Function, Program, Type, TypeRegistry};
@@ -50,7 +50,7 @@ fn process_function(function: Rc<RefCell<Function>>, context: &mut CompilerConte
                 );
 
                 if let Err(function_chain) = result {
-                    let error = CompilationError::function_infinite_dependency_chain(
+                    let error = errors::function_infinite_dependency_chain(
                         &called_function.borrow(),
                         function_chain,
                         *call_site,

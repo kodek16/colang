@@ -1,4 +1,4 @@
-use crate::errors::CompilationError;
+use crate::errors::{self, CompilationError};
 use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::types::{Type, TypeId, TypeInstantiationData, TypeInstantiationStatus};
 use crate::program::{Program, SymbolId};
@@ -175,7 +175,7 @@ impl TypeTemplate {
 
         let template = template.borrow();
         if type_arguments.len() != template.type_parameters.len() {
-            return Err(CompilationError::wrong_number_of_type_template_arguments(
+            return Err(errors::wrong_number_of_type_template_arguments(
                 &template,
                 type_arguments.len(),
                 SourceOrigin::Plain(location.expect(

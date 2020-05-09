@@ -1,10 +1,9 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
 use crate::program::expressions::block::BlockBuilder;
 use crate::program::{ExpressionKind, InternalFunctionTag, TypeId};
 use crate::source::SourceOrigin;
-use crate::{ast, program};
+use crate::{ast, errors, program};
 use std::rc::Rc;
 
 pub fn compile_write_stmt(
@@ -36,7 +35,7 @@ pub fn compile_write_stmt(
             )
         }
         _ => {
-            let error = CompilationError::write_value_is_not_stringable(&expression);
+            let error = errors::write_value_not_stringable(&expression);
             context.errors.push(error);
             return;
         }

@@ -1,7 +1,7 @@
 use super::compile_expression;
 use crate::analyzer::bodies::check_argument_types;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -54,7 +54,7 @@ pub fn compile_index_expr(
             context.program.types_mut(),
         )
     } else {
-        let error = CompilationError::index_method_returns_not_pointer(
+        let error = errors::index_method_returns_not_pointer(
             &collection_type.borrow().name,
             &pointer.type_().borrow().name,
             SourceOrigin::Plain(expression.span),

@@ -3,12 +3,11 @@
 
 use crate::analyzer::type_exprs;
 use crate::analyzer::visitor::GlobalVisitor;
-use crate::ast;
-use crate::errors::CompilationError;
 use crate::program::{Field, Function, Type, Variable};
 use crate::scope::{FunctionEntity, VariableEntity};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
+use crate::{ast, errors};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -63,9 +62,9 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
         let self_parameter = match self_parameter {
             Some(parameter) => compile_self_parameter(&parameter, Rc::clone(current_type), context),
             None => {
-                let error = CompilationError::method_first_parameter_is_not_self(
-                    SourceOrigin::Plain(method_def.signature_span),
-                );
+                let error = errors::method_first_parameter_is_not_self(SourceOrigin::Plain(
+                    method_def.signature_span,
+                ));
                 context.errors.push(error);
 
                 // For better error recovery.
@@ -85,9 +84,8 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             .iter()
             .flat_map(|parameter| match parameter {
                 ast::Parameter::Self_(parameter) => {
-                    let error = CompilationError::self_is_not_first_parameter(SourceOrigin::Plain(
-                        parameter.span,
-                    ));
+                    let error =
+                        errors::self_is_not_first_parameter(SourceOrigin::Plain(parameter.span));
                     context.errors.push(error);
                     None
                 }
@@ -132,7 +130,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
             .iter()
             .flat_map(|parameter| match parameter {
                 ast::Parameter::Self_(parameter) => {
-                    let error = CompilationError::self_not_in_method_signature(
+                    let error = errors::self_not_in_method_signature(
                         &function_def,
                         SourceOrigin::Plain(parameter.span),
                     );

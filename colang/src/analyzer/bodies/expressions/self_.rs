@@ -1,5 +1,5 @@
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -17,8 +17,7 @@ pub fn compile_self_expr(
             context.program.types_mut(),
         ),
         None => {
-            let error =
-                CompilationError::self_in_function_body(SourceOrigin::Plain(expression.span));
+            let error = errors::self_in_function_body(SourceOrigin::Plain(expression.span));
             context.errors.push(error);
             program::Expression::error(expression.span)
         }

@@ -1,6 +1,6 @@
 //! Named entity visibility hierarchy management.
 
-use crate::errors::CompilationError;
+use crate::errors::{self, CompilationError};
 use crate::program::{Field, Function, Type, TypeTemplate, Variable};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -79,7 +79,7 @@ impl<G: GeneralNamedEntity> Scope<G> {
         let existing = self.lookup_self(&name);
         match existing {
             Some(existing) => {
-                let error = CompilationError::named_entity_already_defined(
+                let error = errors::named_entity_already_defined(
                     &name,
                     existing,
                     definition_site
@@ -116,7 +116,7 @@ impl<G: GeneralNamedEntity> Scope<G> {
             Some(entity) => match S::try_from(entity.clone()) {
                 Ok(target) => Ok(target.item()),
                 Err(_) => {
-                    let error = CompilationError::named_entity_kind_mismatch(
+                    let error = errors::named_entity_kind_mismatch(
                         name,
                         S::kind(),
                         entity,
@@ -125,7 +125,7 @@ impl<G: GeneralNamedEntity> Scope<G> {
                     Err(error)
                 }
             },
-            None => Err(CompilationError::named_entity_not_found(
+            None => Err(errors::named_entity_not_found(
                 name,
                 S::kind(),
                 reference_location,

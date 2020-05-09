@@ -36,14 +36,10 @@ use std::rc::Rc;
 /// a target language.
 pub fn compile(source_code: &str) -> Result<program::Program, Vec<CompilationError>> {
     let std_ast = parse(stdlib::STD_SOURCE, InputSpanFile::Std)
-        .map_err(|err| vec![CompilationError::syntax_error(err, InputSpanFile::Std)])?;
+        .map_err(|err| vec![errors::syntax_error(err, InputSpanFile::Std)])?;
 
-    let program_ast = parse(&source_code, InputSpanFile::UserProgram).map_err(|err| {
-        vec![CompilationError::syntax_error(
-            err,
-            InputSpanFile::UserProgram,
-        )]
-    })?;
+    let program_ast = parse(&source_code, InputSpanFile::UserProgram)
+        .map_err(|err| vec![errors::syntax_error(err, InputSpanFile::UserProgram)])?;
 
     let mut program = analyze(vec![std_ast, program_ast]).map_err(|(_, errors)| errors)?;
 
@@ -126,7 +122,7 @@ fn analyze(
     if let Ok(main_function) = main_function {
         context.program.main_function = Some(main_function);
     } else {
-        let error = CompilationError::main_function_not_found();
+        let error = errors::main_function_not_found();
         context.errors.push(error);
     }
 
@@ -168,7 +164,7 @@ fn sort_types(context: &mut CompilerContext) {
     match result {
         Ok(types) => context.program.sorted_types = Some(types),
         Err(cycle) => {
-            let error = CompilationError::type_cycle_through_fields(cycle);
+            let error = errors::type_cycle_through_fields(cycle);
             context.errors.push(error);
         }
     }

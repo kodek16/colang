@@ -1,6 +1,6 @@
 use super::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::program::{ExpressionKind, Type, ValueCategory};
 use crate::source::SourceOrigin;
 use crate::{ast, program};
@@ -17,7 +17,7 @@ pub fn compile_address_expr(
     let target = compile_expression(*expression.target, hint, context);
 
     if target.value_category() != ValueCategory::Lvalue {
-        let error = CompilationError::address_of_rvalue(target.location());
+        let error = errors::address_of_rvalue(target.location());
         context.errors.push(error);
         return program::Expression::error(expression.span);
     }

@@ -1,6 +1,6 @@
 //! Escape sequence handling for character and string literals.
 
-use crate::errors::CompilationError;
+use crate::errors::{self, CompilationError};
 use crate::source::{InputSpan, SourceOrigin};
 
 pub fn unescape(text: &str, span: InputSpan) -> Result<Vec<u8>, CompilationError> {
@@ -20,7 +20,7 @@ pub fn unescape(text: &str, span: InputSpan) -> Result<Vec<u8>, CompilationError
                 b't' => b'\t',
                 b'0' => b'\0',
                 _ => {
-                    let error = CompilationError::unknown_escape_sequence(
+                    let error = errors::unknown_escape_sequence(
                         &format!("\\{}", *next_character as char),
                         SourceOrigin::Plain(span),
                     );

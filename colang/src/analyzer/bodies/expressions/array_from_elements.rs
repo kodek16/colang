@@ -1,6 +1,6 @@
 use super::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::program::Type;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
@@ -26,9 +26,8 @@ pub fn compile_array_from_elements_expr(
         None => match type_hint.and_then(|hint| hint.borrow().array_element_type()) {
             Some(element_type) => element_type,
             None => {
-                let error = CompilationError::cannot_infer_empty_array_type(SourceOrigin::Plain(
-                    expression.span,
-                ));
+                let error =
+                    errors::cannot_infer_empty_array_type(SourceOrigin::Plain(expression.span));
                 context.errors.push(error);
                 return program::Expression::error(expression.span);
             }
@@ -40,10 +39,7 @@ pub fn compile_array_from_elements_expr(
         .flat_map(|element| {
             let element_type = element.type_();
             if *element_type != inferred_type {
-                Some(CompilationError::array_elements_type_mismatch(
-                    &elements[0],
-                    &element,
-                ))
+                Some(errors::array_elements_type_mismatch(&elements[0], &element))
             } else {
                 None
             }

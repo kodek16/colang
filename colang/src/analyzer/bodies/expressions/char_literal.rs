@@ -1,5 +1,5 @@
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::source::SourceOrigin;
 use crate::{ast, escapes, program};
 
@@ -17,10 +17,8 @@ pub fn compile_char_literal_expr(
     };
 
     if literal.len() != 1 {
-        let error = CompilationError::char_literal_bad_length(
-            literal.len(),
-            SourceOrigin::Plain(expression.span),
-        );
+        let error =
+            errors::char_literal_bad_length(literal.len(), SourceOrigin::Plain(expression.span));
         context.errors.push(error);
         return program::Expression::error(expression.span);
     };

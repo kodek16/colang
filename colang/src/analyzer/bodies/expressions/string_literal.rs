@@ -1,7 +1,6 @@
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
 use crate::source::SourceOrigin;
-use crate::{ast, escapes, program};
+use crate::{ast, errors, escapes, program};
 
 pub fn compile_string_literal_expr(
     expression: ast::StringLiteralExpr,
@@ -19,7 +18,7 @@ pub fn compile_string_literal_expr(
     let literal = match String::from_utf8(literal) {
         Ok(literal) => literal,
         Err(_) => {
-            let error = CompilationError::literal_not_utf8(SourceOrigin::Plain(expression.span));
+            let error = errors::literal_not_utf8(SourceOrigin::Plain(expression.span));
             context.errors.push(error);
             return program::Expression::error(expression.span);
         }

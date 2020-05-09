@@ -1,6 +1,6 @@
 use super::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
@@ -20,7 +20,7 @@ pub fn compile_array_from_copy_expr(
     }
 
     if !size.type_().borrow().is_int() {
-        let error = CompilationError::array_size_not_int(&size);
+        let error = errors::array_size_not_int(&size);
         context.errors.push(error);
     }
 

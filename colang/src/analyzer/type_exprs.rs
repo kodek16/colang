@@ -1,11 +1,10 @@
 //! Utilities for analysing type expressions. Used in multiple passes.
 
-use crate::ast;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
 use crate::program::{Type, TypeTemplate};
 use crate::scope::{TypeEntity, TypeTemplateEntity};
 use crate::source::SourceOrigin;
+use crate::{ast, errors};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -30,7 +29,7 @@ pub fn compile_type_expr_and_ensure_complete(
     let type_ = compile_type_expr(&type_expr, context);
     let result = Type::ensure_is_fully_complete(Rc::clone(&type_), context.program.types_mut());
     if let Err(type_chain) = result {
-        let error = CompilationError::type_infinite_dependency_chain(
+        let error = errors::type_infinite_dependency_chain(
             &type_.borrow(),
             type_chain,
             SourceOrigin::Plain(type_expr.span()),
@@ -51,8 +50,7 @@ fn compile_scalar_type_expr(
 
     match type_ {
         Ok(type_) if type_.borrow().is_void() => {
-            let error =
-                CompilationError::explicit_reference_to_void(SourceOrigin::Plain(type_expr.span));
+            let error = errors::explicit_reference_to_void(SourceOrigin::Plain(type_expr.span));
             context.errors.push(error);
             Type::error()
         }

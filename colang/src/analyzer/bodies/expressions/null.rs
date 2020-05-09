@@ -1,5 +1,5 @@
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::program::Type;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
@@ -23,7 +23,7 @@ pub fn compile_null_expr(
             context.program.types_mut(),
         ),
         None => {
-            let error = CompilationError::cannot_infer_null_pointer_type(SourceOrigin::Plain(span));
+            let error = errors::cannot_infer_null_pointer_type(SourceOrigin::Plain(span));
             context.errors.push(error);
             program::Expression::error(span)
         }

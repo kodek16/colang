@@ -1,12 +1,11 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::type_exprs;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
 use crate::program::expressions::block::BlockBuilder;
 use crate::program::{Type, Variable};
 use crate::scope::VariableEntity;
 use crate::source::SourceOrigin;
-use crate::{ast, program};
+use crate::{ast, errors, program};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -42,7 +41,7 @@ fn compile_var_decl_entry(
         None => match initializer {
             Some(ref expr) => Rc::clone(expr.type_()),
             None => {
-                let error = CompilationError::variable_no_type_or_initializer(
+                let error = errors::variable_no_type_or_initializer(
                     &name.text,
                     SourceOrigin::Plain(declaration.span),
                 );
@@ -67,16 +66,14 @@ fn compile_var_decl_entry(
 
     if let Some(initializer) = initializer {
         if initializer.type_().borrow().is_void() {
-            let error = CompilationError::variable_initializer_is_void(&name.text, &initializer);
+            let error = errors::variable_initializer_is_void(&name.text, &initializer);
             context.errors.push(error);
             return;
         }
 
         if *initializer.type_() != variable.borrow().type_ {
-            let error = CompilationError::variable_initializer_type_mismatch(
-                &variable.borrow(),
-                &initializer,
-            );
+            let error =
+                errors::variable_initializer_type_mismatch(&variable.borrow(), &initializer);
             context.errors.push(error);
             return;
         }

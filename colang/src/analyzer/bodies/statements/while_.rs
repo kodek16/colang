@@ -1,10 +1,9 @@
 use crate::analyzer::bodies::check_condition_is_bool;
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
 use crate::program::expressions::block::BlockBuilder;
 use crate::source::SourceOrigin;
-use crate::{ast, program};
+use crate::{ast, errors, program};
 use std::rc::Rc;
 
 pub fn compile_while_stmt(
@@ -20,7 +19,7 @@ pub fn compile_while_stmt(
     let body = compile_expression(*statement.body, None, context);
 
     if !body.type_().borrow().is_void() {
-        let error = CompilationError::while_body_not_void(&body);
+        let error = errors::while_body_not_void(&body);
         context.errors.push(error)
     }
 

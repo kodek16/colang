@@ -1,7 +1,7 @@
 use super::compile_expression;
 use crate::analyzer::bodies::check_argument_types;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::program::{InternalFunctionTag, TypeId};
 use crate::source::{InputSpan, SourceOrigin};
 use crate::{ast, program};
@@ -71,7 +71,7 @@ fn compile_method_backed_binary_op_expr(
     let tag = match tag {
         Some(tag) => tag,
         None => {
-            let error = CompilationError::binary_operator_unsupported_types(
+            let error = errors::binary_operator_unsupported_types(
                 &operator.to_string(),
                 &lhs,
                 &rhs,
@@ -108,10 +108,7 @@ fn compile_logical_binary_op_expr(
 ) -> program::Expression {
     for operand in &[&lhs, &rhs] {
         if !operand.type_().borrow().is_bool() {
-            let error = CompilationError::logical_operator_operand_wrong_type(
-                &operator.to_string(),
-                operand,
-            );
+            let error = errors::logical_operator_operand_wrong_type(&operator.to_string(), operand);
             context.errors.push(error);
         }
     }

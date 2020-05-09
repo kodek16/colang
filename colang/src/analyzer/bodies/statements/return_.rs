@@ -1,9 +1,8 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
 use crate::program::expressions::block::BlockBuilder;
 use crate::source::SourceOrigin;
-use crate::{ast, program};
+use crate::{ast, errors, program};
 use std::rc::Rc;
 
 pub fn compile_return_stmt(
@@ -19,16 +18,14 @@ pub fn compile_return_stmt(
         .map(|expr| compile_expression(expr, Some(Rc::clone(&return_type)), context));
 
     if expression.is_some() && return_type.borrow().is_void() {
-        let error = CompilationError::return_stmt_with_value_in_void_function(
-            &function.borrow(),
-            expression.as_ref().unwrap(),
-        );
+        let error =
+            errors::return_value_in_void_function(&function.borrow(), expression.as_ref().unwrap());
         context.errors.push(error);
         return;
     }
 
     if expression.is_none() && !return_type.borrow().is_void() {
-        let error = CompilationError::return_stmt_without_value_in_non_void_function(
+        let error = errors::return_no_value_in_non_void_function(
             &function.borrow(),
             SourceOrigin::Plain(statement.span),
         );
@@ -48,8 +45,7 @@ pub fn compile_return_stmt(
     }
 
     if *expression.type_() != return_type {
-        let error =
-            CompilationError::return_statement_type_mismatch(&function.borrow(), &expression);
+        let error = errors::return_statement_type_mismatch(&function.borrow(), &expression);
         context.errors.push(error);
         return;
     }

@@ -21,7 +21,7 @@ mod unary_op;
 mod variable;
 
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::program::{ExpressionKind, Type};
 use crate::{ast, program};
 use std::cell::RefCell;
@@ -66,7 +66,7 @@ pub fn compile_expression(
     let result =
         Type::ensure_is_fully_complete(Rc::clone(expression.type_()), context.program.types_mut());
     if let Err(type_chain) = result {
-        let error = CompilationError::type_infinite_dependency_chain(
+        let error = errors::type_infinite_dependency_chain(
             &expression.type_().borrow(),
             type_chain,
             expression.location(),

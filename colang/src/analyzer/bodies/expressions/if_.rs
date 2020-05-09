@@ -1,7 +1,7 @@
 use super::compile_expression;
 use crate::analyzer::bodies::check_condition_is_bool;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
+use crate::errors;
 use crate::program::ExpressionKind;
 use crate::source::SourceOrigin;
 use crate::{ast, program};
@@ -24,8 +24,7 @@ pub fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> progr
     let then_type = then.type_();
 
     if else_.is_none() && !then_type.borrow().is_void() {
-        let error =
-            CompilationError::if_expression_missing_else(&then_type.borrow().name, then.location());
+        let error = errors::if_expression_missing_else(&then_type.borrow().name, then.location());
         context.errors.push(error);
         return program::Expression::error(if_.span);
     }
@@ -41,11 +40,8 @@ pub fn compile_if_expr(if_: ast::IfExpr, context: &mut CompilerContext) -> progr
     let else_type = else_.type_();
 
     if then_type != else_type {
-        let error = CompilationError::if_expression_branch_type_mismatch(
-            &then,
-            &else_,
-            SourceOrigin::Plain(span),
-        );
+        let error =
+            errors::if_expression_branch_type_mismatch(&then, &else_, SourceOrigin::Plain(span));
         context.errors.push(error);
         return program::Expression::error(if_.span);
     }

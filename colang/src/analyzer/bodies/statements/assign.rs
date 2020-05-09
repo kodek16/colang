@@ -1,10 +1,9 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
-use crate::errors::CompilationError;
 use crate::program::expressions::block::BlockBuilder;
 use crate::program::{ExpressionKind, ValueCategory};
 use crate::source::SourceOrigin;
-use crate::{ast, program};
+use crate::{ast, errors, program};
 use std::rc::Rc;
 
 pub fn compile_assign_stmt(
@@ -19,7 +18,7 @@ pub fn compile_assign_stmt(
     }
 
     if lhs.value_category() != ValueCategory::Lvalue {
-        let error = CompilationError::assignment_target_not_lvalue(lhs.location());
+        let error = errors::assignment_target_not_lvalue(lhs.location());
         context.errors.push(error);
         return;
     }
@@ -28,11 +27,8 @@ pub fn compile_assign_stmt(
     let rhs_type = rhs.type_();
 
     if lhs_type != rhs_type {
-        let error = CompilationError::assignment_type_mismatch(
-            &lhs,
-            &rhs,
-            SourceOrigin::Plain(statement.span),
-        );
+        let error =
+            errors::assignment_type_mismatch(&lhs, &rhs, SourceOrigin::Plain(statement.span));
         context.errors.push(error);
         return;
     }

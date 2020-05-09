@@ -183,7 +183,6 @@ dependencies = [
  "lalrpop-util",
  "petgraph 0.5.0",
  "regex",
- "sexp",
 ]
 
 [[package]]
@@ -774,10 +773,6 @@ dependencies = [
  "quote 1.0.3",
  "syn 1.0.17",
 ]
-
-[[package]]
-name = "sexp"
-version = "0.1.0"
 
 [[package]]
 name = "sha2"

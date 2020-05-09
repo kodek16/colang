@@ -16,4 +16,3 @@ enum_dispatch = "0.3.0"
 petgraph = "0.5.0"
 regex = "1"
 lalrpop-util = { git = "https://github.com/lalrpop/lalrpop", features = ["lexer"] }
-sexp = { path = "../sexp" }

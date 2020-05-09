@@ -1,11 +1,23 @@
+//! A miniature s-expression library with pretty-printing support.
+
 use std::cmp;
 
+/// An s-expression in a slightly modified form with list support.
+///
+/// S-expressions are an extremely simple data encoding format. The variant used here represents
+/// the encoded data as a tree where leaves are "atoms" and intermediate nodes are "lists".
 #[derive(Debug)]
 pub enum Sexp {
+    /// A leaf in the s-expression tree.
     Atom(Atom),
+
+    /// An intermediate node in the s-expression tree that contains other nodes.
     List(Vec<Sexp>),
 }
 
+/// A leaf in the s-expression tree.
+///
+/// The leaf payload can be either an integer or a string.
 #[derive(Debug)]
 pub enum Atom {
     Int(i32),
@@ -17,6 +29,15 @@ pub trait ToSexp {
 }
 
 impl Sexp {
+    pub fn int(value: i32) -> Sexp {
+        Sexp::Atom(Atom::Int(value))
+    }
+
+    pub fn str(value: impl Into<String>) -> Sexp {
+        Sexp::Atom(Atom::String(value.into()))
+    }
+
+    /// Prints the expression with indents and line wrapping.
     pub fn pretty_print(&self, line_wrap_len: usize) -> String {
         match self {
             Sexp::List(elements) => {
@@ -47,12 +68,8 @@ impl Sexp {
     }
 }
 
-impl Atom {
-    pub fn str(source: &str) -> Atom {
-        Atom::String(source.to_string())
-    }
-}
-
+// With how the current Rust macro system works, this is unfortunately exported in the root crate,
+// and so needs to be imported with `use crate::sexp_list`.
 #[macro_export]
 macro_rules! sexp_list {
     ( $( $elem:expr ),* ) => {{
@@ -63,27 +80,6 @@ macro_rules! sexp_list {
         Sexp::List(temp_vec)
     }};
     ( $( $elem:expr ,) * ) => ( sexp_list ! [ $( $elem ) , * ] );
-}
-
-#[macro_export]
-macro_rules! sexp_str {
-    ( $value:expr ) => {
-        Sexp::Atom(Atom::String(($value).to_string()))
-    };
-}
-
-#[macro_export]
-macro_rules! sexp_string {
-    ( $value:expr ) => {
-        Sexp::Atom(Atom::String($value))
-    };
-}
-
-#[macro_export]
-macro_rules! sexp_int {
-    ( $value:expr ) => {
-        Sexp::Atom(Atom::Int($value))
-    };
 }
 
 fn indent(text: &str) -> String {
@@ -99,4 +95,21 @@ fn indent(text: &str) -> String {
         .collect();
 
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pretty_print_no_wrap() {
+        let s = sexp_list!(Sexp::str("hello"), sexp_list!(Sexp::str("world")));
+        assert_eq!(s.pretty_print(80), "(hello (world))")
+    }
+
+    #[test]
+    fn test_pretty_print_wrap() {
+        let s = sexp_list!(Sexp::str("hello"), sexp_list!(Sexp::str("world")));
+        assert_eq!(s.pretty_print(8), "(hello\n (world))")
+    }
 }

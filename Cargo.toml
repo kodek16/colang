@@ -5,5 +5,4 @@ members = [
   "colang-cli",
   "colang-interpreter",
   "colang-c-target",
-  "sexp",
 ]

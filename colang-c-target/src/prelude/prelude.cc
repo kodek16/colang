@@ -1,18 +1,12 @@
 #include <ctype.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 
 #include <algorithm>
 #include <vector>
-
-#if _POSIX_C_SOURCE >= 200809L || _XOPEN_SOURCE >= 7000
-#else
-// TODO get rid of getline() calls and support non-POSIX.
-#error "C/C++ target for CO only supports POSIX platforms, it seems you are not using one"
-#endif
 
 #define static_str static const char *
 #define vec std::vector
@@ -126,54 +120,91 @@ T *vec_index(vec<T> *v, i32 i) {
     return &(*v)[i];
 }
 
+// Reads the next line from stdin, storing it in newly allocated *buf.
+//
+// Line length is returned from function. Newline character is not included.
 size_t raw_readln(char **buf) {
-    *buf = NULL;
-    size_t size = 0;
-    ssize_t ret = getline(buf, &size, stdin);
-    if (ret < 0) {
-        perror("Runtime error when reading line from stdin: ");
-        exit(1);
-    }
-    if ((*buf)[ret - 1] == '\n') {
-        (*buf)[ret - 1] = '\0';
-        --ret;
-    }
-    return (size_t) ret;
-}
+    static const char MARK = 0xFF;
 
-void raw_readword(char **out_buf, size_t *out_len) {
-    static char *line = NULL;
-    static size_t line_len;
-    static size_t next;
+    size_t buf_size = 16;
+    *buf = (char *) malloc(buf_size);
+    char *next = *buf;
 
     for (;;) {
-        if (line != NULL && next < line_len) {
-            while (!isalnum(line[next])) ++next;
+        (*buf)[buf_size - 1] = MARK;
+
+        if (fgets(next, buf_size - (next - *buf), stdin) == NULL) {
+            perror("Input error when reading line from stdin: ");
+            exit(1);
         }
 
-        if (line == NULL || next == line_len) {
-            if (line != NULL) free(line);
+        if (feof(stdin) || (*buf)[buf_size - 1] == MARK) {
+            break;
+        }
 
-            line_len = raw_readln(&line);
-            next = 0;
+        *buf = (char *) realloc(*buf, buf_size * 2);
+        if (*buf == NULL) {
+            perror("Could not allocate buffer for line read from stdin:");
+            exit(1);
+        }
+
+        next = *buf + (buf_size - 1);
+        buf_size *= 2;
+    }
+
+    size_t len = (next - *buf) + strlen(next);
+    if ((*buf)[len - 1] == '\n') {
+        (*buf)[len - 1] = '\0';
+        --len;
+    }
+
+    return len;
+}
+
+// Buffered words from the line currently being read by word.
+typedef struct {
+    char *line;
+    size_t line_len;
+    size_t next;
+} read_word_ctx_t;
+
+static read_word_ctx_t rwctx { NULL, 0, 0 };
+
+void raw_readword(char **out_buf, size_t *out_len) {
+    for (;;) {
+        if (rwctx.line != NULL && rwctx.next < rwctx.line_len) {
+            while (!isalnum(rwctx.line[rwctx.next])) ++rwctx.next;
+        }
+
+        if (rwctx.line == NULL || rwctx.next == rwctx.line_len) {
+            free(rwctx.line);
+            rwctx.line_len = raw_readln(&rwctx.line);
+            rwctx.next = 0;
             continue;
         }
 
         break;
     }
 
-    size_t end = next;
-    while (end < line_len && isalnum(line[end])) ++end;
+    size_t end = rwctx.next;
+    while (end < rwctx.line_len && isalnum(rwctx.line[end])) ++end;
 
-    *out_buf = line + next;
-    *out_len = end - next;
+    *out_buf = rwctx.line + rwctx.next;
+    *out_len = end - rwctx.next;
 
-    next = end;
+    rwctx.next = end;
 }
 
 void readln(str *target) {
-    char *buf;
-    size_t len = raw_readln(&buf);
+    free(rwctx.line);
+    rwctx.line = NULL;
+
+    char *buf = NULL;
+    size_t len = 0;
+    while (!len) {
+        free(buf);
+        len = raw_readln(&buf);
+    }
     *target = new vec<char>(buf, buf + len);
     free(buf);
 }

@@ -201,6 +201,7 @@ dependencies = [
  "colang",
  "colang-c-target",
  "colang-interpreter",
+ "speculate",
  "tempfile",
  "test-generator",
 ]
@@ -793,6 +794,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b8de496cf83d4ed58b6be86c3a275b8602f6ffe98d3024a869e124147a9a3ac"
 
 [[package]]
+name = "speculate"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cb45d32c801cddf308603926b7c3760db4fa2c66d84c64376b64eec860d005e"
+dependencies = [
+ "proc-macro2 0.4.30",
+ "quote 0.6.13",
+ "syn 0.14.9",
+ "unicode-xid 0.1.0",
+]
+
+[[package]]
 name = "string_cache"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -837,6 +850,17 @@ name = "strsim"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6446ced80d6c486436db5c078dde11a9f73d42b57fb273121e160b84f63d894c"
+
+[[package]]
+name = "syn"
+version = "0.14.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "261ae9ecaa397c42b960649561949d69311f08eeaea86a65696e6e46517cf741"
+dependencies = [
+ "proc-macro2 0.4.30",
+ "quote 0.6.13",
+ "unicode-xid 0.1.0",
+]
 
 [[package]]
 name = "syn"

@@ -41,11 +41,13 @@ impl Cin {
         self.remaining_words.clear();
 
         let mut line = String::new();
-        self.read_line_exact(&mut line)?;
+        while line == "" {
+            self.read_line_exact(&mut line)?;
 
-        // Remove the newline character that is present in all lines except the last one.
-        if line.ends_with('\n') {
-            line.pop();
+            // Remove the newline character that is present in all lines except the last one.
+            if line.ends_with('\n') {
+                line.pop();
+            }
         }
 
         Ok(line)

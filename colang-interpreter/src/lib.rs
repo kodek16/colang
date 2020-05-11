@@ -1,4 +1,7 @@
 //! Interpreter backend for CO can run the code right after it is compiled.
+//!
+//! Interpreter is meant to be the preferred option for development and quick iteration: it is
+//! slower that the C target, but provides better error diagnostics and more safety checks.
 
 mod cin;
 mod errors;
@@ -33,19 +36,37 @@ impl Backend for InterpreterBackend {
     }
 }
 
+/// Encapsulates the possibility of terminating evaluation early.
+///
+/// `RunResult` expresses the possibility that running some code may either complete and produce
+/// the desired value `T` (typically `Value` or `()`), or exit early due to a runtime error or
+/// some non-local control flow.
 type RunResult<T> = Result<T, EarlyExit>;
 
+/// Signifies that a computation exited early before producing its expected result.
 pub enum EarlyExit {
+    /// The computation encountered a return instruction.
     EarlyReturn(Value),
+
+    /// The computation encountered a runtime error.
     Error(RuntimeError),
 }
 
+/// The persistent state of the program.
 pub struct State {
+    /// Contains all instances of local variables.
+    ///
+    /// Instances of a variable are stored on a stack: a new instance is created and pushed on the
+    /// stack during every (potentially recursive) function call, and popped from the stack once
+    /// evaluating the enclosing block in its function call comes to an end.
     variables: HashMap<VariableId, Vec<Lvalue>>,
+
+    /// A buffered stdin handle.
     cin: Cin,
 }
 
 impl State {
+    /// Initializes a new, empty state.
     fn new() -> State {
         State {
             variables: HashMap::new(),
@@ -53,6 +74,7 @@ impl State {
         }
     }
 
+    /// Creates a new instance of a local variable, assigning it an initial value.
     fn push(&mut self, variable_id: VariableId, value: Rvalue) {
         self.variables
             .entry(variable_id)
@@ -60,6 +82,7 @@ impl State {
             .push(Lvalue::store(value))
     }
 
+    /// Destroys the most recently created instance of a local variable.
     fn pop(&mut self, variable_id: VariableId) {
         self.variables
             .get_mut(&variable_id)
@@ -68,6 +91,7 @@ impl State {
             .expect("variable deallocated twice");
     }
 
+    /// Accesses the most recently created instance of a local variable.
     fn get(&self, variable_id: VariableId) -> Value {
         Value::Lvalue(
             self.variables
@@ -81,15 +105,12 @@ impl State {
 }
 
 fn run_user_function(function: &Function, state: &mut State) -> RunResult<Value> {
-    let body = function.body();
-    let body = body.borrow();
-    run_expression(&body, state)
+    run_expression(&function.body().borrow(), state)
 }
 
 fn run_internal_function(
     function_tag: &InternalFunctionTag,
     arguments: Vec<Value>,
-    _state: &mut State,
 ) -> RunResult<Value> {
     use InternalFunctionTag::*;
     match function_tag {
@@ -234,7 +255,7 @@ fn run_literal_expr(expression: &LiteralExpr, _: &State) -> RunResult<Value> {
         LiteralValue::Int(value) => Value::Rvalue(Rvalue::Int(*value)),
         LiteralValue::Bool(value) => Value::Rvalue(Rvalue::Bool(*value)),
         LiteralValue::Char(value) => Value::Rvalue(Rvalue::Char(*value)),
-        LiteralValue::String(value) => Value::Rvalue(Rvalue::new_string(value)),
+        LiteralValue::String(value) => Value::Rvalue(Rvalue::from_str(value)),
     };
     Ok(value)
 }
@@ -247,8 +268,15 @@ fn run_address_expr(expression: &AddressExpr, state: &mut State) -> RunResult<Va
 fn run_deref_expr(expression: &DerefExpr, state: &mut State) -> RunResult<Value> {
     let lvalue = run_expression(&expression.pointer, state)?
         .into_rvalue()
-        .into_pointer_unwrap(Some(expression.pointer.location()))?;
-    Ok(Value::Lvalue(lvalue))
+        .into_pointer();
+
+    match lvalue {
+        Some(lvalue) => Ok(Value::Lvalue(lvalue)),
+        None => Err(RuntimeError::new(
+            "Attempt to dereference null pointer",
+            Some(expression.pointer.location()),
+        )),
+    }
 }
 
 fn run_new_expr(expression: &NewExpr, _: &mut State) -> RunResult<Value> {
@@ -348,7 +376,7 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
     let arguments_for_backtrace = arguments.clone();
 
     let result = match function.id {
-        FunctionId::Internal(ref tag) => run_internal_function(tag, arguments, state),
+        FunctionId::Internal(ref tag) => run_internal_function(tag, arguments),
         _ => {
             let parameters = function.parameters.iter();
 
@@ -455,11 +483,4 @@ fn default_value_for_struct(type_: &Type) -> Rvalue {
 
 fn panic_error() -> ! {
     panic!("Error-containing program passed to interpreter backend.")
-}
-
-pub fn panic_wrong_type(expected_type: &str, actual_type: &str) -> ! {
-    panic!(
-        "Runtime type mismatch: expected `{}`, got `{}`",
-        expected_type, actual_type
-    )
 }

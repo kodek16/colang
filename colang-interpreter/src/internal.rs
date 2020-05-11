@@ -1,4 +1,4 @@
-//! Internal symbols implementation.
+//! CO internal function implementations.
 
 use crate::errors::RuntimeError;
 use crate::{Lvalue, RunResult, Rvalue, Value};
@@ -7,9 +7,7 @@ use std::convert::TryFrom;
 use std::rc::Rc;
 
 pub fn assert(mut arguments: Vec<Value>) -> RunResult<Value> {
-    let value = arguments.remove(0);
-
-    let value = value.into_rvalue().as_bool();
+    let value = arguments.pop().unwrap().into_rvalue().as_bool();
     if !value {
         return Err(RuntimeError::new("Assertion failed", None));
     }
@@ -110,7 +108,7 @@ pub fn not_eq_int(mut arguments: Vec<Value>) -> RunResult<Value> {
 pub fn int_to_string(mut arguments: Vec<Value>) -> RunResult<Value> {
     let value = arguments.pop().unwrap().into_rvalue().as_int();
     let result = format!("{}", value);
-    Ok(Value::Rvalue(Rvalue::new_string(&result)))
+    Ok(Value::Rvalue(Rvalue::from_str(&result)))
 }
 
 pub fn array_concat(mut arguments: Vec<Value>) -> RunResult<Value> {
@@ -156,11 +154,12 @@ pub fn string_not_eq(arguments: Vec<Value>) -> RunResult<Value> {
 
 pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {
     let element = arguments.pop().unwrap().into_rvalue();
-    let array_pointer = arguments
-        .pop()
-        .unwrap()
-        .into_rvalue()
-        .into_pointer_to_self(None)?;
+    let array_pointer = arguments.pop().unwrap().into_rvalue().into_pointer();
+
+    let array_pointer = match array_pointer {
+        Some(pointer) => pointer,
+        None => return Err(RuntimeError::new("`self` is null in method", None)),
+    };
 
     array_pointer
         .detach()
@@ -171,11 +170,13 @@ pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {
 }
 
 pub fn array_pop(mut arguments: Vec<Value>) -> RunResult<Value> {
-    let array_pointer = arguments
-        .pop()
-        .unwrap()
-        .into_rvalue()
-        .into_pointer_to_self(None)?;
+    let array_pointer = arguments.pop().unwrap().into_rvalue().into_pointer();
+
+    let array_pointer = match array_pointer {
+        Some(pointer) => pointer,
+        None => return Err(RuntimeError::new("`self` is null in method", None)),
+    };
+
     let result = array_pointer.detach().into_array().borrow_mut().pop();
     match result {
         Some(result) => {

@@ -1,6 +1,12 @@
+//! Name generation for C symbols.
+
 use colang::program::{Field, FieldId, Function, FunctionId, Type, TypeId, Variable, VariableId};
 use std::collections::HashMap;
 
+/// A name registry that keeps track of C names assigned to various CO entities.
+///
+/// "Persistent" names must be first assigned through `add_*` methods, and only then accessed
+/// through `*_name` methods.
 pub trait CNameRegistry {
     fn type_name(&self, type_: &Type) -> &str;
     fn variable_name(&self, variable: &Variable) -> &str;
@@ -12,18 +18,23 @@ pub trait CNameRegistry {
     fn add_function(&mut self, function: &Function);
     fn add_field(&mut self, field: &Field);
 
+    /// Generates a unique one-off name for an expression.
+    ///
     /// Expression names are transient and not stored in the registry. Every call to this
     /// method returns a new unique name.
     fn expression_name(&mut self) -> String;
 }
 
+/// A name registry that uses consequent numbers with a short prefix for symbol names.
+///
+/// For example, types are named `t0`, `t1`, ...; functions `f0`, `f1`, ...; etc..
 pub struct NumericCNameRegistry {
     type_names: HashMap<TypeId, String>,
     variable_names: HashMap<VariableId, String>,
     function_names: HashMap<FunctionId, String>,
     field_names: HashMap<FieldId, String>,
 
-    // Names are generated as increasing integer sequence.
+    // Names are generated from an increasing integer sequence.
     next_type: usize,
     next_variable: usize,
     next_function: usize,

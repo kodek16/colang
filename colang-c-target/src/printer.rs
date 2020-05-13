@@ -22,32 +22,46 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         program: &Program,
     ) -> fmt::Result {
+        // Start with prelude.
         write!(self, "{}\n", crate::prelude::PRELUDE_SOURCE)?;
 
+        // Create C names for all user structs and arrays through forward-decls.
         for type_ in program.sorted_types() {
-            if type_.borrow().is_user_defined() {
+            if type_.borrow().is_user_defined() || type_.borrow().is_array() {
                 self.write_type_forward_decl(names, &type_.borrow())?;
+                write!(self, "\n")?;
+            }
+        }
+
+        // Generate definitions for all arrays.
+        for type_ in program.sorted_types() {
+            if type_.borrow().is_array() {
+                self.write_array_def(names, &type_.borrow())?;
             }
         }
         write!(self, "\n")?;
 
+        // Add type definitions for all user structs.
         for type_ in program.sorted_types() {
             if type_.borrow().is_user_defined() {
                 self.write_type_def(names, &type_.borrow())?;
+                write!(self, "\n")?;
             }
-            write!(self, "\n")?;
         }
 
+        // Create C names for all user functions through forward-decls.
         for function in program.all_user_functions() {
             self.write_function_forward_decl(names, &function.borrow())?;
         }
         write!(self, "\n")?;
 
+        // Add definitions for all user functions.
         for function in program.all_user_functions() {
             self.write_function_def(names, &function.borrow())?;
             write!(self, "\n")?;
         }
 
+        // Add the `main` stub.
         write!(
             self,
             "int main() {{\n  {}();\n}}\n",
@@ -65,18 +79,14 @@ impl CCodePrinter {
         names.add_type(&type_);
         let name = names.type_name(&type_);
 
-        write!(self, "struct /* {} */ {};\n", type_.name, name)?;
+        write!(self, "struct /* {} */ s_{};\n", type_.name, name)?;
+        write!(self, "typedef struct s_{0} {0};\n", name)?;
         write!(self, "void init_{}({}*);\n", name, name)?;
         Ok(())
     }
 
     fn write_type_def(&mut self, names: &mut impl CNameRegistry, type_: &Type) -> fmt::Result {
-        write!(
-            self,
-            "struct /* {} */ {} {{\n",
-            type_.name,
-            names.type_name(&type_),
-        )?;
+        write!(self, "typedef struct s_{} {{\n", names.type_name(&type_),)?;
         self.indent();
 
         for field in &type_.fields {
@@ -84,7 +94,7 @@ impl CCodePrinter {
         }
 
         self.dedent();
-        write!(self, "}};\n")?;
+        write!(self, "}} {};\n", names.type_name(&type_))?;
 
         write!(self, "void init_{0}({0}* p) {{\n", names.type_name(&type_))?;
         self.indent();
@@ -96,6 +106,16 @@ impl CCodePrinter {
 
         self.dedent();
         write!(self, "}}\n")?;
+
+        Ok(())
+    }
+
+    fn write_array_def(&mut self, names: &mut impl CNameRegistry, type_: &Type) -> fmt::Result {
+        write!(self, "define_array(")?;
+        self.write_type_name(names, &type_.array_element_type().unwrap().borrow())?;
+        write!(self, ", ")?;
+        self.write_type_name(names, &type_)?;
+        write!(self, ")\n")?;
 
         Ok(())
     }
@@ -174,8 +194,8 @@ impl CCodePrinter {
         let type_ = expression.type_().borrow();
         match **expression {
             Address(ref expr) => self.write_address_expr(names, expr),
-            ArrayFromCopy(ref expr) => self.write_array_from_copy_expr(names, expr),
-            ArrayFromElements(ref expr) => self.write_array_from_elements_expr(names, expr),
+            ArrayFromCopy(ref expr) => self.write_array_from_copy_expr(names, expr, &type_),
+            ArrayFromElements(ref expr) => self.write_array_from_elements_expr(names, expr, &type_),
             Block(ref block) => self.write_block_expr(names, block, &type_),
             BooleanOp(ref expr) => self.write_boolean_op_expr(names, expr),
             Call(ref expr) => self.write_call_expr(names, expr),
@@ -206,18 +226,30 @@ impl CCodePrinter {
         &mut self,
         names: &mut impl CNameRegistry,
         expression: &ArrayFromCopyExpr,
+        array_type: &Type,
     ) -> ExprWriteResult {
+        // TODO: emit runtime error if size <= 0.
         let expression_name = names.expression_name();
         let element_type = expression.element.type_().borrow();
 
         let element = self.write_expression(names, &expression.element)?.unwrap();
         let size = self.write_expression(names, &expression.size)?.unwrap();
 
-        write!(self, "vec<")?;
+        self.write_type_name(names, array_type)?;
+        write!(self, " {};\n", expression_name)?;
+        write!(self, "{}.data = (", expression_name)?;
         self.write_type_name(names, &element_type)?;
-        write!(self, ">* {} = new vec<", expression_name)?;
-        self.write_type_name(names, &element_type)?;
-        write!(self, ">({}, {});\n", size, element)?;
+        write!(self, " *) malloc({} * sizeof({}));\n", size, element)?;
+        write!(
+            self,
+            "{0}.len = {0}.capacity = {1};\n",
+            expression_name, size
+        )?;
+        write!(
+            self,
+            "for (int i = 0; i < {}; ++i) {}.data[i] = {};\n",
+            size, expression_name, element
+        )?;
 
         Ok(Some(expression_name))
     }
@@ -226,8 +258,10 @@ impl CCodePrinter {
         &mut self,
         names: &mut impl CNameRegistry,
         expression: &ArrayFromElementsExpr,
+        array_type: &Type,
     ) -> ExprWriteResult {
         let expression_name = names.expression_name();
+        let element_type = expression.element_type.borrow();
 
         let elements: Result<Vec<_>, _> = expression
             .elements
@@ -240,13 +274,29 @@ impl CCodePrinter {
             .map(|element| element.unwrap())
             .collect();
 
-        let element_type = expression.element_type.borrow();
+        self.write_type_name(names, array_type)?;
+        write!(self, " {};\n", expression_name)?;
 
-        write!(self, "vec<")?;
-        self.write_type_name(names, &element_type)?;
-        write!(self, ">* {} = new vec<", expression_name)?;
-        self.write_type_name(names, &element_type)?;
-        write!(self, "> {{ {} }};\n", elements.join(", "))?;
+        if !elements.is_empty() {
+            write!(self, "{}.data = (", expression_name)?;
+            self.write_type_name(names, &element_type)?;
+            write!(self, " *) malloc({} * sizeof(", elements.len())?;
+            self.write_type_name(names, &element_type)?;
+            write!(self, "));\n")?;
+
+            write!(
+                self,
+                "{0}.len = {0}.capacity = {1};\n",
+                expression_name,
+                elements.len()
+            )?;
+            for (index, element) in elements.iter().enumerate() {
+                write!(self, "{}.data[{}] = {};\n", expression_name, index, element)?;
+            }
+        } else {
+            self.write_init_function_name(names, array_type)?;
+            write!(self, "(&{});\n", expression_name)?;
+        }
 
         Ok(Some(expression_name))
     }
@@ -633,14 +683,10 @@ impl CCodePrinter {
                 self.write_type_name(names, &type_.pointer_target_type().unwrap().borrow())?;
                 write!(self, "*")
             }
-            TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
-                write!(self, "vec<")?;
-                self.write_type_name(names, &type_.array_element_type().unwrap().borrow())?;
-                write!(self, ">*")
-            }
 
-            TypeId::Struct(_) => write!(self, "{}", names.type_name(type_)),
-            TypeId::TemplateInstance(TypeTemplateId::Struct(_), _) => {
+            TypeId::Struct(_)
+            | TypeId::TemplateInstance(TypeTemplateId::Struct(_), _)
+            | TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
                 write!(self, "{}", names.type_name(type_))
             }
 
@@ -677,10 +723,28 @@ impl CCodePrinter {
             FunctionId::Internal(InternalFunctionTag::StringEq) => write!(self, "str_eq"),
             FunctionId::Internal(InternalFunctionTag::StringNotEq) => write!(self, "str_neq"),
 
-            FunctionId::Internal(InternalFunctionTag::ArrayPush(_)) => write!(self, "vec_push"),
-            FunctionId::Internal(InternalFunctionTag::ArrayPop(_)) => write!(self, "vec_pop"),
-            FunctionId::Internal(InternalFunctionTag::ArrayLen(_)) => write!(self, "vec_len"),
-            FunctionId::Internal(InternalFunctionTag::ArrayIndex(_)) => write!(self, "vec_index"),
+            FunctionId::Internal(InternalFunctionTag::ArrayPush(_)) => {
+                let self_parameter = function.parameters[0].borrow();
+                let array_type = self_parameter.type_.borrow().pointer_target_type().unwrap();
+                write!(self, "push_{}", names.type_name(&array_type.borrow()))?;
+                Ok(())
+            }
+            FunctionId::Internal(InternalFunctionTag::ArrayPop(_)) => {
+                let self_parameter = function.parameters[0].borrow();
+                let array_type = self_parameter.type_.borrow().pointer_target_type().unwrap();
+                write!(self, "pop_{}", names.type_name(&array_type.borrow()))?;
+                Ok(())
+            }
+            FunctionId::Internal(InternalFunctionTag::ArrayLen(_)) => {
+                let self_parameter = function.parameters[0].borrow();
+                let array_type = self_parameter.type_.borrow();
+                write!(self, "len_{}", names.type_name(&array_type))
+            }
+            FunctionId::Internal(InternalFunctionTag::ArrayIndex(_)) => {
+                let self_parameter = function.parameters[0].borrow();
+                let array_type = self_parameter.type_.borrow();
+                write!(self, "index_{}", names.type_name(&array_type))
+            }
 
             FunctionId::UserDefined(_) => write!(self, "{}", names.function_name(function)),
             FunctionId::InstantiatedMethod(_, _) => {
@@ -695,8 +759,9 @@ impl CCodePrinter {
         type_: &Type,
     ) -> fmt::Result {
         match &type_.type_id {
-            TypeId::TemplateInstance(TypeTemplateId::Array, _) => write!(self, "init_vec"),
-            TypeId::Struct(_) | TypeId::TemplateInstance(TypeTemplateId::Struct(_), _) => {
+            TypeId::Struct(_)
+            | TypeId::TemplateInstance(TypeTemplateId::Struct(_), _)
+            | TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
                 write!(self, "init_")?;
                 self.write_type_name(names, type_)
             }

@@ -26,8 +26,63 @@ typedef std::vector<char> *str;
 #define neq(a, b) ((a) != (b))
 
 #define init_0(v) memset(v, 0, sizeof(*v))
-template <typename T>
-void init_vec(vec<T> **v) { *v = new vec<T>; }
+
+#define define_array(T, array_T)                             \
+  typedef struct s_ ## array_T {                             \
+    T *data;                                                 \
+    size_t len;                                              \
+    size_t capacity;                                         \
+  } array_T;                                                 \
+                                                             \
+  void init_ ## array_T(array_T *v) {                        \
+    v->data = (T *) malloc(8 * sizeof(T));                   \
+    v->capacity = 8;                                         \
+    v->len = 0;                                              \
+  }                                                          \
+                                                             \
+  void push_ ## array_T(array_T *v, T x) {                   \
+    if (v->len == v->capacity) {                             \
+      v->data = (T *) realloc(v->data, v->capacity * 2);     \
+      if (v->data == NULL) {                                 \
+        perror("Out of memory error:");                      \
+        exit(1);                                             \
+      }                                                      \
+                                                             \
+      v->capacity *= 2;                                      \
+    }                                                        \
+                                                             \
+    v->data[v->len] = x;                                     \
+    ++(v->len);                                              \
+  }                                                          \
+                                                             \
+  T pop_ ## array_T(array_T *v) {                            \
+    if (v->len == 0) {                                       \
+      fprintf(                                               \
+          stderr,                                            \
+          "Error: cannot pop() from empty array\n");         \
+      exit(1);                                               \
+    }                                                        \
+                                                             \
+    --(v->len);                                              \
+    return v->data[v->len];                                  \
+  }                                                          \
+                                                             \
+  inline int32_t len_ ## array_T(array_T v) {                \
+    return v.len;                                            \
+  }                                                          \
+                                                             \
+  T *index_ ## array_T(array_T v, int32_t index) {           \
+    if (index < 0 || v.len <= index) {                       \
+      fprintf(                                               \
+          stderr,                                            \
+          "Error: array index %d out of bounds: size is %d", \
+          index,                                             \
+          (int32_t) v.len);                                  \
+      exit(1);                                               \
+    }                                                        \
+                                                             \
+    return &v.data[index];                                   \
+  }
 
 void co_assert(char cond) {
     if (!cond) {
@@ -96,28 +151,6 @@ char str_eq(str a, str b) {
 
 char str_neq(str a, str b) {
     return !str_eq(a, b);
-}
-
-template <typename T>
-void vec_push(vec<T> **v, T elem) {
-    (**v).push_back(elem);
-}
-
-template <typename T>
-T vec_pop(vec<T> **v) {
-    T elem = (**v).back();
-    (**v).pop_back();
-    return elem;
-}
-
-template <typename T>
-i32 vec_len(vec<T> *v) {
-    return v->size();
-}
-
-template <typename T>
-T *vec_index(vec<T> *v, i32 i) {
-    return &(*v)[i];
 }
 
 // Reads the next line from stdin, storing it in newly allocated *buf.

@@ -1,3 +1,15 @@
+//! C backend for CO compiler.
+//!
+//! C backend aims to achieve native performance, at least as good as "idiomatic" contest C++. To
+//! that end, it omits some runtime checks enabled in the interpreter, which may cause undefined
+//! and/or unsafe behavior if some contracts are violated. The encouraged workflow is to use the
+//! interpreter backend for writing and debugging code, and only compile it to C once you are sure
+//! that it works.
+//!
+//! The C code produced by the backend is compatible with C99 _and_ C++03, so that it could
+//! be used for as many contest judge systems as possible (even if some of them are still stuck
+//! on C++03).
+
 use crate::names::NumericCNameRegistry;
 use crate::printer::CCodePrinter;
 use colang::backends::Backend;
@@ -15,7 +27,7 @@ pub struct CBackend {
 }
 
 impl CBackend {
-    /// Initializes a C backend.
+    /// Initializes the C backend.
     ///
     /// `target_path` should be the desired path to the generated C file. If omitted, it is
     /// generated from source path by replacing `.co` extension with `.c`.

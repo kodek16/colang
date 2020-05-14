@@ -1,7 +1,29 @@
+//! Generating C code directly from CO code.
+
 use crate::names::CNameRegistry;
 use colang::program::*;
 use std::fmt::{self, Write};
 
+// These have to be macros because of the limitations of format! and concat! macros.
+macro_rules! version {
+    () => {
+        env!("CARGO_PKG_VERSION")
+    };
+}
+
+macro_rules! header {
+    () => {
+        r#"This C/C++ code was compiled from a higher-level code in CO.
+CO is a programming language designed specifically for contests and olympiads.
+Check it out at <link not yet available>.
+
+colang v{} was used.
+The original program code in CO is as follows:
+"#
+    };
+}
+
+/// A converter from CO program IR to C source code.
 pub struct CCodePrinter {
     code: String,
     indent_level: usize,
@@ -20,8 +42,13 @@ impl CCodePrinter {
     pub fn write_program(
         &mut self,
         names: &mut impl CNameRegistry,
+        source: &str,
         program: &Program,
     ) -> fmt::Result {
+        // Include the CO source as a comment at the top of the generated file.
+        write!(self, "{}\n", comment_out(&format!(header!(), version!())))?;
+        write!(self, "{}\n", comment_out(source))?;
+
         // Start with prelude.
         write!(self, "{}\n", crate::prelude::PRELUDE_SOURCE)?;
 
@@ -100,8 +127,12 @@ impl CCodePrinter {
         self.indent();
 
         for field in &type_.fields {
-            self.write_init_function_name(names, &field.borrow().type_.borrow())?;
-            write!(self, "(&(p->{}));\n", names.field_name(&field.borrow()))?;
+            write!(
+                self,
+                "{}(&(p->{}));\n",
+                init_function_name(names, &field.borrow().type_.borrow()),
+                names.field_name(&field.borrow())
+            )?;
         }
 
         self.dedent();
@@ -111,13 +142,12 @@ impl CCodePrinter {
     }
 
     fn write_array_def(&mut self, names: &mut impl CNameRegistry, type_: &Type) -> fmt::Result {
-        write!(self, "define_array(")?;
-        self.write_type_name(names, &type_.array_element_type().unwrap().borrow())?;
-        write!(self, ", ")?;
-        self.write_type_name(names, &type_)?;
-        write!(self, ")\n")?;
-
-        Ok(())
+        write!(
+            self,
+            "define_array({}, {});\n",
+            type_name(names, &type_.array_element_type().unwrap().borrow()),
+            type_name(names, &type_)
+        )
     }
 
     fn write_function_forward_decl(
@@ -127,17 +157,19 @@ impl CCodePrinter {
     ) -> fmt::Result {
         names.add_function(function);
 
-        self.write_type_name(names, &function.return_type.borrow())?;
-        write!(self, " {}(", names.function_name(function))?;
-
-        for (index, parameter) in function.parameters.iter().enumerate() {
-            if index > 0 {
-                write!(self, ", ")?;
-            }
-            self.write_type_name(names, &parameter.borrow().type_.borrow())?;
-        }
-
-        write!(self, "); /* {} */\n", function.name)
+        write!(
+            self,
+            "{} {}({}); /* {} */\n",
+            type_name(names, &function.return_type.borrow()),
+            names.function_name(function),
+            function
+                .parameters
+                .iter()
+                .map(|param| type_name(names, &param.borrow().type_.borrow()))
+                .collect::<Vec<_>>()
+                .join(", "),
+            function.name
+        )
     }
 
     fn write_function_def(
@@ -145,20 +177,28 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         function: &Function,
     ) -> fmt::Result {
-        self.write_type_name(names, &function.return_type.borrow())?;
-        write!(self, " {}(", names.function_name(function))?;
+        let parameters = function
+            .parameters
+            .iter()
+            .map(|param| {
+                names.add_variable(&param.borrow());
+                format!(
+                    "{} {}",
+                    type_name(names, &param.borrow().type_.borrow()),
+                    names.variable_name(&param.borrow())
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
 
-        for (index, parameter) in function.parameters.iter().enumerate() {
-            names.add_variable(&parameter.borrow());
+        write!(
+            self,
+            "{} {}({}) {{\n",
+            type_name(names, &function.return_type.borrow()),
+            names.function_name(function),
+            parameters
+        )?;
 
-            if index > 0 {
-                write!(self, ", ")?;
-            }
-            self.write_type_name(names, &parameter.borrow().type_.borrow())?;
-            write!(self, " {}", names.variable_name(&parameter.borrow()))?;
-        }
-
-        write!(self, ") {{\n")?;
         self.indent();
 
         let return_value = self.write_expression(names, &function.body().borrow())?;
@@ -167,24 +207,33 @@ impl CCodePrinter {
         }
 
         self.dedent();
-        write!(self, "}}\n")
+        write!(self, "}}\n")?;
+
+        Ok(())
     }
 
     fn write_field_def(&mut self, names: &mut impl CNameRegistry, field: &Field) -> fmt::Result {
         names.add_field(field);
 
-        self.write_type_name(names, &field.type_.borrow())?;
         write!(
             self,
-            " {}; /* {}: {} */\n",
+            "{} {}; /* {}: {} */\n",
+            type_name(names, &field.type_.borrow()),
             names.field_name(field),
             field.name,
             field.type_.borrow().name,
         )
     }
 
-    // Note: if `expression` is an lvalue, the returned `String` must be a C lvalue that can
-    // be assigned in the current context.
+    /// Writes the C code produced from a CO expression and returns its value.
+    ///
+    /// The string returned from this method in case of success must be a C expression valid in the
+    /// context directly after `expression` that evaluates in C to the value of the CO expression.
+    ///
+    /// The returned string must be a primary expression in C. That is, it must be bound together
+    /// with maximal tightness.
+    ///
+    /// If `expression` is an lvalue, the returned string must also be an lvalue in C.
     fn write_expression(
         &mut self,
         names: &mut impl CNameRegistry,
@@ -235,11 +284,20 @@ impl CCodePrinter {
         let element = self.write_expression(names, &expression.element)?.unwrap();
         let size = self.write_expression(names, &expression.size)?.unwrap();
 
-        self.write_type_name(names, array_type)?;
-        write!(self, " {};\n", expression_name)?;
-        write!(self, "{}.data = (", expression_name)?;
-        self.write_type_name(names, &element_type)?;
-        write!(self, " *) malloc({} * sizeof({}));\n", size, element)?;
+        write!(
+            self,
+            "{} {};\n",
+            type_name(names, &array_type),
+            expression_name
+        )?;
+        write!(
+            self,
+            "{}.data = ({} *) malloc({} * sizeof({}));\n",
+            expression_name,
+            type_name(names, &element_type),
+            size,
+            element
+        )?;
         write!(
             self,
             "{0}.len = {0}.capacity = {1};\n",
@@ -274,15 +332,21 @@ impl CCodePrinter {
             .map(|element| element.unwrap())
             .collect();
 
-        self.write_type_name(names, array_type)?;
-        write!(self, " {};\n", expression_name)?;
+        write!(
+            self,
+            "{} {};\n",
+            type_name(names, array_type),
+            expression_name
+        )?;
 
         if !elements.is_empty() {
-            write!(self, "{}.data = (", expression_name)?;
-            self.write_type_name(names, &element_type)?;
-            write!(self, " *) malloc({} * sizeof(", elements.len())?;
-            self.write_type_name(names, &element_type)?;
-            write!(self, "));\n")?;
+            write!(
+                self,
+                "{0}.data = ({1} *) malloc({2} * sizeof({1}));\n",
+                expression_name,
+                type_name(names, &element_type),
+                elements.len(),
+            )?;
 
             write!(
                 self,
@@ -294,8 +358,12 @@ impl CCodePrinter {
                 write!(self, "{}.data[{}] = {};\n", expression_name, index, element)?;
             }
         } else {
-            self.write_init_function_name(names, array_type)?;
-            write!(self, "(&{});\n", expression_name)?;
+            write!(
+                self,
+                "{}(&{});\n",
+                init_function_name(names, array_type),
+                expression_name
+            )?;
         }
 
         Ok(Some(expression_name))
@@ -316,11 +384,19 @@ impl CCodePrinter {
             let variable = variable.borrow();
             names.add_variable(&variable);
 
-            self.write_type_name(names, &variable.type_.borrow())?;
-            write!(self, " {};\n", names.variable_name(&variable))?;
+            write!(
+                self,
+                "{} {};\n",
+                type_name(names, &variable.type_.borrow()),
+                names.variable_name(&variable)
+            )?;
 
-            self.write_init_function_name(names, &variable.type_.borrow())?;
-            write!(self, "(&{});\n", names.variable_name(&variable))?;
+            write!(
+                self,
+                "{}(&{});\n",
+                init_function_name(names, &variable.type_.borrow()),
+                names.variable_name(&variable)
+            )?;
         }
 
         for instruction in &block.instructions {
@@ -398,18 +474,27 @@ impl CCodePrinter {
         let function = expression.function.borrow();
         let return_type = function.return_type.borrow();
 
-        if return_type.is_void() {
-            self.write_function_name(names, &function)?;
-            write!(self, "({});\n", arguments.join(", "))?;
-            Ok(None)
+        let value = if return_type.is_void() {
+            None
         } else {
             let expression_name = names.expression_name();
-            self.write_type_name(names, &return_type)?;
-            write!(self, " {} = ", expression_name)?;
-            self.write_function_name(names, &function)?;
-            write!(self, "({});\n", arguments.join(", "))?;
-            Ok(Some(expression_name))
-        }
+            write!(
+                self,
+                "{} {} = ",
+                type_name(names, &return_type),
+                expression_name
+            )?;
+            Some(expression_name)
+        };
+
+        write!(
+            self,
+            "{}({});\n",
+            function_name(names, &function),
+            arguments.join(", ")
+        )?;
+
+        Ok(value)
     }
 
     fn write_deref_expr(
@@ -505,15 +590,19 @@ impl CCodePrinter {
         let expression_name = names.expression_name();
         let target_type = expression.target_type.borrow();
 
-        self.write_type_name(names, &target_type)?;
-        write!(self, "* {} = (", expression_name)?;
-        self.write_type_name(names, &target_type)?;
-        write!(self, "*) malloc(sizeof(")?;
-        self.write_type_name(names, &target_type)?;
-        write!(self, "));\n")?;
+        write!(
+            self,
+            "{0}* {1} = ({0} *) malloc(sizeof({0}));\n",
+            type_name(names, &target_type),
+            expression_name,
+        )?;
 
-        self.write_init_function_name(names, &target_type)?;
-        write!(self, "({});\n", expression_name)?;
+        write!(
+            self,
+            "{}({});\n",
+            init_function_name(names, &target_type),
+            expression_name
+        )?;
 
         Ok(Some(expression_name))
     }
@@ -526,10 +615,12 @@ impl CCodePrinter {
         let expression_name = names.expression_name();
         let target_type = expression.target_type.borrow();
 
-        self.write_type_name(names, &target_type)?;
-        write!(self, "* {} = ((", expression_name)?;
-        self.write_type_name(names, &target_type)?;
-        write!(self, "*) NULL);\n")?;
+        write!(
+            self,
+            "{0} *{1} = (({0} *) NULL);\n",
+            type_name(names, &target_type),
+            expression_name,
+        )?;
 
         Ok(Some(expression_name))
     }
@@ -654,109 +745,10 @@ impl CCodePrinter {
         // Only non-void expressions create a named result.
         if !type_.is_void() {
             let name = names.expression_name();
-            self.write_type_name(names, &type_)?;
-            write!(self, " {};\n", name)?;
+            write!(self, "{} {};\n", type_name(names, &type_), name)?;
             Ok(Some(name))
         } else {
             Ok(None)
-        }
-    }
-
-    fn write_type_name(&mut self, names: &mut impl CNameRegistry, type_: &Type) -> fmt::Result {
-        match &type_.type_id {
-            TypeId::Int => write!(self, "i32"),
-            TypeId::Char => write!(self, "char"),
-            TypeId::Bool => write!(self, "char"),
-            TypeId::Void => write!(self, "void"),
-            TypeId::String => write!(self, "str"),
-
-            TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => {
-                self.write_type_name(names, &type_.pointer_target_type().unwrap().borrow())?;
-                write!(self, "*")
-            }
-
-            TypeId::Struct(_)
-            | TypeId::TemplateInstance(TypeTemplateId::Struct(_), _)
-            | TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
-                write!(self, "{}", names.type_name(type_))
-            }
-
-            TypeId::TypeParameter(_, _) => panic!("Unfilled type parameter encountered"),
-            TypeId::Error => panic!("Error type encountered"),
-        }
-    }
-
-    fn write_function_name(
-        &mut self,
-        names: &mut impl CNameRegistry,
-        function: &Function,
-    ) -> fmt::Result {
-        match function.id {
-            FunctionId::Internal(InternalFunctionTag::AddInt) => write!(self, "add"),
-            FunctionId::Internal(InternalFunctionTag::SubInt) => write!(self, "sub"),
-            FunctionId::Internal(InternalFunctionTag::MulInt) => write!(self, "mul"),
-            FunctionId::Internal(InternalFunctionTag::DivInt) => write!(self, "div"),
-            FunctionId::Internal(InternalFunctionTag::ModInt) => write!(self, "mod"),
-
-            FunctionId::Internal(InternalFunctionTag::LessInt) => write!(self, "lt"),
-            FunctionId::Internal(InternalFunctionTag::GreaterInt) => write!(self, "gt"),
-            FunctionId::Internal(InternalFunctionTag::LessEqInt) => write!(self, "lte"),
-            FunctionId::Internal(InternalFunctionTag::GreaterEqInt) => write!(self, "gte"),
-            FunctionId::Internal(InternalFunctionTag::EqInt) => write!(self, "eq"),
-            FunctionId::Internal(InternalFunctionTag::NotEqInt) => write!(self, "neq"),
-
-            FunctionId::Internal(InternalFunctionTag::Assert) => write!(self, "co_assert"),
-            FunctionId::Internal(InternalFunctionTag::AsciiCode) => write!(self, "ascii_code"),
-            FunctionId::Internal(InternalFunctionTag::AsciiChar) => write!(self, "ascii_char"),
-            FunctionId::Internal(InternalFunctionTag::IntToString) => write!(self, "int_to_string"),
-            FunctionId::Internal(InternalFunctionTag::StringAdd) => write!(self, "str_add"),
-            FunctionId::Internal(InternalFunctionTag::StringIndex) => write!(self, "str_index"),
-            FunctionId::Internal(InternalFunctionTag::StringEq) => write!(self, "str_eq"),
-            FunctionId::Internal(InternalFunctionTag::StringNotEq) => write!(self, "str_neq"),
-
-            FunctionId::Internal(InternalFunctionTag::ArrayPush(_)) => {
-                let self_parameter = function.parameters[0].borrow();
-                let array_type = self_parameter.type_.borrow().pointer_target_type().unwrap();
-                write!(self, "push_{}", names.type_name(&array_type.borrow()))?;
-                Ok(())
-            }
-            FunctionId::Internal(InternalFunctionTag::ArrayPop(_)) => {
-                let self_parameter = function.parameters[0].borrow();
-                let array_type = self_parameter.type_.borrow().pointer_target_type().unwrap();
-                write!(self, "pop_{}", names.type_name(&array_type.borrow()))?;
-                Ok(())
-            }
-            FunctionId::Internal(InternalFunctionTag::ArrayLen(_)) => {
-                let self_parameter = function.parameters[0].borrow();
-                let array_type = self_parameter.type_.borrow();
-                write!(self, "len_{}", names.type_name(&array_type))
-            }
-            FunctionId::Internal(InternalFunctionTag::ArrayIndex(_)) => {
-                let self_parameter = function.parameters[0].borrow();
-                let array_type = self_parameter.type_.borrow();
-                write!(self, "index_{}", names.type_name(&array_type))
-            }
-
-            FunctionId::UserDefined(_) => write!(self, "{}", names.function_name(function)),
-            FunctionId::InstantiatedMethod(_, _) => {
-                write!(self, "{}", names.function_name(function))
-            }
-        }
-    }
-
-    fn write_init_function_name(
-        &mut self,
-        names: &mut impl CNameRegistry,
-        type_: &Type,
-    ) -> fmt::Result {
-        match &type_.type_id {
-            TypeId::Struct(_)
-            | TypeId::TemplateInstance(TypeTemplateId::Struct(_), _)
-            | TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
-                write!(self, "init_")?;
-                self.write_type_name(names, type_)
-            }
-            _ => write!(self, "init_0"),
         }
     }
 
@@ -769,6 +761,136 @@ impl CCodePrinter {
     }
 }
 
+/// Builds the C type name corresponding to a CO `type_`.
+///
+/// Uses `names` registry for most types, but some types are not stored (e.g. pointers).
+fn type_name(names: &impl CNameRegistry, type_: &Type) -> String {
+    match &type_.type_id {
+        TypeId::Int => String::from("i32"),
+        TypeId::Char => String::from("char"),
+        TypeId::Bool => String::from("char"),
+        TypeId::Void => String::from("void"),
+        TypeId::String => String::from("str"),
+
+        TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => format!(
+            "{}*",
+            type_name(names, &type_.pointer_target_type().unwrap().borrow())
+        ),
+
+        TypeId::Struct(_)
+        | TypeId::TemplateInstance(TypeTemplateId::Struct(_), _)
+        | TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
+            String::from(names.type_name(type_))
+        }
+
+        TypeId::TypeParameter(_, _) => panic!("Unfilled type parameter encountered"),
+        TypeId::Error => panic!("Error type encountered"),
+    }
+}
+
+/// Builds the C function name corresponding to a CO `function`.
+///
+/// May use `names` for user-defined functions.
+fn function_name(names: &impl CNameRegistry, function: &Function) -> String {
+    match function.id {
+        FunctionId::Internal(InternalFunctionTag::AddInt) => String::from("add"),
+        FunctionId::Internal(InternalFunctionTag::SubInt) => String::from("sub"),
+        FunctionId::Internal(InternalFunctionTag::MulInt) => String::from("mul"),
+        FunctionId::Internal(InternalFunctionTag::DivInt) => String::from("div"),
+        FunctionId::Internal(InternalFunctionTag::ModInt) => String::from("mod"),
+
+        FunctionId::Internal(InternalFunctionTag::LessInt) => String::from("lt"),
+        FunctionId::Internal(InternalFunctionTag::GreaterInt) => String::from("gt"),
+        FunctionId::Internal(InternalFunctionTag::LessEqInt) => String::from("lte"),
+        FunctionId::Internal(InternalFunctionTag::GreaterEqInt) => String::from("gte"),
+        FunctionId::Internal(InternalFunctionTag::EqInt) => String::from("eq"),
+        FunctionId::Internal(InternalFunctionTag::NotEqInt) => String::from("neq"),
+
+        FunctionId::Internal(InternalFunctionTag::Assert) => String::from("co_assert"),
+        FunctionId::Internal(InternalFunctionTag::AsciiCode) => String::from("ascii_code"),
+        FunctionId::Internal(InternalFunctionTag::AsciiChar) => String::from("ascii_char"),
+        FunctionId::Internal(InternalFunctionTag::IntToString) => String::from("int_to_string"),
+        FunctionId::Internal(InternalFunctionTag::StringAdd) => String::from("str_add"),
+        FunctionId::Internal(InternalFunctionTag::StringIndex) => String::from("str_index"),
+        FunctionId::Internal(InternalFunctionTag::StringEq) => String::from("str_eq"),
+        FunctionId::Internal(InternalFunctionTag::StringNotEq) => String::from("str_neq"),
+
+        FunctionId::Internal(InternalFunctionTag::ArrayPush(_)) => {
+            let self_parameter = function.parameters[0].borrow();
+            let array_type = self_parameter.type_.borrow().pointer_target_type().unwrap();
+            format!("push_{}", names.type_name(&array_type.borrow()))
+        }
+        FunctionId::Internal(InternalFunctionTag::ArrayPop(_)) => {
+            let self_parameter = function.parameters[0].borrow();
+            let array_type = self_parameter.type_.borrow().pointer_target_type().unwrap();
+            format!("pop_{}", names.type_name(&array_type.borrow()))
+        }
+        FunctionId::Internal(InternalFunctionTag::ArrayLen(_)) => {
+            let self_parameter = function.parameters[0].borrow();
+            let array_type = self_parameter.type_.borrow();
+            format!("len_{}", names.type_name(&array_type))
+        }
+        FunctionId::Internal(InternalFunctionTag::ArrayIndex(_)) => {
+            let self_parameter = function.parameters[0].borrow();
+            let array_type = self_parameter.type_.borrow();
+            format!("index_{}", names.type_name(&array_type))
+        }
+
+        FunctionId::UserDefined(_) => String::from(names.function_name(function)),
+        FunctionId::InstantiatedMethod(_, _) => String::from(names.function_name(function)),
+    }
+}
+
+/// Builds the C function name corresponding to the constructor of a CO `type_`.
+fn init_function_name(names: &impl CNameRegistry, type_: &Type) -> String {
+    match &type_.type_id {
+        TypeId::Struct(_)
+        | TypeId::TemplateInstance(TypeTemplateId::Struct(_), _)
+        | TypeId::TemplateInstance(TypeTemplateId::Array, _) => {
+            format!("init_{}", type_name(names, type_))
+        }
+        _ => String::from("init_0"),
+    }
+}
+
+/// Creates a valid C string literal (potentially using concatenation) that represents the same
+/// byte sequence as `s` in UTF-8.
+///
+/// Hex escape sequences are used to encode any problematic characters.
+fn create_c_literal(s: &str) -> String {
+    let mut parts = Vec::new();
+    let mut current = String::from("\"");
+
+    for b in s.bytes() {
+        let c = b as char;
+        if c.is_ascii_alphanumeric() || c == ' ' {
+            current.push(c);
+        } else {
+            write!(&mut current, "\\x{:x}\"", b).unwrap();
+            parts.push(current);
+            current = String::from("\"");
+        }
+    }
+
+    current.push('"');
+    if &current != "\"\"" {
+        parts.push(current);
+    }
+    parts.join(" ")
+}
+
+/// Converts a body of text to a C comment by prepending `//` to every line.
+fn comment_out(text: &str) -> String {
+    let mut result = String::new();
+    for line in text.lines() {
+        result.push_str("// ");
+        result.push_str(line);
+        result.push('\n');
+    }
+    result
+}
+
+// Automatic indentation (controlled by `indent()` and `dedent()` methods) for `CCodePrinter`.
 impl fmt::Write for CCodePrinter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let lines = s.split('\n');
@@ -797,30 +919,4 @@ impl fmt::Display for CCodePrinter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.code)
     }
-}
-
-/// Creates a valid C string literal (potentially using concatenation) that represents the same
-/// byte sequence as `s` in UTF-8.
-///
-/// Hex escape sequences are used to encode any problematic characters.
-fn create_c_literal(s: &str) -> String {
-    let mut parts = Vec::new();
-    let mut current = String::from("\"");
-
-    for b in s.bytes() {
-        let c = b as char;
-        if c.is_ascii_alphanumeric() || c == ' ' {
-            current.push(c);
-        } else {
-            write!(&mut current, "\\x{:x}\"", b).unwrap();
-            parts.push(current);
-            current = String::from("\"");
-        }
-    }
-
-    current.push('"');
-    if &current != "\"\"" {
-        parts.push(current);
-    }
-    parts.join(" ")
 }

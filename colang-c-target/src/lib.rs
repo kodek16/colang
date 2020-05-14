@@ -27,12 +27,12 @@ impl CBackend {
 }
 
 impl Backend for CBackend {
-    fn run(&self, file_name: &str, _: &str, program: Program) -> Result<(), ()> {
+    fn run(&self, file_name: &str, source: &str, program: Program) -> Result<(), ()> {
         let mut names = NumericCNameRegistry::new();
         let mut printer = CCodePrinter::new();
 
         printer
-            .write_program(&mut names, &program)
+            .write_program(&mut names, source, &program)
             .expect("Error occurred while writing the compiled C program");
 
         let target_path = self

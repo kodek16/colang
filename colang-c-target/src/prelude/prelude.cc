@@ -5,13 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <algorithm>
-#include <vector>
-
-#define static_str static const char *
-#define vec std::vector
 typedef int32_t i32;
-typedef std::vector<char> *str;
 
 #define add(a, b) ((a) + (b))
 #define sub(a, b) ((a) - (b))
@@ -34,10 +28,14 @@ typedef std::vector<char> *str;
     size_t capacity;                                         \
   } array_T;                                                 \
                                                              \
-  void init_ ## array_T(array_T *v) {                        \
-    v->data = (T *) malloc(8 * sizeof(T));                   \
-    v->capacity = 8;                                         \
+  void init_with_cap_  ## array_T(array_T *v, size_t cap) {  \
+    v->data = (T *) malloc(cap * sizeof(T));                 \
+    v->capacity = cap;                                       \
     v->len = 0;                                              \
+  }                                                          \
+                                                             \
+  inline void init_ ## array_T(array_T *v) {                 \
+    init_with_cap_ ## array_T(v, 8);                         \
   }                                                          \
                                                              \
   void push_ ## array_T(array_T *v, T x) {                   \
@@ -84,6 +82,17 @@ typedef std::vector<char> *str;
     return &v.data[index];                                   \
   }
 
+define_array(char, str)
+
+str str_from_static(const char *s) {
+    size_t len = strlen(s);
+    str result;
+    result.data = (char *) malloc(len);
+    result.len = result.capacity = len;
+    memcpy(result.data, s, len);
+    return result;
+}
+
 void co_assert(char cond) {
     if (!cond) {
         fprintf(stderr, "Runtime error: Assertion failed\n");
@@ -104,49 +113,55 @@ char ascii_char(i32 code) {
     return (char) code;
 }
 
-str co_itos(i32 x) {
+str int_to_string(i32 x) {
     if (x == INT_MIN) {
-        return new vec<char> {'-','2','1','4','7','4','8','3','6','4','8'};
+        return str_from_static("-2147483648");
     }
     if (x == 0) {
-        return new vec<char> {'0'};
+        return str_from_static("0");
     }
 
-    str s = new vec<char>;
+    str s;
+    init_with_cap_str(&s, 11);
+
     char neg = 0;
     if (x < 0) {
         neg = 1;
         x = -x;
     }
     while (x) {
-        s->push_back('0' + (x % 10));
+        push_str(&s, '0' + (x % 10));
         x /= 10;
     }
     if (neg) {
-        s->push_back('-');
+        push_str(&s, '-');
     }
 
-    for (size_t l = 0, r = s->size() - 1; l < r; ++l, --r) {
-        char t = (*s)[l];
-        (*s)[l] = (*s)[r];
-        (*s)[r] = t;
+    for (size_t l = 0, r = s.len - 1; l < r; ++l, --r) {
+        char t = s.data[l];
+        s.data[l] = s.data[r];
+        s.data[r] = t;
     }
     return s;
 }
 
 str str_add(str a, str b) {
-    str result = new vec<char>(a->size() + b->size());
-    std::copy(a->begin(), a->end(), result->begin());
-    std::copy(b->begin(), b->end(), result->begin() + a->size());
+    str result;
+    init_with_cap_str(&result, a.len + b.len);
+
+    memcpy(result.data, a.data, a.len);
+    memcpy(result.data + a.len, b.data, b.len);
+    result.len = a.len + b.len;
+
     return result;
 }
 
 char *str_index(str s, i32 i) {
-    return &(*s)[i];
+    return &s.data[i];
 }
 
 char str_eq(str a, str b) {
-    return (a->size() == b->size()) && std::equal(a->begin(), a->end(), b->begin());
+    return a.len == b.len && memcmp(a.data, b.data, a.len) == 0;
 }
 
 char str_neq(str a, str b) {
@@ -210,7 +225,6 @@ void raw_readword(char **out_buf, size_t *out_len) {
         }
 
         if (rwctx.line == NULL || rwctx.next == rwctx.line_len) {
-            free(rwctx.line);
             rwctx.line_len = raw_readln(&rwctx.line);
             rwctx.next = 0;
             continue;
@@ -229,7 +243,6 @@ void raw_readword(char **out_buf, size_t *out_len) {
 }
 
 void readln(str *target) {
-    free(rwctx.line);
     rwctx.line = NULL;
 
     char *buf = NULL;
@@ -238,15 +251,18 @@ void readln(str *target) {
         free(buf);
         len = raw_readln(&buf);
     }
-    *target = new vec<char>(buf, buf + len);
-    free(buf);
+
+    target->data = buf;
+    target->len = target->capacity = len;
 }
 
 void readword_str(str *target) {
     char *buf;
     size_t len;
     raw_readword(&buf, &len);
-    *target = new vec<char>(buf, buf + len);
+
+    target->data = buf;
+    target->len = target->capacity = len;
 }
 
 void readword_int(i32 *target) {
@@ -275,21 +291,19 @@ void readword_int(i32 *target) {
 }
 
 void write_str(str s) {
-    char *buf = s->data();
-    size_t len = s->size();
-    if (!len) {
+    if (!s.len) {
         return;
     }
 
-    char last_char = buf[len - 1];
-    buf[len - 1] = '\0';
+    char last_char = s.data[s.len - 1];
+    s.data[s.len - 1] = '\0';
 
-    if (fputs(buf, stdout) < 0) {
+    if (fputs(s.data, stdout) < 0) {
         perror("Runtime error when writing to stdout: ");
         exit(1);
     }
 
-    buf[len - 1] = last_char;
+    s.data[s.len - 1] = last_char;
     if (fputc(last_char, stdout) < 0) {
         perror("Runtime error when writing to stdout: ");
         exit(1);

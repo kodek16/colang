@@ -485,21 +485,12 @@ impl CCodePrinter {
             LiteralValue::Char(c) => Ok(Some(format!("'\\x{:x}'", c))),
             LiteralValue::Bool(b) => Ok(Some(String::from(if *b { "1" } else { "0" }))),
             LiteralValue::String(s) => {
-                let literal_name = names.expression_name();
                 let expression_name = names.expression_name();
                 write!(
                     self,
-                    "static_str {} = {};\n",
-                    literal_name,
-                    create_c_literal(s)
-                )?;
-                write!(
-                    self,
-                    "str {} = new vec<char>({}, {} + {});\n",
+                    "str {} = str_from_static({});\n",
                     expression_name,
-                    literal_name,
-                    literal_name,
-                    s.len()
+                    create_c_literal(s),
                 )?;
                 Ok(Some(expression_name))
             }
@@ -717,7 +708,7 @@ impl CCodePrinter {
             FunctionId::Internal(InternalFunctionTag::Assert) => write!(self, "co_assert"),
             FunctionId::Internal(InternalFunctionTag::AsciiCode) => write!(self, "ascii_code"),
             FunctionId::Internal(InternalFunctionTag::AsciiChar) => write!(self, "ascii_char"),
-            FunctionId::Internal(InternalFunctionTag::IntToString) => write!(self, "co_itos"),
+            FunctionId::Internal(InternalFunctionTag::IntToString) => write!(self, "int_to_string"),
             FunctionId::Internal(InternalFunctionTag::StringAdd) => write!(self, "str_add"),
             FunctionId::Internal(InternalFunctionTag::StringIndex) => write!(self, "str_index"),
             FunctionId::Internal(InternalFunctionTag::StringEq) => write!(self, "str_eq"),

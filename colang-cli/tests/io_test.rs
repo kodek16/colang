@@ -266,7 +266,7 @@ fn run_with_compiler(file_path: &Path, input: &[u8]) -> Vec<u8> {
         .tempfile()
         .unwrap()
         .into_temp_path();
-    let gcc_status = Command::new("g++")
+    let gcc_status = Command::new("gcc")
         .arg("-o")
         .arg(&run_file)
         .arg(&c_file)

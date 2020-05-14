@@ -49,14 +49,14 @@ impl Config {
             )
             .subcommand(
                 SubCommand::with_name("compile")
-                    .about("Compiles the program into C/C++ code")
+                    .about("Compiles the program into C code")
                     .arg(program())
                     .arg(
                         Arg::with_name("output")
                             .short("o")
                             .long("--output")
                             .takes_value(true)
-                            .help("Sets the path for the generated C/C++ file"),
+                            .help("Sets the path for the generated C file"),
                     ),
             )
             .subcommand(

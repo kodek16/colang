@@ -19,17 +19,17 @@ fn good_compile(path: &str) {
 
     assert!(status.success(), "CO compilation failed");
 
-    let cpp_path = source_path.with_extension("cpp");
+    let c_path = source_path.with_extension("c");
     let executable_path = source_path.with_extension(".run");
 
-    let status = Command::new("g++")
-        .arg(&cpp_path)
+    let status = Command::new("gcc")
+        .arg(&c_path)
         .arg("-o")
         .arg(&executable_path)
         .status()
-        .expect("g++ failed to execute");
+        .expect("gcc failed to execute");
 
-    assert!(status.success(), "g++ compilation failed");
+    assert!(status.success(), "gcc compilation failed");
 
     let status = Command::new(&executable_path)
         .status()

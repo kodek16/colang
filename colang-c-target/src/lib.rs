@@ -18,7 +18,7 @@ impl CBackend {
     /// Initializes a C backend.
     ///
     /// `target_path` should be the desired path to the generated C file. If omitted, it is
-    /// generated from source path by replacing `.co` extension with `.cpp`.
+    /// generated from source path by replacing `.co` extension with `.c`.
     pub fn new(target_path: Option<impl Into<PathBuf>>) -> CBackend {
         CBackend {
             target_path: target_path.map(|p| p.into()),
@@ -33,12 +33,12 @@ impl Backend for CBackend {
 
         printer
             .write_program(&mut names, &program)
-            .expect("Error occurred while writing the compiled C/C++ program");
+            .expect("Error occurred while writing the compiled C program");
 
         let target_path = self
             .target_path
             .clone()
-            .unwrap_or_else(|| Path::new(file_name).with_extension("cpp"));
+            .unwrap_or_else(|| Path::new(file_name).with_extension("c"));
         let mut target_file = match File::create(&target_path) {
             Ok(file) => file,
             Err(error) => {

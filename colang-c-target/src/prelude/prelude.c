@@ -34,7 +34,7 @@ typedef int32_t i32;
     v->len = 0;                                              \
   }                                                          \
                                                              \
-  inline void init_ ## array_T(array_T *v) {                 \
+  void init_ ## array_T(array_T *v) {                        \
     init_with_cap_ ## array_T(v, 8);                         \
   }                                                          \
                                                              \
@@ -65,12 +65,12 @@ typedef int32_t i32;
     return v->data[v->len];                                  \
   }                                                          \
                                                              \
-  inline int32_t len_ ## array_T(array_T v) {                \
+  int32_t len_ ## array_T(array_T v) {                       \
     return v.len;                                            \
   }                                                          \
                                                              \
   T *index_ ## array_T(array_T v, int32_t index) {           \
-    if (index < 0 || v.len <= index) {                       \
+    if (index < 0 || v.len <= (size_t) index) {              \
       fprintf(                                               \
           stderr,                                            \
           "Error: array index %d out of bounds: size is %d", \
@@ -172,7 +172,7 @@ char str_neq(str a, str b) {
 //
 // Line length is returned from function. Newline character is not included.
 size_t raw_readln(char **buf) {
-    static const char MARK = 0xFF;
+    static const char MARK = -1;
 
     size_t buf_size = 16;
     *buf = (char *) malloc(buf_size);
@@ -216,7 +216,7 @@ typedef struct {
     size_t next;
 } read_word_ctx_t;
 
-static read_word_ctx_t rwctx { NULL, 0, 0 };
+static read_word_ctx_t rwctx = { NULL, 0, 0 };
 
 void raw_readword(char **out_buf, size_t *out_len) {
     for (;;) {

@@ -19,7 +19,7 @@ pub fn return_statement_type_mismatch(
     .with_subtitle(format!("has type `{}`", expression_type.name))
     .maybe_with_type_explanation(expression)
     .with_bound_note(
-        // TODO point at return type exactly, and not at the whole signature.
+        // TODO(#2) point at return type exactly, and not at the whole signature.
         function.definition_site.unwrap(),
         format!(
             "function is defined with return type `{}`",

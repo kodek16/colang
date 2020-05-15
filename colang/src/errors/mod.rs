@@ -189,7 +189,7 @@ fn maybe_explain_expression_type(expression: &Expression, error: &mut Compilatio
                         "empty block has type `void`, which becomes the type of the overall expression".to_string()));
                 }
             }
-            // TODO also dig into `if`s.
+            // TODO(#8) also dig into `if`s.
             _ => error.bound_notes.push((
                 expression.location().as_plain(),
                 format!(

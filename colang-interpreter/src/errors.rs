@@ -61,7 +61,7 @@ impl RuntimeError {
 
     /// Finishes the unwinding process and dumps the error with the stack trace to stderr.
     pub fn print_backtrace(self, file_name: &str, source: &str, main: Rc<RefCell<Function>>) {
-        // TODO(0.2): add colors and print the offending expression (possibly with codespan,
+        // TODO(#10): add colors and print the offending expression (possibly with codespan,
         // but it may look too similar to compilation errors, maybe use a different preset?).
         eprintln!("Runtime error: {}.", self.message);
 
@@ -123,7 +123,7 @@ pub struct StackFrame {
     location: Option<SourceOrigin>,
 }
 
-// TODO(0.2): add better debug printers.
+// TODO(#10): add better debug printers.
 fn debug_print_value(value: Value) -> String {
     let value = value.into_rvalue();
     match value {

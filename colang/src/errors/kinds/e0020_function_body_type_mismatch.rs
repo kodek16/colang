@@ -12,7 +12,7 @@ pub fn function_body_type_mismatch(function: &Function, body: &Expression) -> Co
             body.type_().borrow().name,
         ),
     )
-    // TODO point at return type exactly, and not at the whole signature.
+    // TODO(#2) point at return type exactly, and not at the whole signature.
     .with_location(function.definition_site.unwrap())
     .with_subtitle(format!(
         "signature specifies return type as `{}`",

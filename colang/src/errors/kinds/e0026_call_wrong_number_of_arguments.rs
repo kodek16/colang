@@ -7,7 +7,7 @@ pub fn call_wrong_number_of_arguments(
     actual_num: usize,
     location: SourceOrigin,
 ) -> CompilationError {
-    // TODO use more precise argument and parameter spans.
+    // TODO(#2) use more precise argument and parameter spans.
     CompilationError::new(
         "E0026",
         format!(

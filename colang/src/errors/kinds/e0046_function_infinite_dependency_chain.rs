@@ -19,7 +19,7 @@ pub fn function_infinite_dependency_chain(
     .with_location(location)
     .with_subtitle("call causes an infinite function instantiation chain")
     .with_free_note({
-        // TODO use qualified method names here
+        // TODO(#7) use qualified method names here
         let function_chain: Vec<_> = function_chain
             .iter()
             .take(8)

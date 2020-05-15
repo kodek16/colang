@@ -179,7 +179,7 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
         }
     }
 
-    // TODO also check VariableExpr, so that it only accesses local variables that are in scope.
-    // TODO also check ReturnInstruction, so that expression type is the same as function type.
-    // TODO also check type and function references so that only registered entities are referenced.
+    // TODO(#9) also check VariableExpr, so that it only accesses local variables that are in scope.
+    // TODO(#9) also check ReturnInstruction, so that expression type is the same as function type.
+    // TODO(#9) also check type & function references so only registered entities are referenced.
 }

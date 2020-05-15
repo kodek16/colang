@@ -9,7 +9,7 @@ pub fn compile_is_expr(
     expression: ast::IsExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    // TODO find a way to infer type in the opposite direction (rhs -> lhs) as well.
+    // TODO(#1) find a way to infer type in the opposite direction (rhs -> lhs) as well.
     let lhs = compile_expression(*expression.lhs, None, context);
     let rhs = compile_expression(*expression.rhs, Some(Rc::clone(lhs.type_())), context);
 

@@ -1,7 +1,7 @@
 use crate::errors::CompilationError;
 use crate::source::SourceOrigin;
 
-// TODO: remove this when index support is implemented via trait.
+// TODO(#6): remove this when index support is implemented via trait.
 pub fn index_method_returns_not_pointer(
     type_name: &str,
     actual_return_type: &str,

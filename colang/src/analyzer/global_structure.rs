@@ -68,7 +68,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
                 context.errors.push(error);
 
                 // For better error recovery.
-                // TODO synthesize a more precise span for fake `self`.
+                // TODO(#2) synthesize a more precise span for fake `self`.
                 let fake_self = create_parameter(
                     "<self>".to_string(),
                     Rc::clone(current_type),

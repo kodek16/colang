@@ -62,7 +62,7 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut FreeScope) {
         create_eq_int_function(program.types()),
         create_not_eq_int_function(program.types()),
         create_int_to_string_function(program.types()),
-        // TODO convert all internal operators to methods. This would involve changing the
+        // TODO(#6) convert all internal operators to methods. This would involve changing the
         // lookup logic.
         create_string_add_method(program.types()),
         create_string_eq_method(program.types()),

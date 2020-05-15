@@ -730,7 +730,7 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         instruction: &WriteInstruction,
     ) -> fmt::Result {
-        // TODO optimize the case where expression is a string literal.
+        // TODO(#11) optimize the case where expression is a string literal.
         let value = self
             .write_expression(names, &instruction.expression)?
             .unwrap();

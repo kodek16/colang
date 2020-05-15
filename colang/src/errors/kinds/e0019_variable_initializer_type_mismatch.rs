@@ -8,7 +8,7 @@ pub fn variable_initializer_type_mismatch(
     let variable_type = variable.type_.borrow();
     let initializer_type = initializer.type_().borrow();
 
-    // TODO point variable note to type and not the whole definition.
+    // TODO(#2) point variable note to type and not the whole definition.
 
     CompilationError::new(
         "E0019",

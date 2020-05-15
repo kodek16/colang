@@ -5,6 +5,7 @@
 
 use std::fs;
 use std::process::{Command, Stdio};
+use std::path::PathBuf;
 use tempfile::tempdir;
 use test_generator::test_resources;
 
@@ -96,6 +97,7 @@ fn runtime_error_interpret(path: &str) {
 // is different from the runtime working directory (first is workspace, second is crate).
 // This is why we need to strip the first part from the test path.
 fn strip_crate_name(path: &str) -> String {
-    let parts: Vec<String> = path.split('/').skip(1).map(String::from).collect();
-    parts.join("/")
+    let path = PathBuf::from(path);
+    let path: PathBuf = path.components().skip(1).collect();
+    path.to_string_lossy().into()
 }

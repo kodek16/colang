@@ -3,7 +3,7 @@ use std::process::Command;
 use tempfile::tempdir;
 use test_generator::test_resources;
 
-#[test_resources("colang-cli/tests/samples/good/**/*.co")]
+#[test_resources("colang-cli/tests/samples/**/good/*.co")]
 fn good_compile(path: &str) {
     let dir = tempdir().expect("Could not create a temporary directory");
 

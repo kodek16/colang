@@ -3,7 +3,7 @@ use test_generator::test_resources;
 use colang_cli::{Config, RunResult, Target};
 use colang_interpreter::InterpreterBackend;
 
-#[test_resources("colang-cli/tests/samples/good/**/*.co")]
+#[test_resources("colang-cli/tests/samples/**/good/*.co")]
 fn good_interpret(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
@@ -15,7 +15,7 @@ fn good_interpret(path: &str) {
     assert_eq!(result, RunResult::Ok)
 }
 
-#[test_resources("colang-cli/tests/samples/compile_error/**/*.co")]
+#[test_resources("colang-cli/tests/samples/**/compile_error/*.co")]
 fn compile_error(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),
@@ -27,7 +27,7 @@ fn compile_error(path: &str) {
     assert_eq!(result, RunResult::CompilerError)
 }
 
-#[test_resources("colang-cli/tests/samples/runtime_error/**/*.co")]
+#[test_resources("colang-cli/tests/samples/**/runtime_error/*.co")]
 fn runtime_error_interpret(path: &str) {
     let config = Config {
         source_path: strip_crate_name(path),

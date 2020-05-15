@@ -1,6 +1,6 @@
 fun main() {
   var x = 10;
-  var p: &int;
+  var p: &int = null;
 
   // RHS must not be evaluated.
   assert(x == 10 || *p == 10);

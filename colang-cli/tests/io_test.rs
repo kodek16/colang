@@ -7,6 +7,48 @@ use std::process::{Command, Stdio};
 use tempfile::{Builder, NamedTempFile};
 
 speculate! {
+    describe "reading integers" {
+        const SOURCE: &'static str = r#"
+            fun main() {
+                var a: int, b: int;
+                read a, b;
+                writeln a;
+                writeln b;
+            }
+        "#;
+
+        before {
+            let mut source_file = NamedTempFile::new().unwrap();
+            source_file.write_all(SOURCE.as_bytes()).unwrap();
+        }
+
+        describe "when they are positive" {
+            const INPUT: &'static [u8] = b"2 4\n";
+            const OUTPUT: &'static [u8] = b"2\n4\n";
+
+            it "works in interpreter" {
+                assert_eq!(run_with_interpreter(source_file.path(), INPUT), OUTPUT);
+            }
+
+            it "works in compiler" {
+                assert_eq!(run_with_compiler(source_file.path(), INPUT), OUTPUT);
+            }
+        }
+
+        describe "when they are negative" {
+            const INPUT: &'static [u8] = b"-2 -4\n";
+            const OUTPUT: &'static [u8] = b"-2\n-4\n";
+
+            it "works in interpreter" {
+                assert_eq!(run_with_interpreter(source_file.path(), INPUT), OUTPUT);
+            }
+
+            it "works in compiler" {
+                assert_eq!(run_with_compiler(source_file.path(), INPUT), OUTPUT);
+            }
+        }
+    }
+
     describe "reading string words" {
         const SOURCE: &'static str = r#"
             fun main() {

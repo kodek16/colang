@@ -144,7 +144,7 @@ impl CCodePrinter {
     fn write_array_def(&mut self, names: &mut impl CNameRegistry, type_: &Type) -> fmt::Result {
         write!(
             self,
-            "define_array({}, {});\n",
+            "define_array({}, {})\n",
             type_name(names, &type_.array_element_type().unwrap().borrow()),
             type_name(names, &type_)
         )
@@ -277,13 +277,13 @@ impl CCodePrinter {
         expression: &ArrayFromCopyExpr,
         array_type: &Type,
     ) -> ExprWriteResult {
-        // TODO: emit runtime error if size <= 0.
         let expression_name = names.expression_name();
         let element_type = expression.element.type_().borrow();
 
         let element = self.write_expression(names, &expression.element)?.unwrap();
         let size = self.write_expression(names, &expression.size)?.unwrap();
 
+        write!(self, "assert_array_from_copy_size_ok({});\n", size)?;
         write!(
             self,
             "{} {};\n",

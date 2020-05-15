@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,65 +22,78 @@ typedef int32_t i32;
 
 #define init_0(v) memset(v, 0, sizeof(*v))
 
-#define define_array(T, array_T)                             \
-  typedef struct s_ ## array_T {                             \
-    T *data;                                                 \
-    size_t len;                                              \
-    size_t capacity;                                         \
-  } array_T;                                                 \
-                                                             \
-  void init_with_cap_  ## array_T(array_T *v, size_t cap) {  \
-    v->data = (T *) malloc(cap * sizeof(T));                 \
-    v->capacity = cap;                                       \
-    v->len = 0;                                              \
-  }                                                          \
-                                                             \
-  void init_ ## array_T(array_T *v) {                        \
-    init_with_cap_ ## array_T(v, 8);                         \
-  }                                                          \
-                                                             \
-  void push_ ## array_T(array_T *v, T x) {                   \
-    if (v->len == v->capacity) {                             \
-      v->data = (T *) realloc(v->data, v->capacity * 2);     \
-      if (v->data == NULL) {                                 \
-        perror("Out of memory error:");                      \
-        exit(1);                                             \
-      }                                                      \
-                                                             \
-      v->capacity *= 2;                                      \
-    }                                                        \
-                                                             \
-    v->data[v->len] = x;                                     \
-    ++(v->len);                                              \
-  }                                                          \
-                                                             \
-  T pop_ ## array_T(array_T *v) {                            \
-    if (v->len == 0) {                                       \
-      fprintf(                                               \
-          stderr,                                            \
-          "Error: cannot pop() from empty array\n");         \
-      exit(1);                                               \
-    }                                                        \
-                                                             \
-    --(v->len);                                              \
-    return v->data[v->len];                                  \
-  }                                                          \
-                                                             \
-  int32_t len_ ## array_T(array_T v) {                       \
-    return v.len;                                            \
-  }                                                          \
-                                                             \
-  T *index_ ## array_T(array_T v, int32_t index) {           \
-    if (index < 0 || v.len <= (size_t) index) {              \
-      fprintf(                                               \
-          stderr,                                            \
-          "Error: array index %d out of bounds: size is %d", \
-          index,                                             \
-          (int32_t) v.len);                                  \
-      exit(1);                                               \
-    }                                                        \
-                                                             \
-    return &v.data[index];                                   \
+void rt_error(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    fprintf(stderr, "Runtime error: ");
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, ".\n");
+    exit(1);
+
+    va_end(args);
+}
+
+void rt_syserr(const char *msg) {
+    fprintf(stderr, "Runtime error: ");
+    perror(msg);
+    fprintf(stderr, ".\n");
+    exit(1);
+}
+
+#define define_array(T, array_T)                            \
+  typedef struct s_ ## array_T {                            \
+    T *data;                                                \
+    size_t len;                                             \
+    size_t capacity;                                        \
+  } array_T;                                                \
+                                                            \
+  void init_with_cap_  ## array_T(array_T *v, size_t cap) { \
+    v->data = (T *) malloc(cap * sizeof(T));                \
+    v->capacity = cap;                                      \
+    v->len = 0;                                             \
+  }                                                         \
+                                                            \
+  void init_ ## array_T(array_T *v) {                       \
+    init_with_cap_ ## array_T(v, 8);                        \
+  }                                                         \
+                                                            \
+  void push_ ## array_T(array_T *v, T x) {                  \
+    if (v->len == v->capacity) {                            \
+      v->data = (T *) realloc(v->data, v->capacity * 2);    \
+      if (v->data == NULL) {                                \
+        rt_syserr("Could not increase array size");         \
+      }                                                     \
+                                                            \
+      v->capacity *= 2;                                     \
+    }                                                       \
+                                                            \
+    v->data[v->len] = x;                                    \
+    ++(v->len);                                             \
+  }                                                         \
+                                                            \
+  T pop_ ## array_T(array_T *v) {                           \
+    if (v->len == 0) {                                      \
+      rt_error("cannot pop() from empty array");            \
+    }                                                       \
+                                                            \
+    --(v->len);                                             \
+    return v->data[v->len];                                 \
+  }                                                         \
+                                                            \
+  int32_t len_ ## array_T(array_T v) {                      \
+    return v.len;                                           \
+  }                                                         \
+                                                            \
+  T *index_ ## array_T(array_T v, int32_t index) {          \
+    if (index < 0 || v.len <= (size_t) index) {             \
+      rt_error(                                             \
+          "array index %d out of bounds: size is %d",       \
+          index,                                            \
+          (int32_t) v.len);                                 \
+    }                                                       \
+                                                            \
+    return &v.data[index];                                  \
   }
 
 define_array(char, str)
@@ -93,10 +107,12 @@ str str_from_static(const char *s) {
     return result;
 }
 
+#define assert_array_from_copy_size_ok(s) \
+  if (s < 0) rt_error("attempted to create array with non-positive size %d", s)
+
 void co_assert(char cond) {
     if (!cond) {
-        fprintf(stderr, "Runtime error: Assertion failed\n");
-        exit(1);
+        rt_error("assertion failed");
     }
 }
 
@@ -106,8 +122,7 @@ i32 ascii_code(char c) {
 
 char ascii_char(i32 code) {
     if (code < 0 || 0xFF < code) {
-        fprintf(stderr, "Runtime error: %d is not a valid ASCII code.\n", code);
-        exit(1);
+        rt_error("%d is not a valid ASCII code", code);
     }
 
     return (char) code;
@@ -182,8 +197,7 @@ size_t raw_readln(char **buf) {
         (*buf)[buf_size - 1] = MARK;
 
         if (fgets(next, buf_size - (next - *buf), stdin) == NULL) {
-            perror("Input error when reading line from stdin: ");
-            exit(1);
+            rt_syserr("could not read line from standard input");
         }
 
         if (feof(stdin) || (*buf)[buf_size - 1] == MARK) {
@@ -192,8 +206,7 @@ size_t raw_readln(char **buf) {
 
         *buf = (char *) realloc(*buf, buf_size * 2);
         if (*buf == NULL) {
-            perror("Could not allocate buffer for line read from stdin:");
-            exit(1);
+            rt_syserr("could not store line read from standard input");
         }
 
         next = *buf + (buf_size - 1);
@@ -221,7 +234,7 @@ static read_word_ctx_t rwctx = { NULL, 0, 0 };
 void raw_readword(char **out_buf, size_t *out_len) {
     for (;;) {
         if (rwctx.line != NULL && rwctx.next < rwctx.line_len) {
-            while (!isalnum(rwctx.line[rwctx.next])) ++rwctx.next;
+            while (isspace(rwctx.line[rwctx.next])) ++rwctx.next;
         }
 
         if (rwctx.line == NULL || rwctx.next == rwctx.line_len) {
@@ -234,7 +247,7 @@ void raw_readword(char **out_buf, size_t *out_len) {
     }
 
     size_t end = rwctx.next;
-    while (end < rwctx.line_len && isalnum(rwctx.line[end])) ++end;
+    while (end < rwctx.line_len && !isspace(rwctx.line[end])) ++end;
 
     *out_buf = rwctx.line + rwctx.next;
     *out_len = end - rwctx.next;
@@ -299,13 +312,11 @@ void write_str(str s) {
     s.data[s.len - 1] = '\0';
 
     if (fputs(s.data, stdout) < 0) {
-        perror("Runtime error when writing to stdout: ");
-        exit(1);
+        rt_syserr("could not write to standard output");
     }
 
     s.data[s.len - 1] = last_char;
     if (fputc(last_char, stdout) < 0) {
-        perror("Runtime error when writing to stdout: ");
-        exit(1);
+        rt_syserr("could not write to standard output");
     }
 }

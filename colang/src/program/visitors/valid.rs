@@ -79,9 +79,9 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
     fn visit_expression(&mut self, expression: &mut Expression) {
         self.walk_expression(expression);
         let expression_type = expression.type_().borrow();
-        if expression_type.depends_on_type_parameter_placeholders() {
+        if expression_type.is_technical() {
             self.errors.push(format!(
-                "expression has type `{}` which depends on unfilled type parameter placeholders",
+                "expression has type `{}` which has no values",
                 expression_type.name
             ))
         }

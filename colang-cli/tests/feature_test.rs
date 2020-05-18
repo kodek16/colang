@@ -4,8 +4,8 @@
 //! feature in question.
 
 use std::fs;
-use std::process::{Command, Stdio};
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use tempfile::tempdir;
 use test_generator::test_resources;
 

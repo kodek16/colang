@@ -23,8 +23,13 @@ const MAX_TYPE_INSTANTIATION_DEPTH: usize = 64;
 ///   (see `TypeTemplate`). Instantiation (creating a new type from a template) happens in a
 ///   few phases.
 ///
-/// - `void` vs. all other types: as an exception, there can be no values of the type `void`.
-///   Expressions can have type `void` only if they appear in a "void context".
+/// - Technical types vs. normal types: a technical type is a compile-time abstraction in the type
+///   system. During runtime no values of technical types may exist.
+///
+/// - `void` vs. normal types: `void` should really be a technical type but currently a notion
+///   of "void expressions" exists which makes it a bit of a corner case. The simplest explanation
+///   would be that currently all values of `void` type are as short-lived as possible. In the
+///   future `void` type will be made technical or removed altogether.
 pub struct Type {
     /// The name of the type.
     pub name: String,
@@ -199,6 +204,19 @@ impl Type {
         }
     }
 
+    /// Checks if the type is technical - a compile-time abstraction.
+    pub fn is_technical(&self) -> bool {
+        fn check(type_id: &TypeId) -> bool {
+            match type_id {
+                TypeId::TemplateInstance(_, ref type_arg_ids) => type_arg_ids.iter().any(check),
+                TypeId::TypeParameter(_, _) => true,
+                _ => false,
+            }
+        }
+
+        check(&self.type_id)
+    }
+
     pub fn is_void(&self) -> bool {
         match self.type_id {
             TypeId::Void => true,
@@ -268,20 +286,6 @@ impl Type {
         } else {
             None
         }
-    }
-
-    /// Checks if any of the transitive type arguments of this type are unfilled type parameter
-    /// placeholders.
-    pub fn depends_on_type_parameter_placeholders(&self) -> bool {
-        fn check(type_id: &TypeId) -> bool {
-            match type_id {
-                TypeId::TemplateInstance(_, ref type_arg_ids) => type_arg_ids.iter().any(check),
-                TypeId::TypeParameter(_, _) => true,
-                _ => false,
-            }
-        }
-
-        check(&self.type_id)
     }
 
     /// Substitutes a set of types in the "signature" of `type_` with other types.

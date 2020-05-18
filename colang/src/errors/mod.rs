@@ -211,6 +211,7 @@ impl NamedEntityKind {
         match self {
             NamedEntityKind::Variable => "variable",
             NamedEntityKind::Function => "function",
+            NamedEntityKind::Trait => "trait",
             NamedEntityKind::Type => "type",
             NamedEntityKind::TypeTemplate => "type template",
             NamedEntityKind::Field => "field",
@@ -221,7 +222,7 @@ impl NamedEntityKind {
     fn indefinite_article(&self) -> &'static str {
         use NamedEntityKind::*;
         match self {
-            Variable | Function | Type | TypeTemplate | Field | Method => "a",
+            Variable | Function | Trait | Type | TypeTemplate | Field | Method => "a",
         }
     }
 

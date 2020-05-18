@@ -9,6 +9,11 @@ pub Program: Program = {
         program.structs.push(struct_);
         program
     },
+    <program:Program?> <trait_:TraitDef> => {
+        let mut program = program.unwrap_or(Program::new());
+        program.traits.push(trait_);
+        program
+    },
     <program:Program?> <function:FunctionDef> => {
         let mut program = program.unwrap_or(Program::new());
         program.functions.push(function);
@@ -59,9 +64,9 @@ SelfParameterDef: Parameter = {
     },
 };
 
-StructDef: StructDef = {
-    <start:@L> KwStruct <name:Ident> <type_parameters:("<" <CommaSeparatedNotEmpty<Ident>> ">")?> <end:@R> "{" <members:StructMember*> "}" => {
-        StructDef::new(
+StructDef: TypeDef = {
+    <start:@L> KwStruct <name:Ident> <type_parameters:("<" <CommaSeparatedNotEmpty<Ident>> ">")?> <end:@R> "{" <members:TypeMember*> "}" => {
+        TypeDef::new(
             name,
             type_parameters.unwrap_or(vec![]),
             members,
@@ -70,14 +75,25 @@ StructDef: StructDef = {
     },
 };
 
-StructMember: StructMember = {
+TraitDef: TypeDef = {
+    <start:@L> KwTrait <name:Ident> <end:@R> "{" <members:TypeMember*> "}" => {
+        TypeDef::new(
+            name,
+            vec![],
+            members,
+            InputSpan { file, start, end },
+        )
+    },
+};
+
+TypeMember: TypeMember = {
     FieldDef,
     MethodDef,
 };
 
-FieldDef: StructMember = {
+FieldDef: TypeMember = {
     <start:@L> <name:Ident> ":" <type_:TypeExpr> <end:@R> ";" => {
-        StructMember::Field(FieldDef {
+        TypeMember::Field(FieldDef {
             name,
             type_,
             span: InputSpan { file, start, end },
@@ -85,8 +101,8 @@ FieldDef: StructMember = {
     },
 };
 
-MethodDef: StructMember = {
-    FunctionDef => StructMember::Method(<>),
+MethodDef: TypeMember = {
+    FunctionDef => TypeMember::Method(<>),
 };
 
 Stmt: Statement = {
@@ -657,6 +673,7 @@ KwNew: () = { "new" }
 KwIs: () = { "is" }
 KwNull: () = { "null" }
 KwReturn: () = { "return" }
+KwTrait: () = { "trait" }
 
 // Macros:
 CommaSeparatedNotEmpty<T>: Vec<T> = {

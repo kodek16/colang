@@ -1,7 +1,7 @@
 //! Named entity visibility hierarchy management.
 
 use crate::errors::{self, CompilationError};
-use crate::program::{Field, Function, Type, TypeTemplate, Variable};
+use crate::program::{Field, Function, Trait, Type, TypeTemplate, Variable};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -191,6 +191,7 @@ macro_rules! specific_named_entity_impl {
 pub enum NamedEntityKind {
     Variable,
     Function,
+    Trait,
     Type,
     TypeTemplate,
     Field,
@@ -282,6 +283,7 @@ specific_named_entity_impl!(MethodEntity, TypeMemberEntity, TypeMemberEntity::Me
 pub enum FreeEntity {
     Variable(VariableEntity),
     Function(FunctionEntity),
+    Trait(TraitEntity),
     Type(TypeEntity),
     TypeTemplate(TypeTemplateEntity),
 }
@@ -293,6 +295,10 @@ pub struct VariableEntity(pub Rc<RefCell<Variable>>);
 /// An entity kind representing a non-method function.
 #[derive(Clone)]
 pub struct FunctionEntity(pub Rc<RefCell<Function>>);
+
+/// An entity kind representing a trait.
+#[derive(Clone)]
+pub struct TraitEntity(pub Rc<RefCell<Trait>>);
 
 /// An entity kind representing a non-template type.
 #[derive(Clone)]
@@ -307,6 +313,7 @@ impl GeneralNamedEntity for FreeEntity {
         match self {
             FreeEntity::Variable(_) => NamedEntityKind::Variable,
             FreeEntity::Function(_) => NamedEntityKind::Function,
+            FreeEntity::Trait(_) => NamedEntityKind::Trait,
             FreeEntity::Type(_) => NamedEntityKind::Type,
             FreeEntity::TypeTemplate(_) => NamedEntityKind::TypeTemplate,
         }
@@ -316,6 +323,7 @@ impl GeneralNamedEntity for FreeEntity {
         match self {
             FreeEntity::Variable(ref variable) => variable.name(),
             FreeEntity::Function(ref function) => function.name(),
+            FreeEntity::Trait(ref trait_) => trait_.name(),
             FreeEntity::Type(ref type_) => type_.name(),
             FreeEntity::TypeTemplate(ref type_template) => type_template.name(),
         }
@@ -325,6 +333,7 @@ impl GeneralNamedEntity for FreeEntity {
         match self {
             FreeEntity::Variable(ref variable) => variable.definition_site(),
             FreeEntity::Function(ref function) => function.definition_site(),
+            FreeEntity::Trait(ref trait_) => trait_.definition_site(),
             FreeEntity::Type(ref type_) => type_.definition_site(),
             FreeEntity::TypeTemplate(ref type_template) => type_template.definition_site(),
         }
@@ -372,6 +381,27 @@ impl SpecificNamedEntity for FunctionEntity {
     }
 }
 specific_named_entity_impl!(FunctionEntity, FreeEntity, FreeEntity::Function);
+
+impl SpecificNamedEntity for TraitEntity {
+    type Item = Trait;
+
+    fn kind() -> NamedEntityKind {
+        NamedEntityKind::Trait
+    }
+
+    fn item(self) -> Rc<RefCell<Self::Item>> {
+        self.0
+    }
+
+    fn name(&self) -> String {
+        self.0.borrow().name.clone()
+    }
+
+    fn definition_site(&self) -> Option<SourceOrigin> {
+        self.0.borrow().definition_site
+    }
+}
+specific_named_entity_impl!(TraitEntity, FreeEntity, FreeEntity::Trait);
 
 impl SpecificNamedEntity for TypeEntity {
     type Item = Type;

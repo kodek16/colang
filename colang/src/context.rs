@@ -2,7 +2,7 @@
 
 use crate::ast;
 use crate::errors::CompilationError;
-use crate::program::{self, Field, Function, Type, TypeTemplate, Variable};
+use crate::program::{self, Field, Function, Trait, Type, TypeTemplate, Variable};
 use crate::scope::{FreeScope, TypeEntity};
 use crate::source::InputSpan;
 use std::cell::RefCell;
@@ -72,6 +72,7 @@ impl CompilerContext {
 pub struct GlobalEntities {
     structs: HashMap<InputSpan, Rc<RefCell<Type>>>,
     struct_templates: HashMap<InputSpan, Rc<RefCell<TypeTemplate>>>,
+    traits: HashMap<InputSpan, Rc<RefCell<Trait>>>,
     functions: HashMap<InputSpan, Rc<RefCell<Function>>>,
     fields: HashMap<InputSpan, Rc<RefCell<Field>>>,
     methods: HashMap<InputSpan, Rc<RefCell<Function>>>,
@@ -82,23 +83,28 @@ impl GlobalEntities {
         GlobalEntities {
             structs: HashMap::new(),
             struct_templates: HashMap::new(),
+            traits: HashMap::new(),
             functions: HashMap::new(),
             fields: HashMap::new(),
             methods: HashMap::new(),
         }
     }
 
-    pub fn register_struct(&mut self, struct_def: &ast::StructDef, struct_: Rc<RefCell<Type>>) {
+    pub fn register_struct(&mut self, struct_def: &ast::TypeDef, struct_: Rc<RefCell<Type>>) {
         self.structs.insert(struct_def.signature_span, struct_);
     }
 
     pub fn register_struct_template(
         &mut self,
-        struct_def: &ast::StructDef,
+        struct_def: &ast::TypeDef,
         struct_template: Rc<RefCell<TypeTemplate>>,
     ) {
         self.struct_templates
             .insert(struct_def.signature_span, struct_template);
+    }
+
+    pub fn register_trait(&mut self, trait_def: &ast::TypeDef, trait_: Rc<RefCell<Trait>>) {
+        self.traits.insert(trait_def.signature_span, trait_);
     }
 
     pub fn register_function(
@@ -121,7 +127,7 @@ impl GlobalEntities {
         self.methods.insert(method_def.signature_span, method);
     }
 
-    pub fn struct_(&self, struct_def: &ast::StructDef) -> &Rc<RefCell<Type>> {
+    pub fn struct_(&self, struct_def: &ast::TypeDef) -> &Rc<RefCell<Type>> {
         self.structs
             .get(&struct_def.signature_span)
             .expect(&format!(
@@ -130,13 +136,20 @@ impl GlobalEntities {
             ))
     }
 
-    pub fn struct_template(&self, struct_def: &ast::StructDef) -> &Rc<RefCell<TypeTemplate>> {
+    pub fn struct_template(&self, struct_def: &ast::TypeDef) -> &Rc<RefCell<TypeTemplate>> {
         self.struct_templates
             .get(&struct_def.signature_span)
             .expect(&format!(
                 "Struct template `{}` was not analyzed in previous passes",
                 struct_def.name.text
             ))
+    }
+
+    pub fn trait_(&self, trait_def: &ast::TypeDef) -> &Rc<RefCell<Trait>> {
+        self.traits.get(&trait_def.signature_span).expect(&format!(
+            "Trait `{}` was not analyzed in previous passes",
+            trait_def.name.text
+        ))
     }
 
     pub fn function(&self, function_def: &ast::FunctionDef) -> &Rc<RefCell<Function>> {

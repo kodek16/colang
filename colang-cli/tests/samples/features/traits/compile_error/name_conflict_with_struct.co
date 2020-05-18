@@ -1,0 +1,5 @@
+struct Foo { }
+
+trait Foo { }
+
+fun main() { }

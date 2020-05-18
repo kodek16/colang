@@ -159,10 +159,7 @@ pub use field::{Field, FieldId};
 pub use function::{Function, FunctionId};
 pub use internal::InternalFunctionTag;
 pub use symbols::SymbolId;
-pub use typing::{
-    ProtoTypeParameter, Type, TypeCycleThroughFields, TypeId, TypeInstantiationData, TypeRegistry,
-    TypeTemplate, TypeTemplateId,
-};
+pub use typing::*;
 pub use values::ValueCategory;
 pub use variable::{Variable, VariableId};
 

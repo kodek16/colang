@@ -8,7 +8,8 @@ use crate::source::InputSpan;
 
 #[derive(Debug)]
 pub struct Program {
-    pub structs: Vec<StructDef>,
+    pub structs: Vec<TypeDef>,
+    pub traits: Vec<TypeDef>,
     pub functions: Vec<FunctionDef>,
 }
 
@@ -16,6 +17,7 @@ impl Program {
     pub fn new() -> Program {
         Program {
             structs: vec![],
+            traits: vec![],
             functions: vec![],
         }
     }
@@ -68,7 +70,7 @@ pub enum SelfParameterKind {
 }
 
 #[derive(Debug)]
-pub struct StructDef {
+pub struct TypeDef {
     pub name: Identifier,
     pub type_parameters: Vec<Identifier>,
     pub fields: Vec<FieldDef>,
@@ -77,24 +79,24 @@ pub struct StructDef {
     pub signature_span: InputSpan,
 }
 
-impl StructDef {
+impl TypeDef {
     pub fn new(
         name: Identifier,
         type_parameters: Vec<Identifier>,
-        members: Vec<StructMember>,
+        members: Vec<TypeMember>,
         signature_span: InputSpan,
-    ) -> StructDef {
+    ) -> TypeDef {
         let mut fields = vec![];
         let mut methods = vec![];
 
         for member in members {
             match member {
-                StructMember::Field(field_def) => fields.push(field_def),
-                StructMember::Method(method_def) => methods.push(method_def),
+                TypeMember::Field(field_def) => fields.push(field_def),
+                TypeMember::Method(method_def) => methods.push(method_def),
             }
         }
 
-        StructDef {
+        TypeDef {
             name,
             type_parameters,
             fields,
@@ -105,7 +107,7 @@ impl StructDef {
 }
 
 // Intermediate type, not present in the final tree.
-pub enum StructMember {
+pub enum TypeMember {
     Field(FieldDef),
     Method(FunctionDef),
 }

@@ -5,8 +5,8 @@
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::ast;
 use crate::ast::FunctionDef;
-use crate::program::{ProtoTypeParameter, Type, TypeTemplate};
-use crate::scope::{TypeEntity, TypeTemplateEntity};
+use crate::program::{ProtoTypeParameter, Trait, Type, TypeTemplate};
+use crate::scope::{TraitEntity, TypeEntity, TypeTemplateEntity};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::rc::Rc;
@@ -16,12 +16,11 @@ pub struct BasicTypesAnalyzerPass;
 impl GlobalVisitor for BasicTypesAnalyzerPass {
     fn analyze_non_template_struct_def(
         &mut self,
-        struct_def: &mut ast::StructDef,
+        struct_def: &mut ast::TypeDef,
         context: &mut CompilerContext,
     ) {
-        let name = &struct_def.name.text;
         let type_ = Type::new_struct(
-            name.to_string(),
+            struct_def.name.text.clone(),
             SourceOrigin::Plain(struct_def.signature_span),
             &mut context.program,
         );
@@ -37,7 +36,7 @@ impl GlobalVisitor for BasicTypesAnalyzerPass {
 
     fn analyze_template_struct_def(
         &mut self,
-        struct_def: &mut ast::StructDef,
+        struct_def: &mut ast::TypeDef,
         context: &mut CompilerContext,
     ) {
         let type_parameters: Vec<_> = struct_def
@@ -59,6 +58,22 @@ impl GlobalVisitor for BasicTypesAnalyzerPass {
             .register_struct_template(&struct_def, Rc::clone(&template));
 
         let result = context.scope.add(TypeTemplateEntity(Rc::clone(&template)));
+        if let Err(error) = result {
+            context.errors.push(error);
+        }
+    }
+
+    fn analyze_trait_def(&mut self, trait_def: &mut ast::TypeDef, context: &mut CompilerContext) {
+        let trait_ = Trait::new(
+            trait_def.name.text.clone(),
+            SourceOrigin::Plain(trait_def.signature_span),
+            &mut context.program,
+        );
+        context
+            .globals
+            .register_trait(trait_def, Rc::clone(&trait_));
+
+        let result = context.scope.add(TraitEntity(Rc::clone(&trait_)));
         if let Err(error) = result {
             context.errors.push(error);
         }

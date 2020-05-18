@@ -1,7 +1,7 @@
 //! Framework for defining analyzer passes that visit all defined global symbols.
 
 use crate::ast;
-use crate::program::{Field, Function, Type, TypeTemplate};
+use crate::program::{Field, Function, Trait, Type, TypeTemplate};
 use crate::scope::TypeEntity;
 use crate::CompilerContext;
 use std::cell::RefCell;
@@ -23,17 +23,17 @@ pub trait GlobalVisitor {
                 self.analyze_struct_def(&mut struct_def, context);
             }
 
+            for mut trait_def in &mut unit.traits {
+                self.analyze_trait_def(&mut trait_def, context);
+            }
+
             for mut function_def in &mut unit.functions {
                 self.analyze_function_def(&mut function_def, context);
             }
         }
     }
 
-    fn analyze_struct_def(
-        &mut self,
-        struct_def: &mut ast::StructDef,
-        context: &mut CompilerContext,
-    ) {
+    fn analyze_struct_def(&mut self, struct_def: &mut ast::TypeDef, context: &mut CompilerContext) {
         if struct_def.type_parameters.is_empty() {
             self.analyze_non_template_struct_def(struct_def, context);
         } else {
@@ -43,7 +43,7 @@ pub trait GlobalVisitor {
 
     fn analyze_non_template_struct_def(
         &mut self,
-        struct_def: &mut ast::StructDef,
+        struct_def: &mut ast::TypeDef,
         context: &mut CompilerContext,
     ) {
         let type_ = Rc::clone(context.globals.struct_(struct_def));
@@ -61,7 +61,7 @@ pub trait GlobalVisitor {
 
     fn revisit_non_template_struct_def(
         &mut self,
-        _struct_def: &mut ast::StructDef,
+        _struct_def: &mut ast::TypeDef,
         _type_: Rc<RefCell<Type>>,
         _context: &mut CompilerContext,
     ) {
@@ -69,7 +69,7 @@ pub trait GlobalVisitor {
 
     fn analyze_template_struct_def(
         &mut self,
-        struct_def: &mut ast::StructDef,
+        struct_def: &mut ast::TypeDef,
         context: &mut CompilerContext,
     ) {
         let template = Rc::clone(context.globals.struct_template(struct_def));
@@ -102,9 +102,23 @@ pub trait GlobalVisitor {
 
     fn revisit_template_struct_def(
         &mut self,
-        _struct_def: &mut ast::StructDef,
+        _struct_def: &mut ast::TypeDef,
         _template: Rc<RefCell<TypeTemplate>>,
         _base_type: Rc<RefCell<Type>>,
+        _context: &mut CompilerContext,
+    ) {
+    }
+
+    fn analyze_trait_def(&mut self, trait_def: &mut ast::TypeDef, context: &mut CompilerContext) {
+        let trait_ = Rc::clone(context.globals.trait_(trait_def));
+
+        self.revisit_trait_def(trait_def, trait_, context);
+    }
+
+    fn revisit_trait_def(
+        &mut self,
+        _trait_def: &mut ast::TypeDef,
+        _trait: Rc<RefCell<Trait>>,
         _context: &mut CompilerContext,
     ) {
     }

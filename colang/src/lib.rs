@@ -111,7 +111,7 @@ fn analyze(
         .run(sources.iter_mut().collect(), &mut context);
 
     // 6th pass: remove all template base types and their methods from the program.
-    remove_template_base_types_and_functions(&mut context.program);
+    remove_technical_entities(&mut context.program);
 
     // 7th pass: sort types topologically according to fields links.
     sort_types(&mut context);
@@ -133,15 +133,20 @@ fn analyze(
     }
 }
 
-// Removes all template base types and functions, so that the resulting program does not contain
-// type parameter placeholders.
-// This is safe to do only when all required template instances are created.
-fn remove_template_base_types_and_functions(program: &mut program::Program) {
+/// Removes all technical types and functions from the program.
+///
+/// This allows to hide some compile-time abstractions (templates, traits, etc.) from the backends
+/// completely.
+///
+/// This is safe to do only when all required template instances are created.
+fn remove_technical_entities(program: &mut program::Program) {
+    // TODO(#24): once all functions are aware of whether they are technical, this can be omitted
+    // altogether, and the backend can easily filter out technical entities where they need to.
     let mut functions_to_remove = Vec::new();
     let mut types_to_remove = Vec::new();
 
     for type_ in program.types().all_types() {
-        if type_.borrow().depends_on_type_parameter_placeholders() {
+        if type_.borrow().is_technical() {
             types_to_remove.push(Rc::clone(type_));
             for method in &type_.borrow().methods {
                 functions_to_remove.push(Rc::clone(&method));

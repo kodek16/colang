@@ -1,6 +1,8 @@
 //! Traits in CO define abstractions over types.
 
-use crate::program::{Program, SymbolId};
+use crate::program::typing::types::TypeInstantiationStatus;
+use crate::program::{Program, SymbolId, Type, TypeId};
+use crate::scope::TypeScope;
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,9 +19,16 @@ pub struct Trait {
     ///
     /// This can be `None` only for internal traits.
     pub definition_site: Option<SourceOrigin>,
+
+    /// The placeholder for the trait implementor type.
+    ///
+    /// This is the `Self` type for this trait: it serves as an example that the implementor types
+    /// have to conform to. It also contains all of the trait methods.
+    pub self_type: Rc<RefCell<Type>>,
 }
 
 /// A plain, hashable, unique identifier for traits.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TraitId {
     Plain(SymbolId),
 }
@@ -31,9 +40,23 @@ impl Trait {
         definition_site: SourceOrigin,
         program: &mut Program,
     ) -> Rc<RefCell<Trait>> {
+        let id = TraitId::Plain(program.symbol_ids_mut().next_id());
+
+        let self_type = program.types_mut().register(Type {
+            name: String::from("Self"),
+            type_id: TypeId::SelfType(id.clone()),
+            definition_site: Some(definition_site),
+            instantiation_data: None,
+            fields: Vec::new(),
+            methods: Vec::new(),
+            scope: TypeScope::new(),
+            instantiation_status: TypeInstantiationStatus::DepsMayNeedInstantiation,
+        });
+
         Rc::new(RefCell::new(Trait {
             name,
-            id: TraitId::Plain(program.symbol_ids_mut().next_id()),
+            id,
+            self_type,
             definition_site: Some(definition_site),
         }))
     }

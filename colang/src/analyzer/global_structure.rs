@@ -2,7 +2,7 @@
 //! is everything except function bodies, that is: fields, function and method signatures.
 
 use crate::analyzer::type_exprs;
-use crate::analyzer::visitor::GlobalVisitor;
+use crate::analyzer::visitor::{GlobalVisitor, TypeMemberContext};
 use crate::program::{Field, Function, Type, Variable};
 use crate::scope::{FunctionEntity, VariableEntity};
 use crate::source::SourceOrigin;
@@ -17,33 +17,55 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
     fn analyze_field_def(
         &mut self,
         field_def: &mut ast::FieldDef,
-        current_type: &Rc<RefCell<Type>>,
+        type_context: &TypeMemberContext,
         context: &mut CompilerContext,
     ) {
-        let type_ = type_exprs::compile_type_expr(&field_def.type_, context);
+        match type_context {
+            TypeMemberContext::TraitSelfType { trait_, .. } => {
+                let error = errors::field_in_trait(field_def, &trait_.borrow());
+                context.errors.push(error);
 
-        let field = Rc::new(RefCell::new(Field::new(
-            field_def.name.text.clone(),
-            Rc::clone(&type_),
-            SourceOrigin::Plain(field_def.span),
-            &mut context.program,
-        )));
-        context
-            .globals
-            .register_field(&field_def, Rc::clone(&field));
+                // Create a stub to keep `globals` in order.
+                let field_stub = Rc::new(RefCell::new(Field::new(
+                    field_def.name.text.clone(),
+                    Type::error(),
+                    SourceOrigin::Plain(field_def.span),
+                    &mut context.program,
+                )));
+                context.globals.register_field(field_def, field_stub);
+            }
+            TypeMemberContext::Type(_) | TypeMemberContext::TemplateBaseType { .. } => {
+                let type_ = type_exprs::compile_type_expr(&field_def.type_, context);
 
-        let result = current_type.borrow_mut().add_field(Rc::clone(&field));
-        if let Err(error) = result {
-            context.errors.push(error);
+                let field = Rc::new(RefCell::new(Field::new(
+                    field_def.name.text.clone(),
+                    Rc::clone(&type_),
+                    SourceOrigin::Plain(field_def.span),
+                    &mut context.program,
+                )));
+                context
+                    .globals
+                    .register_field(&field_def, Rc::clone(&field));
+
+                let result = type_context
+                    .type_()
+                    .borrow_mut()
+                    .add_field(Rc::clone(&field));
+                if let Err(error) = result {
+                    context.errors.push(error);
+                }
+            }
         }
     }
 
     fn analyze_method_def(
         &mut self,
         method_def: &mut ast::FunctionDef,
-        current_type: &Rc<RefCell<Type>>,
+        type_context: &TypeMemberContext,
         context: &mut CompilerContext,
     ) {
+        let current_type = type_context.type_();
+
         let name = method_def.name.text.clone();
         let return_type = compile_return_type(method_def.return_type.as_ref(), context);
 

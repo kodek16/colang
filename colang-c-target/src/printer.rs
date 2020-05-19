@@ -784,6 +784,7 @@ fn type_name(names: &impl CNameRegistry, type_: &Type) -> String {
         }
 
         TypeId::TypeParameter(_, _) => panic!("Unfilled type parameter encountered"),
+        TypeId::SelfType(_) => panic!("`Self` type encountered"),
         TypeId::Error => panic!("Error type encountered"),
     }
 }

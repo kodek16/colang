@@ -7,7 +7,7 @@ use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::visitor::GlobalVisitor;
 use crate::errors;
 use crate::program::function::FunctionBody;
-use crate::program::{ExpressionKind, Function, Type, Variable};
+use crate::program::{Expression, ExpressionKind, Function, Type, Variable};
 use crate::scope::VariableEntity;
 use crate::source::{InputSpan, SourceOrigin};
 use crate::{ast, program, CompilerContext};
@@ -43,24 +43,10 @@ impl GlobalVisitor for BodiesAnalyzerPass {
             let _ = context.scope.add(VariableEntity(Rc::clone(&parameter)));
         }
 
-        // Extract body from method definition.
-        let mut method_body = ast::Expression::Block(ast::BlockExpr {
-            statements: Vec::new(),
-            final_expr: None,
-            span: method_def.body.span(),
-        });
-        std::mem::swap(&mut method_body, &mut method_def.body);
-
-        let body = compile_expression(
-            method_body,
-            Some(Rc::clone(&method.borrow().return_type)),
-            context,
-        );
+        parse_and_fill_function_body_if_present(method, method_def, context);
 
         context.scope.pop();
         context.pop_local();
-
-        fill_function_body(method, body, context);
     }
 
     fn revisit_function_def(
@@ -79,46 +65,51 @@ impl GlobalVisitor for BodiesAnalyzerPass {
             let _ = context.scope.add(VariableEntity(Rc::clone(&parameter)));
         }
 
-        // Extract body from function definition.
-        let mut function_body = ast::Expression::Block(ast::BlockExpr {
-            statements: Vec::new(),
-            final_expr: None,
-            span: function_def.body.span(),
-        });
-        std::mem::swap(&mut function_body, &mut function_def.body);
+        parse_and_fill_function_body_if_present(function, function_def, context);
 
+        context.scope.pop();
+        context.pop_local();
+    }
+}
+
+fn parse_and_fill_function_body_if_present(
+    function: Rc<RefCell<Function>>,
+    definition: &mut ast::FunctionDef,
+    context: &mut CompilerContext,
+) {
+    // Extract body from definition.
+    let mut body = None;
+    std::mem::swap(&mut body, &mut definition.body);
+
+    if let Some(body) = body {
         let body = compile_expression(
-            function_body,
+            body,
             Some(Rc::clone(&function.borrow().return_type)),
             context,
         );
 
-        context.scope.pop();
-        context.pop_local();
-
-        fill_function_body(function, body, context);
-    }
-}
-
-fn fill_function_body(
-    function: Rc<RefCell<Function>>,
-    body: program::Expression,
-    context: &mut CompilerContext,
-) {
-    {
-        let body_type = body.type_();
-        let return_type = &function.borrow().return_type;
-
-        if !body_type.borrow().is_error()
-            && !return_type.borrow().is_error()
-            && body_type != return_type
         {
-            let error = errors::function_body_type_mismatch(&function.borrow(), &body);
-            context.errors.push(error);
-        }
-    }
+            let body_type = body.type_();
+            let return_type = &function.borrow().return_type;
 
-    function.borrow_mut().body = FunctionBody::Filled(Rc::new(RefCell::new(body)));
+            if !body_type.borrow().is_error()
+                && !return_type.borrow().is_error()
+                && body_type != return_type
+            {
+                let error = errors::function_body_type_mismatch(&function.borrow(), &body);
+                context.errors.push(error);
+            }
+        }
+
+        function.borrow_mut().body = FunctionBody::Filled(Rc::new(RefCell::new(body)));
+    } else {
+        let error = errors::function_body_missing(definition);
+        context.errors.push(error);
+
+        function.borrow_mut().body = FunctionBody::Filled(Rc::new(RefCell::new(
+            Expression::error(definition.signature_span),
+        )));
+    }
 }
 
 /// Automatic pointer dereferencing: in some contexts where it's obvious that pointers

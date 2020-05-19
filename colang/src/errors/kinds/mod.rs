@@ -48,6 +48,7 @@ mod e0045_type_infinite_dependency_chain;
 mod e0046_function_infinite_dependency_chain;
 mod e0047_type_cycle_through_fields;
 mod e0048_main_function_not_found;
+mod e0049_function_body_missing;
 
 pub mod constructors {
     use super::*;
@@ -100,4 +101,5 @@ pub mod constructors {
     pub use e0046_function_infinite_dependency_chain::function_infinite_dependency_chain;
     pub use e0047_type_cycle_through_fields::type_cycle_through_fields;
     pub use e0048_main_function_not_found::main_function_not_found;
+    pub use e0049_function_body_missing::function_body_missing;
 }

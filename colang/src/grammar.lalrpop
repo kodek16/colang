@@ -22,12 +22,12 @@ pub Program: Program = {
 };
 
 FunctionDef: FunctionDef = {
-    <start:@L> KwFun <name:Ident> "(" <parameters:CommaSeparated<ParameterDef>> ")" <return_type:(":" <TypeExpr>)?> <end:@R> <body:Block> => {
+    <start:@L> KwFun <name:Ident> "(" <parameters:CommaSeparated<ParameterDef>> ")" <return_type:(":" <TypeExpr>)?> <end:@R> <body:Block?> => {
         FunctionDef {
             name,
             parameters,
             return_type,
-            body: Expression::Block(body),
+            body: body.map(Expression::Block),
             signature_span: InputSpan { file, start, end }
         }
     },

@@ -28,7 +28,7 @@ pub struct FunctionDef {
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
     pub return_type: Option<TypeExpr>,
-    pub body: Expression,
+    pub body: Option<Expression>,
 
     pub signature_span: InputSpan,
 }

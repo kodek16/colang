@@ -65,10 +65,12 @@ SelfParameterDef: Parameter = {
 };
 
 StructDef: TypeDef = {
-    <start:@L> KwStruct <name:Ident> <type_parameters:("<" <CommaSeparatedNotEmpty<Ident>> ">")?> <end:@R> "{" <members:TypeMember*> "}" => {
+    <start:@L> KwStruct <name:Ident> <type_parameters:("<" <CommaSeparatedNotEmpty<Ident>> ">")?> <end:@R>
+            <implemented_traits:(":" <CommaSeparatedNotEmpty<TypeExpr>>)?> "{" <members:TypeMember*> "}" => {
         TypeDef::new(
             name,
             type_parameters.unwrap_or(vec![]),
+            implemented_traits.unwrap_or(vec![]),
             members,
             InputSpan { file, start, end },
         )
@@ -79,6 +81,7 @@ TraitDef: TypeDef = {
     <start:@L> KwTrait <name:Ident> <end:@R> "{" <members:TypeMember*> "}" => {
         TypeDef::new(
             name,
+            vec![],
             vec![],
             members,
             InputSpan { file, start, end },

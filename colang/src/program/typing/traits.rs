@@ -1,7 +1,7 @@
 //! Traits in CO define abstractions over types.
 
 use crate::program::typing::types::TypeInstantiationStatus;
-use crate::program::{Program, SymbolId, Type, TypeId};
+use crate::program::{Program, SymbolId, TraitRef, Type, TypeId};
 use crate::scope::TypeScope;
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -49,15 +49,23 @@ impl Trait {
             instantiation_data: None,
             fields: Vec::new(),
             methods: Vec::new(),
+            implemented_traits: Vec::new(),
             scope: TypeScope::new(),
             instantiation_status: TypeInstantiationStatus::DepsMayNeedInstantiation,
         });
 
-        Rc::new(RefCell::new(Trait {
+        let trait_ = Rc::new(RefCell::new(Trait {
             name,
             id,
-            self_type,
             definition_site: Some(definition_site),
-        }))
+            self_type: Rc::clone(&self_type),
+        }));
+
+        self_type
+            .borrow_mut()
+            .implemented_traits
+            .push(TraitRef::new(Rc::clone(&trait_), definition_site));
+
+        trait_
     }
 }

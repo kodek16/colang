@@ -239,6 +239,7 @@ fn create_basic_type(
         instantiation_data: None,
         fields: Vec::new(),
         methods: Vec::new(),
+        implemented_traits: Vec::new(),
         scope: TypeScope::new(),
         instantiation_status: TypeInstantiationStatus::DepsMayNeedInstantiation,
     })

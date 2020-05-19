@@ -1,9 +1,11 @@
 //! In this analysis pass, all "global" information gets analyzed. Simply put, global information
 //! is everything except function bodies, that is: fields, function and method signatures.
 
+use crate::analyzer::trait_exprs;
 use crate::analyzer::type_exprs;
 use crate::analyzer::visitor::{GlobalVisitor, TypeMemberContext};
-use crate::program::{Field, Function, Type, Variable};
+use crate::ast::TypeDef;
+use crate::program::{Field, Function, TraitRef, Type, TypeTemplate, Variable};
 use crate::scope::{FunctionEntity, VariableEntity};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
@@ -14,6 +16,27 @@ use std::rc::Rc;
 pub struct GlobalStructureAnalyzerPass;
 
 impl GlobalVisitor for GlobalStructureAnalyzerPass {
+    fn revisit_non_template_struct_def(
+        &mut self,
+        struct_def: &mut TypeDef,
+        type_: Rc<RefCell<Type>>,
+        context: &mut CompilerContext,
+    ) {
+        analyze_and_add_implemented_traits(&type_, &struct_def.implemented_traits, context);
+    }
+
+    fn revisit_template_struct_def(
+        &mut self,
+        struct_def: &mut TypeDef,
+        template: Rc<RefCell<TypeTemplate>>,
+        context: &mut CompilerContext,
+    ) {
+        let template = template.borrow();
+        let base_type = template.base_type();
+
+        analyze_and_add_implemented_traits(base_type, &struct_def.implemented_traits, context);
+    }
+
     fn analyze_field_def(
         &mut self,
         field_def: &mut ast::FieldDef,
@@ -180,6 +203,21 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
         let result = context.scope.add(FunctionEntity(Rc::clone(&function)));
         if let Err(error) = result {
             context.errors.push(error);
+        }
+    }
+}
+
+fn analyze_and_add_implemented_traits(
+    type_: &Rc<RefCell<Type>>,
+    traits: &Vec<ast::TypeExpr>,
+    context: &mut CompilerContext,
+) {
+    for trait_expr in traits {
+        if let Some(trait_) = trait_exprs::compile_trait_expr(trait_expr, context) {
+            type_.borrow_mut().implemented_traits.push(TraitRef::new(
+                trait_,
+                SourceOrigin::Plain(trait_expr.span()),
+            ));
         }
     }
 }

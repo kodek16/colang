@@ -51,6 +51,7 @@ mod e0048_main_function_not_found;
 mod e0049_function_body_missing;
 mod e0050_field_in_trait;
 mod e0051_method_with_body_in_trait;
+mod e0052_type_used_as_trait;
 
 pub mod constructors {
     use super::*;
@@ -106,4 +107,5 @@ pub mod constructors {
     pub use e0049_function_body_missing::function_body_missing;
     pub use e0050_field_in_trait::field_in_trait;
     pub use e0051_method_with_body_in_trait::method_with_body_in_trait;
+    pub use e0052_type_used_as_trait::type_used_as_trait;
 }

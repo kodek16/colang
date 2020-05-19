@@ -1,7 +1,7 @@
 use crate::errors::CompilationError;
 use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::templates::TypeTemplateId;
-use crate::program::{Field, Function, Program, SymbolId, TraitId, TypeTemplate};
+use crate::program::{Field, Function, Program, SymbolId, TraitId, TraitRef, TypeTemplate};
 use crate::scope::{FieldEntity, MethodEntity, Scope, TypeScope};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -53,6 +53,9 @@ pub struct Type {
     /// These methods can be also found in the `Program` function collection, this collection
     /// is secondary and is mostly used for lookup and type instantiation.
     pub methods: Vec<Rc<RefCell<Function>>>,
+
+    /// All traits implemented by this type.
+    pub implemented_traits: Vec<TraitRef>,
 
     /// The member scope associated with the type.
     pub(crate) scope: TypeScope,
@@ -145,6 +148,7 @@ impl Type {
             instantiation_data: None,
             fields: Vec::new(),
             methods: Vec::new(),
+            implemented_traits: Vec::new(),
             scope: TypeScope::new(),
             instantiation_status: TypeInstantiationStatus::DepsMayNeedInstantiation,
         })
@@ -160,8 +164,9 @@ impl Type {
             name: "<error>".to_string(),
             definition_site: None,
             instantiation_data: None,
-            fields: vec![],
-            methods: vec![],
+            fields: Vec::new(),
+            methods: Vec::new(),
+            implemented_traits: Vec::new(),
             scope: Scope::new(),
             instantiation_status: TypeInstantiationStatus::FullyComplete,
         }))

@@ -73,6 +73,7 @@ pub enum SelfParameterKind {
 pub struct TypeDef {
     pub name: Identifier,
     pub type_parameters: Vec<Identifier>,
+    pub implemented_traits: Vec<TypeExpr>,
     pub fields: Vec<FieldDef>,
     pub methods: Vec<FunctionDef>,
 
@@ -83,6 +84,7 @@ impl TypeDef {
     pub fn new(
         name: Identifier,
         type_parameters: Vec<Identifier>,
+        implemented_traits: Vec<TypeExpr>,
         members: Vec<TypeMember>,
         signature_span: InputSpan,
     ) -> TypeDef {
@@ -99,6 +101,7 @@ impl TypeDef {
         TypeDef {
             name,
             type_parameters,
+            implemented_traits,
             fields,
             methods,
             signature_span,

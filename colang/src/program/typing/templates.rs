@@ -92,6 +92,7 @@ impl TypeTemplate {
                     instantiation_data: None,
                     fields: Vec::new(),
                     methods: Vec::new(),
+                    implemented_traits: Vec::new(),
                     scope: TypeScope::new(),
                     instantiation_status: TypeInstantiationStatus::FullyComplete,
                 })
@@ -128,6 +129,7 @@ impl TypeTemplate {
             instantiation_data: None,
             fields: Vec::new(),
             methods: Vec::new(),
+            implemented_traits: Vec::new(),
             scope: TypeScope::new(),
             instantiation_status: TypeInstantiationStatus::DepsMayNeedInstantiation,
         });
@@ -210,6 +212,7 @@ impl TypeTemplate {
             instantiation_data: Some(instantiation_data),
             fields: Vec::new(),
             methods: Vec::new(),
+            implemented_traits: Vec::new(),
             scope: TypeScope::new(),
             instantiation_status: TypeInstantiationStatus::NeedsInstantiation,
         }))

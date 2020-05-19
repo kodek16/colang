@@ -20,6 +20,7 @@ pub mod function_instantiations;
 pub mod global_structure;
 pub mod type_exprs;
 
+mod trait_exprs;
 mod visitor;
 
 pub use visitor::GlobalVisitor;

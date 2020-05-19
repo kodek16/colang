@@ -91,6 +91,9 @@ pub(crate) enum FunctionBody {
         type_arguments: HashMap<TypeId, TypeId>,
     },
 
+    /// Function body is deliberately absent because the function is a trait method.
+    TraitMethod,
+
     /// Function body is deliberately absent because the function is internal.
     Internal,
 }

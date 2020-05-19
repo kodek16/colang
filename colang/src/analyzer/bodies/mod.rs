@@ -4,10 +4,10 @@ mod expressions;
 mod statements;
 
 use crate::analyzer::bodies::expressions::compile_expression;
-use crate::analyzer::visitor::GlobalVisitor;
+use crate::analyzer::visitor::{GlobalVisitor, TypeMemberContext};
 use crate::errors;
 use crate::program::function::FunctionBody;
-use crate::program::{Expression, ExpressionKind, Function, Type, Variable};
+use crate::program::{Expression, ExpressionKind, Function, Variable};
 use crate::scope::VariableEntity;
 use crate::source::{InputSpan, SourceOrigin};
 use crate::{ast, program, CompilerContext};
@@ -21,32 +21,44 @@ impl GlobalVisitor for BodiesAnalyzerPass {
     fn revisit_method_def(
         &mut self,
         method_def: &mut ast::FunctionDef,
-        current_type: &Rc<RefCell<Type>>,
         method: Rc<RefCell<Function>>,
+        type_context: &TypeMemberContext,
         context: &mut CompilerContext,
     ) {
-        context.push_local(
-            Rc::clone(&method),
-            Some(Rc::clone(&method.borrow().parameters.get(0).expect(
-                &format!(
-                "Attempt to parse method `{}` of type `{}` which is in an error state: no `self`",
-                method_def.name.text,
-                current_type.borrow().name
-            ),
-            ))),
-        );
+        match type_context {
+            TypeMemberContext::TraitSelfType { trait_, .. } => {
+                if method_def.body.is_some() {
+                    let error = errors::method_with_body_in_trait(method_def, &trait_.borrow());
+                    context.errors.push(error);
+                }
 
-        // Parameters have their own scope.
-        context.scope.push();
-        for parameter in &method.borrow().parameters[1..] {
-            // Ignore errors, they should be already reported in the previous phase.
-            let _ = context.scope.add(VariableEntity(Rc::clone(&parameter)));
+                method.borrow_mut().body = FunctionBody::TraitMethod;
+            }
+            TypeMemberContext::Type(_) | TypeMemberContext::TemplateBaseType { .. } => {
+                context.push_local(
+                    Rc::clone(&method),
+                    Some(Rc::clone(&method.borrow().parameters.get(0).expect(
+                        &format!(
+                            "Attempt to parse method `{}` of type `{}` which is in an error state: no `self`",
+                            method_def.name.text,
+                            type_context.type_().borrow().name
+                        ),
+                    ))),
+                );
+
+                // Parameters have their own scope.
+                context.scope.push();
+                for parameter in &method.borrow().parameters[1..] {
+                    // Ignore errors, they should be already reported in the previous phase.
+                    let _ = context.scope.add(VariableEntity(Rc::clone(&parameter)));
+                }
+
+                parse_and_fill_function_body_if_present(method, method_def, context);
+
+                context.scope.pop();
+                context.pop_local();
+            }
         }
-
-        parse_and_fill_function_body_if_present(method, method_def, context);
-
-        context.scope.pop();
-        context.pop_local();
     }
 
     fn revisit_function_def(

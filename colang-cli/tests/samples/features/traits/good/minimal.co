@@ -1,0 +1,5 @@
+trait Foo {
+    fun bar(self)
+}
+
+fun main() { }

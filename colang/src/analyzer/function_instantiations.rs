@@ -1,12 +1,12 @@
 //! After all defined functions were analyzed and their bodies filled, this pass looks at all
 //! function calls in the program, and instantiates the needed functions for these calls.
 
-use crate::analyzer::visitor::GlobalVisitor;
+use crate::analyzer::visitor::{GlobalVisitor, TypeMemberContext};
 use crate::ast::FunctionDef;
 use crate::errors;
 use crate::program::function::FunctionBody;
 use crate::program::visitors::LocalVisitor;
-use crate::program::{CallExpr, Function, Program, Type, TypeRegistry};
+use crate::program::{CallExpr, Function, Program, TypeRegistry};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::cell::RefCell;
@@ -20,8 +20,8 @@ impl GlobalVisitor for FunctionInstantiationsAnalyzerPass {
     fn revisit_method_def(
         &mut self,
         _: &mut FunctionDef,
-        _: &Rc<RefCell<Type>>,
         method: Rc<RefCell<Function>>,
+        _: &TypeMemberContext,
         context: &mut CompilerContext,
     ) {
         process_function(method, context);
@@ -59,6 +59,7 @@ fn process_function(function: Rc<RefCell<Function>>, context: &mut CompilerConte
                 }
             }
         }
+        FunctionBody::TraitMethod => (),
         _ => panic!(
             "Function `{}` ({:?}) was not filled during the responsible compiler pass",
             function.borrow().name,

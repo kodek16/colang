@@ -464,6 +464,7 @@ fn default_value_for_type(type_: &Type) -> Rvalue {
         TypeId::TemplateInstance(TypeTemplateId::Struct(_), _) => default_value_for_struct(type_),
         TypeId::Struct(_) => default_value_for_struct(type_),
         TypeId::TypeParameter(_, _) => panic!("Type parameter encountered in a compiled program."),
+        TypeId::SelfType(_) => panic!("Cannot create an instance of a technical type `Self`"),
         TypeId::Error => panic_error(),
     }
 }

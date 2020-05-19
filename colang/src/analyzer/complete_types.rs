@@ -2,7 +2,7 @@
 //!
 //! This may involve instantiating the types of fields or function signatures.
 
-use crate::analyzer::visitor::GlobalVisitor;
+use crate::analyzer::visitor::{GlobalVisitor, TypeMemberContext};
 use crate::ast::{self, FieldDef, FunctionDef};
 use crate::errors;
 use crate::program::{Field, Function, Type};
@@ -17,8 +17,8 @@ impl GlobalVisitor for CompleteTypesAnalyzerPass {
     fn revisit_field_def(
         &mut self,
         field_def: &mut FieldDef,
-        _: &Rc<RefCell<Type>>,
         field: Rc<RefCell<Field>>,
+        _: &TypeMemberContext,
         context: &mut CompilerContext,
     ) {
         let field_type = Rc::clone(&field.borrow().type_);
@@ -28,8 +28,8 @@ impl GlobalVisitor for CompleteTypesAnalyzerPass {
     fn revisit_method_def(
         &mut self,
         method_def: &mut FunctionDef,
-        _: &Rc<RefCell<Type>>,
         method: Rc<RefCell<Function>>,
+        _: &TypeMemberContext,
         context: &mut CompilerContext,
     ) {
         complete_function_types(method_def, method, context);

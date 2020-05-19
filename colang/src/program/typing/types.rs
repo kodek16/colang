@@ -1,7 +1,7 @@
 use crate::errors::CompilationError;
 use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::templates::TypeTemplateId;
-use crate::program::{Field, Function, Program, SymbolId, TypeTemplate};
+use crate::program::{Field, Function, Program, SymbolId, TraitId, TypeTemplate};
 use crate::scope::{FieldEntity, MethodEntity, Scope, TypeScope};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -85,6 +85,9 @@ pub enum TypeId {
     /// Template type parameter that will be substituted for a concrete type during instantiation.
     /// The second element of the tag is the index of the parameter.
     TypeParameter(TypeTemplateId, usize),
+
+    /// A "self-type" for some trait.
+    SelfType(TraitId),
 
     /// An invalid type. It can never appear in a valid program.
     Error,
@@ -210,6 +213,7 @@ impl Type {
             match type_id {
                 TypeId::TemplateInstance(_, ref type_arg_ids) => type_arg_ids.iter().any(check),
                 TypeId::TypeParameter(_, _) => true,
+                TypeId::SelfType(_) => true,
                 _ => false,
             }
         }

@@ -21,7 +21,7 @@ pub mod program;
 pub mod source;
 pub mod stdlib;
 
-use crate::analyzer::visitor::GlobalVisitor;
+use crate::analyzer::GlobalVisitor;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::visitors::valid::ValidityChecker;

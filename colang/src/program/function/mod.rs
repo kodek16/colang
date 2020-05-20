@@ -10,8 +10,9 @@ use crate::program::expressions::new::NewExpr;
 use crate::program::expressions::null::NullExpr;
 use crate::program::expressions::Expression;
 use crate::program::internal::InternalFunctionTag;
+use crate::program::symbols::SymbolIdRegistry;
 use crate::program::visitors::LocalVisitor;
-use crate::program::{SymbolId, SymbolIdRegistry, Type, TypeId, TypeRegistry, Variable};
+use crate::program::{SymbolId, Type, TypeId, TypeRegistry, Variable};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -61,8 +62,8 @@ pub struct Function {
     /// Current state of the function body.
     pub(crate) body: FunctionBody,
 
-    /// For instantiated methods, this is the ID of their prototype method in the base type.
-    base_method_id: Option<FunctionId>,
+    /// For instantiated methods, this is their prototype method in the base type.
+    base_method: Option<Rc<RefCell<Function>>>,
 }
 
 /// A plain, hashable, unique identifier for functions.
@@ -122,7 +123,7 @@ impl Function {
             id: FunctionId::UserDefined(symbol_ids.next_id()),
             definition_site: Some(definition_site),
             body: FunctionBody::ToBeFilled,
-            base_method_id: None,
+            base_method: None,
         }
     }
 
@@ -153,7 +154,7 @@ impl Function {
             return_type,
             definition_site: None,
             body: FunctionBody::Internal,
-            base_method_id: None,
+            base_method: None,
         }
     }
 
@@ -198,6 +199,8 @@ impl Function {
         type_arguments: &HashMap<TypeId, TypeId>,
         types: &mut TypeRegistry,
     ) -> Rc<RefCell<Function>> {
+        let base_method = Rc::clone(&function);
+
         match function.borrow().id {
             FunctionId::Internal(ref tag) => {
                 let function = function.borrow();
@@ -241,7 +244,7 @@ impl Function {
                     name: function.name.clone(),
                     definition_site: function.definition_site,
                     body: FunctionBody::Internal,
-                    base_method_id: Some(function.id.clone()),
+                    base_method: Some(base_method),
                 }))
             }
             FunctionId::UserDefined(template_id) => {
@@ -265,7 +268,6 @@ impl Function {
                     })
                     .collect();
                 let return_type = Type::substitute(&function.return_type, type_arguments, types);
-                let base_method_id = Some(function.id.clone());
 
                 Rc::new(RefCell::new(Function {
                     name: function.name.clone(),
@@ -273,7 +275,7 @@ impl Function {
                     definition_site: function.definition_site,
                     parameters,
                     return_type,
-                    base_method_id,
+                    base_method: Some(base_method),
                     body,
                 }))
             }
@@ -349,11 +351,15 @@ impl Function {
     /// this base method), and for other instantiated types (finding the method instantiated from
     /// the same base method as this method).
     pub fn lookup_instantiated_method(&self, instantiated_type: &Type) -> Rc<RefCell<Function>> {
-        let target_method_id = self.base_method_id.clone().unwrap_or(self.id.clone());
+        let target_method_id = self
+            .base_method
+            .as_ref()
+            .map(|method| method.borrow().id.clone())
+            .unwrap_or(self.id.clone());
 
         for method in &instantiated_type.methods {
-            if let Some(base_method_id) = method.borrow().base_method_id.clone() {
-                if base_method_id == target_method_id {
+            if let Some(base_method) = method.borrow().base_method.clone() {
+                if base_method.borrow().id == target_method_id {
                     return Rc::clone(method);
                 }
             }

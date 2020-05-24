@@ -18,6 +18,7 @@ pub mod bodies;
 pub mod complete_types;
 pub mod function_instantiations;
 pub mod global_structure;
+pub mod trait_wiring;
 pub mod type_exprs;
 
 mod trait_exprs;

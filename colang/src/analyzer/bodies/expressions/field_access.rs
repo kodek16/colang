@@ -18,14 +18,11 @@ pub fn compile_field_access_expr(
 
     let receiver_type = receiver.type_();
 
-    let field = receiver_type.borrow().lookup_field(
-        &expression.field.text,
-        SourceOrigin::Plain(expression.field.span),
-    );
-
+    let field = receiver_type.borrow().lookup_field(&expression.field.text);
     let field = match field {
         Ok(field) => field,
         Err(error) => {
+            let error = error.into_direct_lookup_error(SourceOrigin::Plain(expression.field.span));
             context.errors.push(error);
             return program::Expression::error(expression.span);
         }

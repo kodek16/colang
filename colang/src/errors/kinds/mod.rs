@@ -52,6 +52,8 @@ mod e0049_function_body_missing;
 mod e0050_field_in_trait;
 mod e0051_method_with_body_in_trait;
 mod e0052_type_used_as_trait;
+mod e0053_trait_method_signature_mismatch;
+mod e0054_trait_method_not_implemented;
 
 pub mod constructors {
     use super::*;
@@ -108,4 +110,6 @@ pub mod constructors {
     pub use e0050_field_in_trait::field_in_trait;
     pub use e0051_method_with_body_in_trait::method_with_body_in_trait;
     pub use e0052_type_used_as_trait::type_used_as_trait;
+    pub use e0053_trait_method_signature_mismatch::trait_method_signature_mismatch;
+    pub use e0054_trait_method_not_implemented::trait_method_not_implemented;
 }

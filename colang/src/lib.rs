@@ -26,7 +26,7 @@ use crate::context::CompilerContext;
 use crate::errors::CompilationError;
 use crate::program::visitors::valid::ValidityChecker;
 use crate::scope::FunctionEntity;
-use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
+use crate::source::InputSpanFile;
 use std::rc::Rc;
 
 /// Compiles a CO program, performs static checks, and returns the intermediate representation.
@@ -92,33 +92,34 @@ fn analyze(
 ) -> Result<program::Program, (program::Program, Vec<CompilationError>)> {
     let mut context = CompilerContext::new();
 
-    // 1st pass: initialize all defined types (and base types of type templates).
+    // Initialize all defined types (and base types of type templates).
     analyzer::basic_types::BasicTypesAnalyzerPass.run(sources.iter_mut().collect(), &mut context);
 
-    // 2nd pass: collect all global information.
+    // Collect all global information.
     analyzer::global_structure::GlobalStructureAnalyzerPass
         .run(sources.iter_mut().collect(), &mut context);
 
-    // 3rd pass: complete all types referenced globally.
+    // Check and wire trait implementations.
+    analyzer::trait_wiring::TraitWiringAnalyzerPass.run(sources.iter_mut().collect(), &mut context);
+
+    // Complete all types referenced globally.
     analyzer::complete_types::CompleteTypesAnalyzerPass
         .run(sources.iter_mut().collect(), &mut context);
 
-    // 4th pass: compile all defined function bodies.
+    // Compile all defined function bodies.
     analyzer::bodies::BodiesAnalyzerPass.run(sources.iter_mut().collect(), &mut context);
 
-    // 5th pass: instantiate all template method bodies for methods called by other functions.
+    // Instantiate all template method bodies for methods called by other functions.
     analyzer::function_instantiations::FunctionInstantiationsAnalyzerPass
         .run(sources.iter_mut().collect(), &mut context);
 
-    // 6th pass: remove all template base types and their methods from the program.
+    // Remove all template base types and their methods from the program.
     remove_technical_entities(&mut context.program);
 
-    // 7th pass: sort types topologically according to fields links.
+    // Sort types topologically according to fields links.
     sort_types(&mut context);
 
-    let main_function = context
-        .scope
-        .lookup::<FunctionEntity>("main", SourceOrigin::Plain(InputSpan::top_of_file()));
+    let main_function = context.scope.lookup::<FunctionEntity>("main");
     if let Ok(main_function) = main_function {
         context.program.main_function = Some(main_function);
     } else {

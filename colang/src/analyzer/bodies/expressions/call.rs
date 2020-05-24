@@ -8,16 +8,15 @@ pub fn compile_call_expr(
     expression: ast::CallExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let function_name = expression.function_name.text;
-    let function_name_span = expression.function_name.span;
-
     let function = context
         .scope
-        .lookup::<FunctionEntity>(&function_name, SourceOrigin::Plain(function_name_span));
+        .lookup::<FunctionEntity>(&expression.function_name.text);
 
     let function = match function {
         Ok(function) => function,
         Err(error) => {
+            let error =
+                error.into_direct_lookup_error(SourceOrigin::Plain(expression.function_name.span));
             context.errors.push(error);
             return program::Expression::error(expression.span);
         }

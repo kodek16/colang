@@ -6,7 +6,7 @@ mod templates;
 mod traits;
 mod types;
 
-pub use references::TraitRef;
+pub use references::{TraitRef, TypeRef};
 pub use registry::{TypeCycleThroughFields, TypeRegistry};
 pub use templates::{ProtoTypeParameter, TypeTemplate, TypeTemplateId};
 pub use traits::{Trait, TraitId};

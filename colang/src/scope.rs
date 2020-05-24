@@ -6,6 +6,7 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 /// A collection of named entities that supports lookup by name.
@@ -34,6 +35,20 @@ pub type FreeScope = Scope<FreeEntity>;
 ///
 /// Names in this scope can be only looked up in the context of a "receiver" value of this type.
 pub type TypeScope = Scope<TypeMemberEntity>;
+
+/// Error type for scope lookups.
+///
+/// `S` is the expected entity kind, and `G` is the set of all possible kinds..
+pub enum LookupError<S: SpecificNamedEntity, G: GeneralNamedEntity>
+where
+    G: From<S>,
+{
+    FoundDifferentKind(G),
+    NotFound {
+        name: String,
+        phantom: PhantomData<S>,
+    },
+}
 
 impl<G: GeneralNamedEntity> Scope<G> {
     /// Creates a new scope.
@@ -103,33 +118,21 @@ impl<G: GeneralNamedEntity> Scope<G> {
     /// different kind, an error is returned.
     ///
     /// If the name is unknown, an error is returned as well.
-    pub fn lookup<S>(
-        &self,
-        name: &str,
-        reference_location: SourceOrigin,
-    ) -> Result<Rc<RefCell<S::Item>>, CompilationError>
+    pub fn lookup<S>(&self, name: &str) -> Result<Rc<RefCell<S::Item>>, LookupError<S, G>>
     where
         S: SpecificNamedEntity,
+        G: From<S>,
         S: TryFrom<G>,
     {
         match self.lookup_chain(name) {
             Some(entity) => match S::try_from(entity.clone()) {
                 Ok(target) => Ok(target.item()),
-                Err(_) => {
-                    let error = errors::named_entity_kind_mismatch(
-                        name,
-                        S::kind(),
-                        entity,
-                        reference_location,
-                    );
-                    Err(error)
-                }
+                Err(_) => Err(LookupError::FoundDifferentKind(entity.clone())),
             },
-            None => Err(errors::named_entity_not_found(
-                name,
-                S::kind(),
-                reference_location,
-            )),
+            None => Err(LookupError::NotFound {
+                name: name.to_string(),
+                phantom: PhantomData,
+            }),
         }
     }
 
@@ -143,6 +146,29 @@ impl<G: GeneralNamedEntity> Scope<G> {
                 .as_ref()
                 .and_then(|parent| parent.lookup_chain(name))
         })
+    }
+}
+
+impl<S: SpecificNamedEntity, G: GeneralNamedEntity> LookupError<S, G>
+where
+    G: From<S>,
+{
+    /// Creates a `CompilationError` treating the lookup error as coming from a direct lookup.
+    ///
+    /// A lookup is direct when a name is directly used in an entity context in the source code.
+    /// Most lookups are direct.
+    pub fn into_direct_lookup_error(self, lookup_location: SourceOrigin) -> CompilationError {
+        match self {
+            LookupError::FoundDifferentKind(actual) => errors::named_entity_kind_mismatch(
+                &actual.name(),
+                S::kind(),
+                &actual,
+                lookup_location,
+            ),
+            LookupError::NotFound { name, .. } => {
+                errors::named_entity_not_found(&name, S::kind(), lookup_location)
+            }
+        }
     }
 }
 

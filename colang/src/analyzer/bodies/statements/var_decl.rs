@@ -2,7 +2,7 @@ use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::type_exprs;
 use crate::context::CompilerContext;
 use crate::program::expressions::block::BlockBuilder;
-use crate::program::{Type, Variable};
+use crate::program::{Type, TypeRef, Variable};
 use crate::scope::VariableEntity;
 use crate::source::SourceOrigin;
 use crate::{ast, errors, program};
@@ -53,7 +53,12 @@ fn compile_var_decl_entry(
 
     let variable = Rc::new(RefCell::new(Variable::new(
         name.text.clone(),
-        type_,
+        TypeRef::new(
+            type_,
+            declaration
+                .variable_type
+                .map(|t| SourceOrigin::Plain(t.span())),
+        ),
         SourceOrigin::Plain(declaration.span),
         &mut context.program,
     )));
@@ -71,7 +76,7 @@ fn compile_var_decl_entry(
             return;
         }
 
-        if *initializer.type_() != variable.borrow().type_ {
+        if *initializer.type_() != *variable.borrow().type_ {
             let error =
                 errors::variable_initializer_type_mismatch(&variable.borrow(), &initializer);
             context.errors.push(error);

@@ -21,14 +21,14 @@ pub fn compile_method_call_expr(
     let receiver = maybe_deref(receiver, context);
     let receiver_type = Rc::clone(receiver.type_());
 
-    let method = receiver_type.borrow().lookup_method(
-        &expression.method.text,
-        SourceOrigin::Plain(expression.method.span),
-    );
+    let method = receiver_type
+        .borrow()
+        .lookup_method(&expression.method.text);
 
     let method = match method {
         Ok(method) => method,
         Err(error) => {
+            let error = error.into_direct_lookup_error(SourceOrigin::Plain(expression.method.span));
             context.errors.push(error);
             return program::Expression::error(expression.method.span);
         }

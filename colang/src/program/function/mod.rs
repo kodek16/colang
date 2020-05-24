@@ -1,6 +1,7 @@
 //! Definitions and handling routines for CO functions (including methods).
 
 mod clone;
+mod signature;
 
 use crate::program::expressions::array_from_elements::ArrayFromElementsExpr;
 use crate::program::expressions::block::BlockExpr;
@@ -17,6 +18,8 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+pub use signature::Signature;
 
 /// A function in CO: an executable subroutine in the program.
 ///
@@ -64,6 +67,11 @@ pub struct Function {
 
     /// For instantiated methods, this is their prototype method in the base type.
     base_method: Option<Rc<RefCell<Function>>>,
+
+    /// For methods, these are the trait methods that they implement.
+    ///
+    /// A method may implement methods from different traits if they require the same signature.
+    implemented_methods: Vec<Rc<RefCell<Function>>>,
 }
 
 /// A plain, hashable, unique identifier for functions.
@@ -124,6 +132,7 @@ impl Function {
             definition_site: Some(definition_site),
             body: FunctionBody::ToBeFilled,
             base_method: None,
+            implemented_methods: Vec::new(),
         }
     }
 
@@ -155,6 +164,18 @@ impl Function {
             definition_site: None,
             body: FunctionBody::Internal,
             base_method: None,
+            implemented_methods: Vec::new(),
+        }
+    }
+
+    pub fn signature(&self) -> Signature {
+        Signature {
+            parameters: self
+                .parameters
+                .iter()
+                .map(|parameter| Rc::clone(&parameter.borrow().type_))
+                .collect(),
+            return_type: Rc::clone(&self.return_type),
         }
     }
 
@@ -180,6 +201,11 @@ impl Function {
             FunctionBody::ToBeInstantiated { .. } => true,
             _ => false,
         }
+    }
+
+    /// Wires a method of a type with a method of a trait that is being implemented.
+    pub fn wire_with_trait_method(&mut self, trait_method: Rc<RefCell<Function>>) {
+        self.implemented_methods.push(trait_method)
     }
 
     /// Instantiates the function, creating a copy after applying some type substitutions.
@@ -245,6 +271,10 @@ impl Function {
                     definition_site: function.definition_site,
                     body: FunctionBody::Internal,
                     base_method: Some(base_method),
+
+                    // TODO(#25): this may require non-trivial rewiring if traits depend on type
+                    // parameters of the receiver type.
+                    implemented_methods: function.implemented_methods.clone(),
                 }))
             }
             FunctionId::UserDefined(template_id) => {
@@ -277,6 +307,10 @@ impl Function {
                     return_type,
                     base_method: Some(base_method),
                     body,
+
+                    // TODO(#25): this may require non-trivial rewiring if traits depend on type
+                    // parameters of the receiver type.
+                    implemented_methods: function.implemented_methods.clone(),
                 }))
             }
             FunctionId::InstantiatedMethod(_, _) => {

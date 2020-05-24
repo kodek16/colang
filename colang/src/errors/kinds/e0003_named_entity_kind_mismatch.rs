@@ -13,12 +13,16 @@ pub fn named_entity_kind_mismatch<G: GeneralNamedEntity>(
         format!(
             "expected `{}` to be {}, but it is {}",
             name,
-            actual.kind().text_with_indefinite_article(),
             expected.text_with_indefinite_article(),
+            actual.kind().text_with_indefinite_article(),
         ),
     )
     .with_location(location)
-    .with_subtitle(format!("`{}` is used here in a type context", name))
+    .with_subtitle(format!(
+        "`{}` is used here in {} context",
+        name,
+        expected.text_with_indefinite_article()
+    ))
     .maybe_with_bound_note(actual.definition_site(), || {
         format!(
             "`{}` is defined here as {}",

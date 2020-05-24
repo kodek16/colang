@@ -44,9 +44,7 @@ fn compile_scalar_type_expr(
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
     let name = &type_expr.name;
-    let type_ = context
-        .scope
-        .lookup::<TypeEntity>(&name.text, SourceOrigin::Plain(type_expr.span));
+    let type_ = context.scope.lookup::<TypeEntity>(&name.text);
 
     match type_ {
         Ok(type_) if type_.borrow().is_void() => {
@@ -56,6 +54,7 @@ fn compile_scalar_type_expr(
         }
         Ok(type_) => type_,
         Err(error) => {
+            let error = error.into_direct_lookup_error(SourceOrigin::Plain(type_expr.span));
             context.errors.push(error);
             Type::error()
         }
@@ -97,13 +96,15 @@ fn compile_template_instance_type_expr(
         return Type::error();
     }
 
-    let template = context.scope.lookup::<TypeTemplateEntity>(
-        &type_expr.template.text,
-        SourceOrigin::Plain(type_expr.template.span),
-    );
+    let template = context
+        .scope
+        .lookup::<TypeTemplateEntity>(&type_expr.template.text);
+
     let template = match template {
         Ok(template) => template,
         Err(error) => {
+            let error =
+                error.into_direct_lookup_error(SourceOrigin::Plain(type_expr.template.span));
             context.errors.push(error);
             return Type::error();
         }

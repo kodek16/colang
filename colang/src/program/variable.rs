@@ -2,12 +2,10 @@
 
 use crate::program::function::ProtoInternalParameter;
 use crate::program::{
-    FunctionId, InternalFunctionTag, Program, SymbolId, Type, TypeId, TypeRegistry,
+    FunctionId, InternalFunctionTag, Program, SymbolId, Type, TypeId, TypeRef, TypeRegistry,
 };
 use crate::source::SourceOrigin;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 /// A variable in CO: a named, stateful value with a certain lifecycle.
 ///
@@ -36,7 +34,7 @@ pub struct Variable {
     pub definition_site: Option<SourceOrigin>,
 
     /// The type of the variable (or equivalently, the type of its value).
-    pub type_: Rc<RefCell<Type>>,
+    pub type_: TypeRef,
 }
 
 /// A plain, hashable, unique identifier for variables.
@@ -61,7 +59,7 @@ impl Variable {
     /// Creates a new variable with a given name and type.
     pub fn new(
         name: String,
-        type_: Rc<RefCell<Type>>,
+        type_: TypeRef,
         definition_site: SourceOrigin,
         program: &mut Program,
     ) -> Variable {
@@ -82,7 +80,7 @@ impl Variable {
         Variable {
             name: parameter.name,
             id: VariableId::InternalParameter(function_tag, parameter_index),
-            type_: parameter.type_,
+            type_: TypeRef::new(parameter.type_, None),
             definition_site: None,
         }
     }
@@ -108,7 +106,10 @@ impl Variable {
             id,
             name: self.name.clone(),
             definition_site: self.definition_site,
-            type_: Type::substitute(&self.type_, type_arguments, types),
+            type_: TypeRef::new(
+                Type::substitute(&self.type_, type_arguments, types),
+                self.type_.reference_location(),
+            ),
         }
     }
 
@@ -133,7 +134,7 @@ impl Variable {
             id,
             name: self.name.clone(),
             definition_site: self.definition_site,
-            type_: Type::substitute(&self.type_, type_arguments, types),
+            type_: TypeRef::new(Type::substitute(&self.type_, type_arguments, types), None),
         }
     }
 }

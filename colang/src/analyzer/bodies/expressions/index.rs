@@ -19,13 +19,11 @@ pub fn compile_index_expr(
         return program::Expression::error(expression.span);
     }
 
-    let method = collection_type
-        .borrow()
-        .lookup_method("index", SourceOrigin::Plain(expression.span));
-
+    let method = collection_type.borrow().lookup_method("index");
     let method = match method {
         Ok(method) => method,
         Err(error) => {
+            let error = error.into_direct_lookup_error(SourceOrigin::Plain(expression.span));
             context.errors.push(error);
             return program::Expression::error(expression.span);
         }

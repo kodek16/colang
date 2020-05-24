@@ -2,7 +2,7 @@ use crate::errors::CompilationError;
 use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::templates::TypeTemplateId;
 use crate::program::{Field, Function, Program, SymbolId, TraitId, TraitRef, TypeTemplate};
-use crate::scope::{FieldEntity, MethodEntity, Scope, TypeScope};
+use crate::scope::{FieldEntity, LookupError, MethodEntity, Scope, TypeMemberEntity, TypeScope};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -190,18 +190,16 @@ impl Type {
     pub fn lookup_field(
         &self,
         name: &str,
-        reference_location: SourceOrigin,
-    ) -> Result<Rc<RefCell<Field>>, CompilationError> {
-        self.scope.lookup::<FieldEntity>(name, reference_location)
+    ) -> Result<Rc<RefCell<Field>>, LookupError<FieldEntity, TypeMemberEntity>> {
+        self.scope.lookup::<FieldEntity>(name)
     }
 
     /// Looks up a method in the type member scope.
     pub fn lookup_method(
         &self,
         name: &str,
-        reference_location: SourceOrigin,
-    ) -> Result<Rc<RefCell<Function>>, CompilationError> {
-        self.scope.lookup::<MethodEntity>(name, reference_location)
+    ) -> Result<Rc<RefCell<Function>>, LookupError<MethodEntity, TypeMemberEntity>> {
+        self.scope.lookup::<MethodEntity>(name)
     }
 
     pub fn is_user_defined(&self) -> bool {

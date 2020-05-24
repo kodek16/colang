@@ -1,0 +1,7 @@
+trait Foo {
+  fun bar(self, x: int): int
+}
+
+struct FooImpl : Foo { }
+
+fun main() { }

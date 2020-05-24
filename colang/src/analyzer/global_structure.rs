@@ -5,7 +5,7 @@ use crate::analyzer::trait_exprs;
 use crate::analyzer::type_exprs;
 use crate::analyzer::visitor::{GlobalVisitor, TypeMemberContext};
 use crate::ast::TypeDef;
-use crate::program::{Field, Function, TraitRef, Type, TypeTemplate, Variable};
+use crate::program::{Field, Function, TraitRef, Type, TypeRef, TypeTemplate, Variable};
 use crate::scope::{FunctionEntity, VariableEntity};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
@@ -116,7 +116,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
                 // TODO(#2) synthesize a more precise span for fake `self`.
                 let fake_self = create_parameter(
                     "<self>".to_string(),
-                    Rc::clone(current_type),
+                    TypeRef::new(Rc::clone(current_type), None),
                     SourceOrigin::Plain(method_def.signature_span),
                     context,
                 )
@@ -239,7 +239,12 @@ fn compile_normal_parameter(
     let name = parameter.name.text.clone();
     let type_ = type_exprs::compile_type_expr(&parameter.type_, context);
 
-    create_parameter(name, type_, SourceOrigin::Plain(parameter.span), context)
+    create_parameter(
+        name,
+        TypeRef::new(type_, Some(SourceOrigin::Plain(parameter.type_.span()))),
+        SourceOrigin::Plain(parameter.span),
+        context,
+    )
 }
 
 fn compile_self_parameter(
@@ -254,7 +259,7 @@ fn compile_self_parameter(
 
     create_parameter(
         "<self>".to_string(),
-        type_,
+        TypeRef::new(type_, None),
         SourceOrigin::Plain(parameter.span),
         context,
     )
@@ -263,7 +268,7 @@ fn compile_self_parameter(
 
 fn create_parameter(
     name: String,
-    type_: Rc<RefCell<Type>>,
+    type_: TypeRef,
     definition_site: SourceOrigin,
     context: &mut CompilerContext,
 ) -> Option<Rc<RefCell<Variable>>> {

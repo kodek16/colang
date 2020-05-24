@@ -7,11 +7,9 @@ pub fn compile_variable_expr(
     expression: ast::VariableExpr,
     context: &mut CompilerContext,
 ) -> program::Expression {
-    let name = expression.name;
-
     let variable = context
         .scope
-        .lookup::<VariableEntity>(&name.text, SourceOrigin::Plain(expression.span));
+        .lookup::<VariableEntity>(&expression.name.text);
 
     match variable {
         Ok(variable) if variable.borrow().type_.borrow().is_error() => {
@@ -25,6 +23,7 @@ pub fn compile_variable_expr(
             context.program.types_mut(),
         ),
         Err(error) => {
+            let error = error.into_direct_lookup_error(SourceOrigin::Plain(expression.span));
             context.errors.push(error);
             program::Expression::error(expression.span)
         }

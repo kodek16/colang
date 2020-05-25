@@ -30,6 +30,7 @@ impl GlobalVisitor for BasicTypesAnalyzerPass {
 
         let result = context.scope.add(TypeEntity(Rc::clone(&type_)));
         if let Err(error) = result {
+            let error = error.into_direct_add_error(type_.borrow().definition_site.unwrap());
             context.errors.push(error);
         }
     }
@@ -43,10 +44,11 @@ impl GlobalVisitor for BasicTypesAnalyzerPass {
             .type_parameters
             .iter()
             .map(|type_param| ProtoTypeParameter {
-                name: type_param.text.clone(),
-                definition_site: Some(SourceOrigin::Plain(type_param.span)),
+                name: type_param.name.text.clone(),
+                definition_site: Some(SourceOrigin::Plain(type_param.name.span)),
             })
             .collect();
+
         let template = TypeTemplate::new_struct_template(
             struct_def.name.text.clone(),
             type_parameters,
@@ -57,8 +59,21 @@ impl GlobalVisitor for BasicTypesAnalyzerPass {
             .globals
             .register_struct_template(&struct_def, Rc::clone(&template));
 
+        // Type parameter scope.
+        context.scope.push();
+        for type_parameter in &template.borrow().type_parameters {
+            let result = context.scope.add(TypeEntity(Rc::clone(&type_parameter)));
+            if let Err(error) = result {
+                let error =
+                    error.into_direct_add_error(type_parameter.borrow().definition_site.unwrap());
+                context.errors.push(error);
+            }
+        }
+        context.scope.pop();
+
         let result = context.scope.add(TypeTemplateEntity(Rc::clone(&template)));
         if let Err(error) = result {
+            let error = error.into_direct_add_error(template.borrow().definition_site.unwrap());
             context.errors.push(error);
         }
     }
@@ -75,6 +90,7 @@ impl GlobalVisitor for BasicTypesAnalyzerPass {
 
         let result = context.scope.add(TraitEntity(Rc::clone(&trait_)));
         if let Err(error) = result {
+            let error = error.into_direct_add_error(trait_.borrow().definition_site.unwrap());
             context.errors.push(error);
         }
     }

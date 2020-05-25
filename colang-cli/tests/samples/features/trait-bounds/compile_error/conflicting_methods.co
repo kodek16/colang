@@ -1,0 +1,11 @@
+trait IntoInt {
+  fun into(self): int
+}
+
+trait IntoChar {
+  fun into(self): char
+}
+
+struct Foo<T: IntoInt + IntoChar> { }
+
+fun main() { }

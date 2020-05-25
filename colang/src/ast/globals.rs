@@ -72,7 +72,7 @@ pub enum SelfParameterKind {
 #[derive(Debug)]
 pub struct TypeDef {
     pub name: Identifier,
-    pub type_parameters: Vec<Identifier>,
+    pub type_parameters: Vec<TypeParameter>,
     pub implemented_traits: Vec<TypeExpr>,
     pub fields: Vec<FieldDef>,
     pub methods: Vec<FunctionDef>,
@@ -83,7 +83,7 @@ pub struct TypeDef {
 impl TypeDef {
     pub fn new(
         name: Identifier,
-        type_parameters: Vec<Identifier>,
+        type_parameters: Vec<TypeParameter>,
         implemented_traits: Vec<TypeExpr>,
         members: Vec<TypeMember>,
         signature_span: InputSpan,
@@ -107,6 +107,14 @@ impl TypeDef {
             signature_span,
         }
     }
+}
+
+#[derive(Debug)]
+pub struct TypeParameter {
+    pub name: Identifier,
+    pub trait_bounds: Vec<TypeExpr>,
+
+    pub span: InputSpan,
 }
 
 // Intermediate type, not present in the final tree.

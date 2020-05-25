@@ -1,14 +1,19 @@
 //! The trait wiring analyzer pass connects trait methods to their implementations.
+//!
+//! This pass also fills type parameter placeholder types (TPPTs) with method definition stubs
+//! from their trait bounds.
 
-use crate::analyzer::GlobalVisitor;
+use crate::analyzer::{trait_exprs, GlobalVisitor};
 use crate::ast::TypeDef;
 use crate::context::CompilerContext;
-use crate::errors;
 use crate::program::{
     Function, Program, Trait, TraitRef, Type, TypeId, TypeRef, TypeTemplate, Variable,
 };
+use crate::scope::MethodEntity;
+use crate::{ast, errors};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::rc::Rc;
 
 pub struct TraitWiringAnalyzerPass;
@@ -32,7 +37,7 @@ impl GlobalVisitor for TraitWiringAnalyzerPass {
 
     fn revisit_template_struct_def(
         &mut self,
-        _: &mut TypeDef,
+        struct_def: &mut TypeDef,
         template: Rc<RefCell<TypeTemplate>>,
         context: &mut CompilerContext,
     ) {
@@ -44,6 +49,22 @@ impl GlobalVisitor for TraitWiringAnalyzerPass {
         for trait_ in traits {
             for trait_method in &trait_.borrow().self_type.borrow().methods {
                 wire_trait_method(&base_type, &trait_, &trait_method, context);
+            }
+        }
+
+        for (type_parameter, type_parameter_def) in (&template.borrow().type_parameters)
+            .iter()
+            .zip(struct_def.type_parameters.iter())
+        {
+            for trait_bound in &type_parameter_def.trait_bounds {
+                if let Some(trait_bound) = trait_exprs::compile_trait_expr(trait_bound, context) {
+                    extend_type_parameter_placeholder_with_trait_methods(
+                        type_parameter_def,
+                        type_parameter,
+                        &trait_bound,
+                        context,
+                    )
+                }
             }
         }
     }
@@ -103,6 +124,37 @@ fn wire_trait_method(
     implementation
         .borrow_mut()
         .wire_with_trait_method(Rc::clone(trait_method));
+}
+
+fn extend_type_parameter_placeholder_with_trait_methods(
+    type_parameter_def: &ast::TypeParameter,
+    type_parameter: &Rc<RefCell<Type>>,
+    trait_: &Rc<RefCell<Trait>>,
+    context: &mut CompilerContext,
+) {
+    for trait_method in &trait_.borrow().self_type.borrow().methods {
+        let implementation = generate_synthetic_trait_method_implementation(
+            type_parameter,
+            trait_,
+            trait_method,
+            &mut context.program,
+        );
+
+        let result = type_parameter
+            .borrow_mut()
+            .scope
+            .add(MethodEntity(Rc::clone(&implementation)));
+
+        if let Err(error) = result {
+            let existing_method = MethodEntity::try_from(error.existing).unwrap();
+            let error = errors::conflicting_method_from_trait_bounds(
+                type_parameter_def,
+                &implementation.borrow(),
+                &existing_method.0.borrow(),
+            );
+            context.errors.push(error);
+        }
+    }
 }
 
 /// Generates a synthetic trait method implementation for error recovery.

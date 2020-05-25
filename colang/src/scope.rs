@@ -6,6 +6,8 @@ use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::fmt;
+use std::fmt::Formatter;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -50,6 +52,11 @@ where
     },
 }
 
+/// Error type for scope add operation.pub
+pub struct AddError<G: GeneralNamedEntity> {
+    pub existing: G,
+}
+
 impl<G: GeneralNamedEntity> Scope<G> {
     /// Creates a new scope.
     pub fn new() -> Scope<G> {
@@ -83,25 +90,18 @@ impl<G: GeneralNamedEntity> Scope<G> {
     ///
     /// If a name conflict is detected, a `CompilationError` is returned.
     #[must_use]
-    pub fn add<S>(&mut self, entity: S) -> Result<(), CompilationError>
+    pub fn add<S>(&mut self, entity: S) -> Result<(), AddError<G>>
     where
         S: SpecificNamedEntity,
         G: From<S>,
     {
         let name = entity.name();
-        let definition_site = entity.definition_site();
 
         let existing = self.lookup_self(&name);
         match existing {
-            Some(existing) => {
-                let error = errors::named_entity_already_defined(
-                    &name,
-                    existing,
-                    definition_site
-                        .expect(&format!("Name collision for internal entity `{}`", name)),
-                );
-                Err(error)
-            }
+            Some(existing) => Err(AddError {
+                existing: existing.clone(),
+            }),
             None => {
                 self.entities
                     .as_mut()
@@ -169,6 +169,21 @@ where
                 errors::named_entity_not_found(&name, S::kind(), lookup_location)
             }
         }
+    }
+}
+
+impl<G: GeneralNamedEntity> AddError<G> {
+    /// Creates a `CompilationError` treating the add error as coming from a direct update.
+    pub fn into_direct_add_error(self, add_location: SourceOrigin) -> CompilationError {
+        errors::named_entity_already_defined(&self.existing.name(), &self.existing, add_location)
+    }
+}
+
+impl<G: GeneralNamedEntity> fmt::Debug for AddError<G> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AddError")
+            .field("name", &self.existing.name())
+            .finish()
     }
 }
 

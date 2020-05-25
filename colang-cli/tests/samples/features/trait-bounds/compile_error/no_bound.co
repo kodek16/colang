@@ -1,0 +1,19 @@
+trait Intable {
+  fun to_int(self): int
+}
+
+struct Foo : Intable {
+  fun to_int(self): int {
+    42
+  }
+}
+
+struct Wrapper<T> {
+  value: T;
+
+  fun bar(self): int {
+    self.value.to_int()
+  }
+}
+
+fun main() { }

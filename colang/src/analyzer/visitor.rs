@@ -82,10 +82,8 @@ pub trait GlobalVisitor {
         context.scope.push();
 
         for type_parameter in template.borrow().type_parameters.iter() {
-            let result = context.scope.add(TypeEntity(Rc::clone(&type_parameter)));
-            if let Err(error) = result {
-                context.errors.push(error);
-            }
+            // Scope errors are already reported in `basic_types` pass.
+            let _ = context.scope.add(TypeEntity(Rc::clone(&type_parameter)));
         }
 
         let type_context = TypeMemberContext::TemplateBaseType {

@@ -96,26 +96,17 @@ pub fn populate_internal_symbols(program: &mut Program, scope: &mut FreeScope) {
         let mut array = array.borrow_mut();
         for method in array_methods.iter() {
             program.add_function(Rc::clone(&method));
-            array
-                .add_method(Rc::clone(&method))
-                .expect("Internal method name collision.");
+            array.add_method(Rc::clone(&method)).unwrap();
         }
     }
 
     let mut string = program.types.string().borrow_mut();
     for method in string_methods.iter() {
-        string
-            .add_method(Rc::clone(&method))
-            .expect("Internal method name collision.");
+        string.add_method(Rc::clone(&method)).unwrap();
     }
 
     for function in visible_functions {
-        scope
-            .add(FunctionEntity(Rc::clone(&function)))
-            .expect(&format!(
-                "Couldn't register internal function `{}`",
-                function.borrow().name
-            ));
+        scope.add(FunctionEntity(Rc::clone(&function))).unwrap();
     }
 }
 

@@ -95,12 +95,17 @@ fn analyze(
     // Initialize all defined types (and base types of type templates).
     analyzer::basic_types::BasicTypesAnalyzerPass.run(sources.iter_mut().collect(), &mut context);
 
+    // Link all types to the traits they claim to implement.
+    analyzer::traits::basic::BasicTraitsAnalyzerPass
+        .run(sources.iter_mut().collect(), &mut context);
+
     // Collect all global information.
     analyzer::global_structure::GlobalStructureAnalyzerPass
         .run(sources.iter_mut().collect(), &mut context);
 
     // Check and wire trait implementations.
-    analyzer::trait_wiring::TraitWiringAnalyzerPass.run(sources.iter_mut().collect(), &mut context);
+    analyzer::traits::wiring::TraitWiringAnalyzerPass
+        .run(sources.iter_mut().collect(), &mut context);
 
     // Complete all types referenced globally.
     analyzer::complete_types::CompleteTypesAnalyzerPass

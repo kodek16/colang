@@ -64,6 +64,7 @@ fn compile_var_decl_entry(
     )));
 
     if let Err(error) = context.scope.add(VariableEntity(Rc::clone(&variable))) {
+        let error = error.into_direct_add_error(variable.borrow().definition_site.unwrap());
         context.errors.push(error);
     };
 

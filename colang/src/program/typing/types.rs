@@ -1,8 +1,9 @@
-use crate::errors::CompilationError;
 use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::templates::TypeTemplateId;
 use crate::program::{Field, Function, Program, SymbolId, TraitId, TraitRef, TypeTemplate};
-use crate::scope::{FieldEntity, LookupError, MethodEntity, Scope, TypeMemberEntity, TypeScope};
+use crate::scope::{
+    AddError, FieldEntity, LookupError, MethodEntity, Scope, TypeMemberEntity, TypeScope,
+};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -174,14 +175,20 @@ impl Type {
 
     /// Adds a field to the list of type members.
     #[must_use]
-    pub fn add_field(&mut self, field: Rc<RefCell<Field>>) -> Result<(), CompilationError> {
+    pub fn add_field(
+        &mut self,
+        field: Rc<RefCell<Field>>,
+    ) -> Result<(), AddError<TypeMemberEntity>> {
         self.fields.push(Rc::clone(&field));
         self.scope.add(FieldEntity(field))
     }
 
     /// Adds a method to the list of type members.
     #[must_use]
-    pub fn add_method(&mut self, method: Rc<RefCell<Function>>) -> Result<(), CompilationError> {
+    pub fn add_method(
+        &mut self,
+        method: Rc<RefCell<Function>>,
+    ) -> Result<(), AddError<TypeMemberEntity>> {
         self.methods.push(Rc::clone(&method));
         self.scope.add(MethodEntity(method))
     }

@@ -55,6 +55,7 @@ mod e0052_type_used_as_trait;
 mod e0053_trait_method_signature_mismatch;
 mod e0054_trait_method_not_implemented;
 mod e0055_conflicting_method_from_trait_bounds;
+mod e0056_type_argument_violates_trait_bound;
 
 pub mod constructors {
     use super::*;
@@ -114,4 +115,5 @@ pub mod constructors {
     pub use e0053_trait_method_signature_mismatch::trait_method_signature_mismatch;
     pub use e0054_trait_method_not_implemented::trait_method_not_implemented;
     pub use e0055_conflicting_method_from_trait_bounds::conflicting_method_from_trait_bounds;
+    pub use e0056_type_argument_violates_trait_bound::type_argument_violates_trait_bound;
 }

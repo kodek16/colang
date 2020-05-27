@@ -1,9 +1,9 @@
 use crate::errors::{self, CompilationError};
 use crate::program::typing::registry::TypeRegistry;
 use crate::program::typing::types::{Type, TypeId, TypeInstantiationData, TypeInstantiationStatus};
-use crate::program::{Program, SymbolId};
+use crate::program::{Program, SymbolId, TypeRef};
 use crate::scope::TypeScope;
-use crate::source::{InputSpan, SourceOrigin};
+use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -164,33 +164,78 @@ impl TypeTemplate {
         &self.base_type
     }
 
+    /// Creates an instance of the template after checking the type arguments.
     pub fn instantiate(
+        template: Rc<RefCell<TypeTemplate>>,
+        type_arguments: Vec<TypeRef>,
+        registry: &mut TypeRegistry,
+        location: SourceOrigin,
+    ) -> Result<Rc<RefCell<Type>>, Vec<CompilationError>> {
+        if type_arguments.len() != template.borrow().type_parameters.len() {
+            return Err(vec![errors::wrong_number_of_type_template_arguments(
+                &template.borrow(),
+                type_arguments.len(),
+                location,
+            )]);
+        }
+
+        let mut bound_violations = Vec::new();
+        for (type_argument, type_parameter) in type_arguments
+            .iter()
+            .zip(template.borrow().type_parameters.iter())
+        {
+            for trait_bound in &type_parameter.borrow().implemented_traits {
+                if !type_argument
+                    .borrow()
+                    .implemented_traits
+                    .contains(trait_bound)
+                {
+                    bound_violations.push(errors::type_argument_violates_trait_bound(
+                        &type_argument.borrow(),
+                        &template.borrow(),
+                        &type_parameter.borrow(),
+                        &trait_bound.borrow(),
+                        type_argument.reference_location().unwrap(),
+                    ));
+                }
+            }
+        }
+
+        if !bound_violations.is_empty() {
+            return Err(bound_violations);
+        }
+
+        Ok(TypeTemplate::instantiate_unchecked(
+            template,
+            type_arguments
+                .into_iter()
+                .map(|argument| argument.into())
+                .collect(),
+            registry,
+        ))
+    }
+
+    /// Creates an instance of the template without checking type arguments.
+    ///
+    /// This method should only be used when the caller is certain that `type_arguments` conform
+    /// to the template signature.
+    pub fn instantiate_unchecked(
         template: Rc<RefCell<TypeTemplate>>,
         type_arguments: Vec<Rc<RefCell<Type>>>,
         registry: &mut TypeRegistry,
-        location: Option<InputSpan>,
-    ) -> Result<Rc<RefCell<Type>>, CompilationError> {
+    ) -> Rc<RefCell<Type>> {
         let instantiation_data = TypeInstantiationData {
             template: Rc::clone(&template),
             type_arguments: type_arguments.clone(),
         };
 
         let template = template.borrow();
-        if type_arguments.len() != template.type_parameters.len() {
-            return Err(errors::wrong_number_of_type_template_arguments(
-                &template,
-                type_arguments.len(),
-                SourceOrigin::Plain(location.expect(
-                    "Synthetic instantiation of type template with wrong number of type arguments",
-                )),
-            ));
-        }
 
         if type_arguments
             .iter()
             .any(|type_arg| type_arg.borrow().is_error())
         {
-            return Ok(Type::error());
+            return Type::error();
         }
 
         let type_argument_ids: Vec<_> = type_arguments
@@ -202,10 +247,10 @@ impl TypeTemplate {
             TypeId::TemplateInstance(template.type_template_id.clone(), type_argument_ids);
 
         if let Some(preexisting_instantiation) = registry.types.get(&concrete_type_id) {
-            return Ok(Rc::clone(preexisting_instantiation));
+            return Rc::clone(preexisting_instantiation);
         }
 
-        Ok(registry.register(Type {
+        registry.register(Type {
             name: (*template.name_template)(type_arguments.iter().collect()),
             type_id: concrete_type_id,
             definition_site: template.definition_site,
@@ -215,6 +260,6 @@ impl TypeTemplate {
             implemented_traits: Vec::new(),
             scope: TypeScope::new(),
             instantiation_status: TypeInstantiationStatus::NeedsInstantiation,
-        }))
+        })
     }
 }

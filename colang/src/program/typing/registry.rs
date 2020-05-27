@@ -91,13 +91,11 @@ impl TypeRegistry {
     ///
     /// If the instantiation did not exist before, it is created by this method.
     pub fn array_of(&mut self, element_type: &Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
-        TypeTemplate::instantiate(
+        TypeTemplate::instantiate_unchecked(
             Rc::clone(self.array()),
             vec![Rc::clone(element_type)],
             self,
-            None,
         )
-        .unwrap()
     }
 
     pub fn pointer(&self) -> &Rc<RefCell<TypeTemplate>> {
@@ -108,13 +106,11 @@ impl TypeRegistry {
     ///
     /// If the instantiation did not exist before, it is created by this method.
     pub fn pointer_to(&mut self, target_type: &Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
-        TypeTemplate::instantiate(
+        TypeTemplate::instantiate_unchecked(
             Rc::clone(self.pointer()),
             vec![Rc::clone(target_type)],
             self,
-            None,
         )
-        .unwrap()
     }
 
     /// Basic types are non-template internal types.

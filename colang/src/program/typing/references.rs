@@ -25,6 +25,12 @@ impl TypeRef {
     }
 }
 
+impl From<TypeRef> for Rc<RefCell<Type>> {
+    fn from(type_ref: TypeRef) -> Self {
+        type_ref.type_
+    }
+}
+
 impl Deref for TypeRef {
     type Target = Rc<RefCell<Type>>;
 
@@ -58,5 +64,11 @@ impl Deref for TraitRef {
 
     fn deref(&self) -> &Self::Target {
         &self.trait_
+    }
+}
+
+impl PartialEq for TraitRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.trait_ == other.trait_
     }
 }

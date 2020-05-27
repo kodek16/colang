@@ -7,8 +7,7 @@ use crate::analyzer::visitor::TypeMemberContext;
 use crate::analyzer::{trait_exprs, GlobalVisitor};
 use crate::ast::{self, FieldDef, FunctionDef, TypeDef};
 use crate::context::CompilerContext;
-use crate::program::{TraitRef, Type, TypeTemplate};
-use crate::source::SourceOrigin;
+use crate::program::{Type, TypeTemplate};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -34,6 +33,17 @@ impl GlobalVisitor for BasicTraitsAnalyzerPass {
         let base_type = template.base_type();
 
         analyze_and_add_implemented_traits(base_type, &struct_def.implemented_traits, context);
+
+        for (type_parameter, type_parameter_def) in (&template.type_parameters)
+            .iter()
+            .zip(struct_def.type_parameters.iter())
+        {
+            analyze_and_add_implemented_traits(
+                type_parameter,
+                &type_parameter_def.trait_bounds,
+                context,
+            );
+        }
     }
 
     fn analyze_field_def(
@@ -66,10 +76,7 @@ fn analyze_and_add_implemented_traits(
 ) {
     for trait_expr in traits {
         if let Some(trait_) = trait_exprs::compile_trait_expr(trait_expr, context) {
-            type_.borrow_mut().implemented_traits.push(TraitRef::new(
-                trait_,
-                SourceOrigin::Plain(trait_expr.span()),
-            ));
+            type_.borrow_mut().implemented_traits.push(trait_);
         }
     }
 }

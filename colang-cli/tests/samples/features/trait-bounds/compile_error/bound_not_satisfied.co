@@ -1,0 +1,18 @@
+trait IntoInt {
+  fun into(self): int
+}
+
+struct Squarer<T: IntoInt> {
+  fun square(self, t: T): int {
+    var i = t.into();
+    i * i
+  }
+}
+
+struct Foo {
+  x: int;
+}
+
+fun main() {
+  var sq: Squarer<Foo>;
+}

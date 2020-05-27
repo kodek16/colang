@@ -192,7 +192,7 @@ fn compile_return_type(
     context: &mut CompilerContext,
 ) -> Rc<RefCell<Type>> {
     match return_type {
-        Some(return_type) => type_exprs::compile_type_expr(return_type, context),
+        Some(return_type) => type_exprs::compile_type_expr(return_type, context).into(),
         None => Rc::clone(context.program.types().void()),
     }
 }
@@ -204,12 +204,7 @@ fn compile_normal_parameter(
     let name = parameter.name.text.clone();
     let type_ = type_exprs::compile_type_expr(&parameter.type_, context);
 
-    create_parameter(
-        name,
-        TypeRef::new(type_, Some(SourceOrigin::Plain(parameter.type_.span()))),
-        SourceOrigin::Plain(parameter.span),
-        context,
-    )
+    create_parameter(name, type_, SourceOrigin::Plain(parameter.span), context)
 }
 
 fn compile_self_parameter(

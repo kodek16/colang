@@ -3,7 +3,7 @@
 //! This pass also fills type parameter placeholder types (TPPTs) with method definition stubs
 //! from their trait bounds.
 
-use crate::analyzer::{trait_exprs, GlobalVisitor};
+use crate::analyzer::GlobalVisitor;
 use crate::ast::TypeDef;
 use crate::context::CompilerContext;
 use crate::program::{
@@ -56,15 +56,16 @@ impl GlobalVisitor for TraitWiringAnalyzerPass {
             .iter()
             .zip(struct_def.type_parameters.iter())
         {
-            for trait_bound in &type_parameter_def.trait_bounds {
-                if let Some(trait_bound) = trait_exprs::compile_trait_expr(trait_bound, context) {
-                    extend_type_parameter_placeholder_with_trait_methods(
-                        type_parameter_def,
-                        type_parameter,
-                        &trait_bound,
-                        context,
-                    )
-                }
+            // Clone to allow mutable borrow of `type_parameter` during processing.
+            let trait_bounds = type_parameter.borrow().implemented_traits.clone();
+
+            for trait_bound in trait_bounds {
+                extend_type_parameter_placeholder_with_trait_methods(
+                    type_parameter_def,
+                    type_parameter,
+                    &trait_bound,
+                    context,
+                )
             }
         }
     }

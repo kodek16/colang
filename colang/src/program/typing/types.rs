@@ -330,16 +330,11 @@ impl Type {
                         .map(|type_arg| Type::substitute(type_arg, substitutions, registry))
                         .collect();
 
-                    TypeTemplate::instantiate(
+                    TypeTemplate::instantiate_unchecked(
                         Rc::clone(&template),
                         arguments_after_substitution,
                         registry,
-                        None,
                     )
-                    .expect(&format!(
-                        "Failed to instantiate type template `{}`",
-                        template.borrow().name
-                    ))
                 }
                 None => Rc::clone(type_),
             }

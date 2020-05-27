@@ -18,7 +18,7 @@ pub fn compile_new_expr(
 
     program::Expression::new(
         program::NewExpr {
-            target_type,
+            target_type: target_type.into(),
             location: SourceOrigin::Plain(expression.span),
         },
         context.program.types_mut(),

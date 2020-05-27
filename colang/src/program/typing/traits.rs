@@ -69,3 +69,9 @@ impl Trait {
         trait_
     }
 }
+
+impl PartialEq for Trait {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}

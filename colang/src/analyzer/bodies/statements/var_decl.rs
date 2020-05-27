@@ -26,10 +26,9 @@ fn compile_var_decl_entry(
 ) {
     let name = declaration.variable_name;
 
-    let type_ = declaration
-        .variable_type
-        .as_ref()
-        .map(|type_expr| type_exprs::compile_type_expr_and_ensure_complete(type_expr, context));
+    let type_ = declaration.variable_type.as_ref().map(|type_expr| {
+        type_exprs::compile_type_expr_and_ensure_complete(type_expr, context).into()
+    });
 
     let initializer = declaration
         .initializer

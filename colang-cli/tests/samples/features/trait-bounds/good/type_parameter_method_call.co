@@ -1,0 +1,25 @@
+trait IntoInt {
+  fun into(self): int
+}
+
+struct Squarer<T: IntoInt> {
+  fun square(self, t: T): int {
+    var i = t.into();
+    i * i
+  }
+}
+
+struct Foo : IntoInt {
+  x: int;
+
+  fun into(self): int {
+    self.x
+  }
+}
+
+fun main() {
+  var sq: Squarer<Foo>;
+  var f: Foo;
+  f.x = 4;
+  assert(sq.square(f) == 16);
+}

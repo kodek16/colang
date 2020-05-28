@@ -1,0 +1,25 @@
+trait Clearable {
+  fun clear(&self)
+}
+
+struct Foo : Clearable {
+  x: int;
+
+  fun clear(&self) {
+    self.x = 0;
+  }
+}
+
+struct Clearer<T: Clearable> {
+  fun run(self, t: &T) {
+    t.clear();
+  }
+}
+
+fun main() {
+  var clearer: Clearer<Foo>;
+  var f: Foo;
+  f.x = 4;
+  clearer.run(&f);
+  assert(f.x == 0);
+}

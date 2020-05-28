@@ -112,19 +112,18 @@ fn wire_trait_method(
         }
     };
 
-    let implementation = match implementation {
-        Some(implementation) => implementation,
-        None => generate_synthetic_trait_method_implementation(
+    if let Some(implementation) = implementation {
+        implementation
+            .borrow_mut()
+            .wire_with_trait_method(Rc::clone(trait_method));
+    } else {
+        generate_synthetic_trait_method_implementation(
             &type_,
             trait_,
             trait_method,
             &mut context.program,
-        ),
-    };
-
-    implementation
-        .borrow_mut()
-        .wire_with_trait_method(Rc::clone(trait_method));
+        );
+    }
 }
 
 fn extend_type_parameter_placeholder_with_trait_methods(
@@ -201,6 +200,10 @@ fn generate_synthetic_trait_method_implementation(
         location,
         program.symbol_ids_mut(),
     )));
+
+    implementation
+        .borrow_mut()
+        .wire_with_trait_method(Rc::clone(trait_method));
 
     type_.borrow_mut().methods.push(Rc::clone(&implementation));
     implementation

@@ -377,32 +377,66 @@ impl Function {
         }
     }
 
-    /// Looks up the method of the same origin as this method in an instantiated type.
+    /// Looks up the method of the same origin as this method in another type.
     ///
     /// Assumes that this function is a method.
     ///
-    /// This method works both for methods of base types (finding the method instantiated from
-    /// this base method), and for other instantiated types (finding the method instantiated from
-    /// the same base method as this method).
-    pub fn lookup_instantiated_method(&self, instantiated_type: &Type) -> Rc<RefCell<Function>> {
-        let target_method_id = self
-            .base_method
-            .as_ref()
-            .map(|method| method.borrow().id.clone())
-            .unwrap_or(self.id.clone());
+    /// "Rewiring" in general refers to redirecting call expressions inside function templates
+    /// to functions that work with the argument types after type substitution. This method
+    /// uses the following connections between methods to determine the rewiring result:
+    ///
+    /// 1) If `self` is a method of some type template instance `Foo<A...>`, and `receiver_type`
+    ///    is a different instance of the same template (`Foo<B...>`), then the rewiring result
+    ///    is the instantiation of the same base method in base type of `Foo` as `self`.
+    ///
+    /// 2) If `self` implements a trait method of some trait `Bar`, and `receiver_type` implements
+    ///    `Bar`, then the result is the implementation of the same trait method in the
+    ///    `receiver_type`.
+    pub fn rewire_method(&self, receiver_type: &Type) -> Rc<RefCell<Function>> {
+        fn rewire_through_base_type(
+            method: &Function,
+            receiver_type: &Type,
+        ) -> Option<Rc<RefCell<Function>>> {
+            let target_method_id = method
+                .base_method
+                .as_ref()
+                .map(|method| method.borrow().id.clone())
+                .unwrap_or(method.id.clone());
 
-        for method in &instantiated_type.methods {
-            if let Some(base_method) = method.borrow().base_method.clone() {
-                if base_method.borrow().id == target_method_id {
-                    return Rc::clone(method);
+            for method in &receiver_type.methods {
+                if let Some(base_method) = method.borrow().base_method.clone() {
+                    if base_method.borrow().id == target_method_id {
+                        return Some(Rc::clone(method));
+                    }
                 }
             }
+
+            None
         }
 
-        panic!(
-            "Could not find an instance of method `{}` in type `{}`",
-            self.name, instantiated_type.name
-        )
+        fn rewire_through_trait(
+            method: &Function,
+            receiver_type: &Type,
+        ) -> Option<Rc<RefCell<Function>>> {
+            for trait_method in &method.implemented_methods {
+                for method in &receiver_type.methods {
+                    if method.borrow().implemented_methods.contains(trait_method) {
+                        return Some(Rc::clone(&method));
+                    }
+                }
+            }
+
+            None
+        }
+
+        rewire_through_base_type(self, receiver_type)
+            .or_else(|| rewire_through_trait(self, receiver_type))
+            .unwrap_or_else(|| {
+                panic!(
+                    "Could not rewire method `{}` to receiver type `{}`",
+                    self.name, receiver_type.name
+                )
+            })
     }
 }
 
@@ -463,11 +497,11 @@ impl<'a> LocalVisitor for InstantiatedMethodBodyRewriter<'a> {
                 None => Rc::clone(receiver_type),
             };
 
-            let instantiated_method = expression
+            let rewired_method = expression
                 .function
                 .borrow()
-                .lookup_instantiated_method(&receiver_type.borrow());
-            expression.function = instantiated_method;
+                .rewire_method(&receiver_type.borrow());
+            expression.function = rewired_method;
         }
     }
 

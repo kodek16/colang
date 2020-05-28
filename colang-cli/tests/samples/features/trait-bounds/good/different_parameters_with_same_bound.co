@@ -1,0 +1,27 @@
+trait IntoInt {
+  fun into(self): int
+}
+
+struct Foo : IntoInt {
+  fun into(self): int {
+    2
+  }
+}
+
+struct Bar : IntoInt {
+  fun into(self): int {
+    3
+  }
+}
+
+struct Adder<A: IntoInt, B: IntoInt> {
+  fun add(self, a: A, b: B): int {
+    a.into() + b.into()
+  }
+}
+
+fun main() {
+  var foo: Foo, bar: Bar;
+  var adder: Adder<Foo, Bar>;
+  assert(adder.add(foo, bar) == 5);
+}

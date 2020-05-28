@@ -250,16 +250,17 @@ impl TypeTemplate {
             return Rc::clone(preexisting_instantiation);
         }
 
-        registry.register(Type {
+        let result = registry.register(Type {
             name: (*template.name_template)(type_arguments.iter().collect()),
             type_id: concrete_type_id,
             definition_site: template.definition_site,
             instantiation_data: Some(instantiation_data),
             fields: Vec::new(),
             methods: Vec::new(),
-            implemented_traits: Vec::new(),
+            implemented_traits: template.base_type.borrow().implemented_traits.clone(),
             scope: TypeScope::new(),
             instantiation_status: TypeInstantiationStatus::NeedsInstantiation,
-        })
+        });
+        result
     }
 }

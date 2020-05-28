@@ -1,0 +1,33 @@
+trait IntoInt {
+  fun into(self): int
+}
+
+struct Foo : IntoInt {
+  x: int;
+
+  fun into(self): int {
+    self.x
+  }
+}
+
+struct Wrapper<T: IntoInt> : IntoInt {
+  t: T;
+
+  fun into(self): int {
+    self.t.into()
+  }
+}
+
+struct Evaluator<T: IntoInt> {
+  fun evaluate(self, t: T): int {
+    t.into()
+  }
+}
+
+fun main() {
+  var wrapper: Wrapper<Foo>;
+  var evaluator: Evaluator<Wrapper<Foo>>;
+
+  wrapper.t.x = 42;
+  assert(evaluator.evaluate(wrapper) == 42);
+}

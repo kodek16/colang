@@ -9,11 +9,9 @@ use crate::context::CompilerContext;
 use crate::program::{
     Function, Program, Trait, TraitRef, Type, TypeId, TypeRef, TypeTemplate, Variable,
 };
-use crate::scope::MethodEntity;
 use crate::{ast, errors};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::rc::Rc;
 
 pub struct TraitWiringAnalyzerPass;
@@ -117,12 +115,13 @@ fn wire_trait_method(
             .borrow_mut()
             .wire_with_trait_method(Rc::clone(trait_method));
     } else {
-        generate_synthetic_trait_method_implementation(
+        let implementation = generate_synthetic_trait_method_implementation(
             &type_,
             trait_,
             trait_method,
             &mut context.program,
         );
+        type_.borrow_mut().methods.push(implementation);
     }
 }
 
@@ -133,34 +132,45 @@ fn extend_type_parameter_placeholder_with_trait_methods(
     context: &mut CompilerContext,
 ) {
     for trait_method in &trait_.borrow().self_type.borrow().methods {
-        let implementation = generate_synthetic_trait_method_implementation(
+        let existing_implementation = type_parameter
+            .borrow()
+            .lookup_method(&trait_method.borrow().name)
+            .ok();
+
+        let new_implementation = generate_synthetic_trait_method_implementation(
             type_parameter,
             trait_,
             trait_method,
             &mut context.program,
         );
 
-        let result = type_parameter
-            .borrow_mut()
-            .scope
-            .add(MethodEntity(Rc::clone(&implementation)));
-
-        if let Err(error) = result {
-            let existing_method = MethodEntity::try_from(error.existing).unwrap();
-            let error = errors::conflicting_method_from_trait_bounds(
-                type_parameter_def,
-                &implementation.borrow(),
-                &existing_method.0.borrow(),
-            );
-            context.errors.push(error);
+        // If there is already a stub with the same signature, assume it implements the new trait
+        // method as well.
+        if let Some(existing_implementation) = existing_implementation {
+            if existing_implementation.borrow().signature()
+                == new_implementation.borrow().signature()
+            {
+                existing_implementation
+                    .borrow_mut()
+                    .wire_with_trait_method(Rc::clone(trait_method));
+            } else {
+                let error = errors::conflicting_method_from_trait_bounds(
+                    type_parameter_def,
+                    &new_implementation.borrow(),
+                    &existing_implementation.borrow(),
+                );
+                context.errors.push(error);
+            }
+        } else {
+            type_parameter
+                .borrow_mut()
+                .add_method(new_implementation)
+                .unwrap();
         }
     }
 }
 
-/// Generates a synthetic trait method implementation for error recovery.
-///
-/// `type_` is borrowed mutably inside the function, so no references must be in scope at the
-/// call site.
+/// Generates a synthetic trait method implementation.
 fn generate_synthetic_trait_method_implementation(
     type_: &Rc<RefCell<Type>>,
     trait_: &Rc<RefCell<Trait>>,
@@ -205,7 +215,6 @@ fn generate_synthetic_trait_method_implementation(
         .borrow_mut()
         .wire_with_trait_method(Rc::clone(trait_method));
 
-    type_.borrow_mut().methods.push(Rc::clone(&implementation));
     implementation
 }
 

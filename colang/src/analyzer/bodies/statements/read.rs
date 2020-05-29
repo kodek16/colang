@@ -50,7 +50,7 @@ fn compile_read_entry(
         }
     }
 
-    current_block.append_instruction(program::ReadInstruction {
+    current_block.append_statement(program::ReadStmt {
         target,
         whole_line,
         location: SourceOrigin::Plain(entry.span),

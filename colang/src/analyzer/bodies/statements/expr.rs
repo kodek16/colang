@@ -13,5 +13,5 @@ pub fn compile_expr_stmt(
         return;
     }
 
-    current_block.append_instruction(program::EvalInstruction { expression });
+    current_block.append_statement(program::EvalStmt { expression });
 }

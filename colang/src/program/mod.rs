@@ -10,7 +10,7 @@ pub(crate) mod internal;
 
 mod display;
 mod field;
-mod instructions;
+mod statements;
 mod symbols;
 mod typing;
 mod values;
@@ -163,13 +163,13 @@ pub use typing::*;
 pub use values::ValueCategory;
 pub use variable::{Variable, VariableId};
 
-pub use instructions::assign::AssignInstruction;
-pub use instructions::eval::EvalInstruction;
-pub use instructions::read::ReadInstruction;
-pub use instructions::return_::ReturnInstruction;
-pub use instructions::while_::WhileInstruction;
-pub use instructions::write::WriteInstruction;
-pub use instructions::{Instruction, InstructionKind};
+pub use statements::assign::AssignStmt;
+pub use statements::eval::EvalStmt;
+pub use statements::read::ReadStmt;
+pub use statements::return_::ReturnStmt;
+pub use statements::while_::WhileStmt;
+pub use statements::write::WriteStmt;
+pub use statements::{Statement, StatementKind};
 
 pub use expressions::address::AddressExpr;
 pub use expressions::array_from_copy::ArrayFromCopyExpr;

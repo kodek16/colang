@@ -1,10 +1,10 @@
-use crate::program::instructions::InstructionKind;
+use crate::program::statements::StatementKind;
 use crate::program::visitors::LocalCodeNode;
-use crate::program::{Expression, Instruction};
+use crate::program::{Expression, Statement};
 use crate::source::SourceOrigin;
 
-/// An instruction that updates an lvalue setting it to a new value.
-pub struct AssignInstruction {
+/// A statement that updates an lvalue setting it to a new value.
+pub struct AssignStmt {
     /// The lvalue to be updated.
     ///
     /// Must be an lvalue.
@@ -15,21 +15,21 @@ pub struct AssignInstruction {
     /// Must have the same type as `target`.
     pub value: Expression,
 
-    /// The location of source code that produced this instruction.
+    /// The location of source code that produced this statement.
     pub location: SourceOrigin,
 }
 
-impl InstructionKind for AssignInstruction {
+impl StatementKind for AssignStmt {
     fn location(&self) -> SourceOrigin {
         self.location
     }
 }
 
-impl<'a> LocalCodeNode<'a> for AssignInstruction {
-    type InstrIter = std::iter::Empty<&'a mut Instruction>;
+impl<'a> LocalCodeNode<'a> for AssignStmt {
+    type StmtIter = std::iter::Empty<&'a mut Statement>;
     type ExprIter = std::vec::IntoIter<&'a mut Expression>;
 
-    fn child_instructions(&'a mut self) -> Self::InstrIter {
+    fn child_statements(&'a mut self) -> Self::StmtIter {
         std::iter::empty()
     }
 

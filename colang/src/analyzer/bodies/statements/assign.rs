@@ -33,7 +33,7 @@ pub fn compile_assign_stmt(
         return;
     }
 
-    current_block.append_instruction(program::AssignInstruction {
+    current_block.append_statement(program::AssignStmt {
         target: lhs,
         value: rhs,
         location: SourceOrigin::Plain(statement.span),

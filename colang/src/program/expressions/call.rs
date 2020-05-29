@@ -1,6 +1,6 @@
 use crate::program::expressions::ExpressionKind;
 use crate::program::visitors::LocalCodeNode;
-use crate::program::{Expression, Function, Instruction, Type, TypeRegistry, ValueCategory};
+use crate::program::{Expression, Function, Statement, Type, TypeRegistry, ValueCategory};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -38,10 +38,10 @@ impl ExpressionKind for CallExpr {
 }
 
 impl<'a> LocalCodeNode<'a> for CallExpr {
-    type InstrIter = std::iter::Empty<&'a mut Instruction>;
+    type StmtIter = std::iter::Empty<&'a mut Statement>;
     type ExprIter = std::slice::IterMut<'a, Expression>;
 
-    fn child_instructions(&'a mut self) -> Self::InstrIter {
+    fn child_statements(&'a mut self) -> Self::StmtIter {
         std::iter::empty()
     }
 

@@ -45,33 +45,33 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
         self.program.types_mut()
     }
 
-    fn visit_write(&mut self, instruction: &mut WriteInstruction) {
-        self.walk(instruction);
-        if !instruction.expression.type_().borrow().is_string() {
+    fn visit_write(&mut self, statement: &mut WriteStmt) {
+        self.walk(statement);
+        if !statement.expression.type_().borrow().is_string() {
             self.errors.push(format!(
-                "`write` instruction expression has type `{}`",
-                instruction.expression.type_().borrow().name
+                "`write` statement expression has type `{}`",
+                statement.expression.type_().borrow().name
             ))
         }
     }
 
-    fn visit_while(&mut self, instruction: &mut WhileInstruction) {
-        self.walk(instruction);
-        if !instruction.cond.type_().borrow().is_bool() {
+    fn visit_while(&mut self, statement: &mut WhileStmt) {
+        self.walk(statement);
+        if !statement.cond.type_().borrow().is_bool() {
             self.errors.push(format!(
                 "`while` condition has type `{}`",
-                instruction.cond.type_().borrow().name
+                statement.cond.type_().borrow().name
             ))
         }
     }
 
-    fn visit_assign(&mut self, instruction: &mut AssignInstruction) {
-        self.walk(instruction);
-        if instruction.target.type_() != instruction.value.type_() {
+    fn visit_assign(&mut self, statement: &mut AssignStmt) {
+        self.walk(statement);
+        if statement.target.type_() != statement.value.type_() {
             self.errors.push(format!(
-                "`assign` instruction target has type `{}`, value has different type `{}`",
-                instruction.target.type_().borrow().name,
-                instruction.value.type_().borrow().name
+                "`assign` statement target has type `{}`, value has different type `{}`",
+                statement.target.type_().borrow().name,
+                statement.value.type_().borrow().name
             ))
         }
     }
@@ -180,6 +180,6 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
     }
 
     // TODO(#9) also check VariableExpr, so that it only accesses local variables that are in scope.
-    // TODO(#9) also check ReturnInstruction, so that expression type is the same as function type.
+    // TODO(#9) also check ReturnStmt, so that expression type is the same as function type.
     // TODO(#9) also check type & function references so only registered entities are referenced.
 }

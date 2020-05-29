@@ -399,8 +399,8 @@ impl CCodePrinter {
             )?;
         }
 
-        for instruction in &block.instructions {
-            self.write_instruction(names, instruction)?;
+        for statement in &block.statements {
+            self.write_statement(names, statement)?;
         }
 
         let value = self.write_expression(names, &block.value)?;
@@ -634,57 +634,49 @@ impl CCodePrinter {
         Ok(Some(name.to_string()))
     }
 
-    fn write_instruction(
+    fn write_statement(
         &mut self,
         names: &mut impl CNameRegistry,
-        instruction: &Instruction,
+        statement: &Statement,
     ) -> fmt::Result {
-        match instruction {
-            Instruction::Assign(ref instruction) => self.write_assign(names, instruction),
-            Instruction::Eval(ref instruction) => self.write_eval(names, instruction),
-            Instruction::Read(ref instruction) => self.write_read(names, instruction),
-            Instruction::Return(ref instruction) => self.write_return(names, instruction),
-            Instruction::While(ref instruction) => self.write_while(names, instruction),
-            Instruction::Write(ref instruction) => self.write_write(names, instruction),
+        match statement {
+            Statement::Assign(ref statement) => self.write_assign(names, statement),
+            Statement::Eval(ref statement) => self.write_eval(names, statement),
+            Statement::Read(ref statement) => self.write_read(names, statement),
+            Statement::Return(ref statement) => self.write_return(names, statement),
+            Statement::While(ref statement) => self.write_while(names, statement),
+            Statement::Write(ref statement) => self.write_write(names, statement),
         }
     }
 
     fn write_assign(
         &mut self,
         names: &mut impl CNameRegistry,
-        instruction: &AssignInstruction,
+        statement: &AssignStmt,
     ) -> fmt::Result {
-        let target = self.write_expression(names, &instruction.target)?.unwrap();
-        let value = self.write_expression(names, &instruction.value)?.unwrap();
+        let target = self.write_expression(names, &statement.target)?.unwrap();
+        let value = self.write_expression(names, &statement.value)?.unwrap();
         write!(self, "{} = {};\n", target, value)
     }
 
-    fn write_eval(
-        &mut self,
-        names: &mut impl CNameRegistry,
-        instruction: &EvalInstruction,
-    ) -> fmt::Result {
-        let _ = self.write_expression(names, &instruction.expression)?;
+    fn write_eval(&mut self, names: &mut impl CNameRegistry, statement: &EvalStmt) -> fmt::Result {
+        let _ = self.write_expression(names, &statement.expression)?;
         Ok(())
     }
 
-    fn write_read(
-        &mut self,
-        names: &mut impl CNameRegistry,
-        instruction: &ReadInstruction,
-    ) -> fmt::Result {
-        let target = self.write_expression(names, &instruction.target)?.unwrap();
+    fn write_read(&mut self, names: &mut impl CNameRegistry, statement: &ReadStmt) -> fmt::Result {
+        let target = self.write_expression(names, &statement.target)?.unwrap();
 
-        if instruction.whole_line {
+        if statement.whole_line {
             write!(self, "readln(&{});\n", target)
         } else {
-            let target_type = instruction.target.type_().borrow();
+            let target_type = statement.target.type_().borrow();
             if target_type.is_string() {
                 write!(self, "readword_str(&{});\n", target)
             } else if target_type.is_int() {
                 write!(self, "readword_int(&{});\n", target)
             } else {
-                panic!("Invalid type in read instruction: `{}`", target_type.name)
+                panic!("Invalid type in read statement: `{}`", target_type.name)
             }
         }
     }
@@ -692,9 +684,9 @@ impl CCodePrinter {
     fn write_return(
         &mut self,
         names: &mut impl CNameRegistry,
-        instruction: &ReturnInstruction,
+        statement: &ReturnStmt,
     ) -> fmt::Result {
-        let value = self.write_expression(names, &instruction.expression)?;
+        let value = self.write_expression(names, &statement.expression)?;
         if let Some(value) = value {
             write!(self, "return {};\n", value)
         } else {
@@ -705,18 +697,18 @@ impl CCodePrinter {
     fn write_while(
         &mut self,
         names: &mut impl CNameRegistry,
-        instruction: &WhileInstruction,
+        statement: &WhileStmt,
     ) -> fmt::Result {
         let cond_name = names.expression_name();
 
-        let cond = self.write_expression(names, &instruction.cond)?.unwrap();
+        let cond = self.write_expression(names, &statement.cond)?.unwrap();
         write!(self, "char {} = {};\n", cond_name, cond)?;
 
         write!(self, "while ({}) {{\n", cond_name)?;
         self.indent();
 
-        self.write_instruction(names, &instruction.body)?;
-        let next_cond = self.write_expression(names, &instruction.cond)?.unwrap();
+        self.write_statement(names, &statement.body)?;
+        let next_cond = self.write_expression(names, &statement.cond)?.unwrap();
         write!(self, "{} = {};\n", cond_name, next_cond)?;
 
         self.dedent();
@@ -728,11 +720,11 @@ impl CCodePrinter {
     fn write_write(
         &mut self,
         names: &mut impl CNameRegistry,
-        instruction: &WriteInstruction,
+        statement: &WriteStmt,
     ) -> fmt::Result {
         // TODO(#11) optimize the case where expression is a string literal.
         let value = self
-            .write_expression(names, &instruction.expression)?
+            .write_expression(names, &statement.expression)?
             .unwrap();
         write!(self, "write_str({});\n", value)
     }

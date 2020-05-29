@@ -41,7 +41,7 @@ pub fn compile_write_stmt(
         }
     };
 
-    current_block.append_instruction(program::WriteInstruction {
+    current_block.append_statement(program::WriteStmt {
         expression: stringified_expr,
         location: SourceOrigin::Plain(statement.span),
     });
@@ -55,7 +55,7 @@ pub fn compile_write_stmt(
             context.program.types_mut(),
         );
 
-        current_block.append_instruction(program::WriteInstruction {
+        current_block.append_statement(program::WriteStmt {
             expression: newline,
             location: SourceOrigin::Plain(statement.span),
         })

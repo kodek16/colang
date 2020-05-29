@@ -134,20 +134,20 @@ impl ToSexp for Field {
     }
 }
 
-impl ToSexp for Instruction {
+impl ToSexp for Statement {
     fn to_sexp(&self) -> Sexp {
         match self {
-            Instruction::Read(instruction) => instruction.to_sexp(),
-            Instruction::Write(instruction) => instruction.to_sexp(),
-            Instruction::While(instruction) => instruction.to_sexp(),
-            Instruction::Assign(instruction) => instruction.to_sexp(),
-            Instruction::Eval(instruction) => instruction.to_sexp(),
-            Instruction::Return(instruction) => instruction.to_sexp(),
+            Statement::Read(statement) => statement.to_sexp(),
+            Statement::Write(statement) => statement.to_sexp(),
+            Statement::While(statement) => statement.to_sexp(),
+            Statement::Assign(statement) => statement.to_sexp(),
+            Statement::Eval(statement) => statement.to_sexp(),
+            Statement::Return(statement) => statement.to_sexp(),
         }
     }
 }
 
-impl ToSexp for ReadInstruction {
+impl ToSexp for ReadStmt {
     fn to_sexp(&self) -> Sexp {
         let mut list = Vec::new();
         list.push(Sexp::str("read"));
@@ -159,19 +159,19 @@ impl ToSexp for ReadInstruction {
     }
 }
 
-impl ToSexp for WriteInstruction {
+impl ToSexp for WriteStmt {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(Sexp::str("write"), self.expression.to_sexp())
     }
 }
 
-impl ToSexp for WhileInstruction {
+impl ToSexp for WhileStmt {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(Sexp::str("while"), self.cond.to_sexp(), self.body.to_sexp())
     }
 }
 
-impl ToSexp for AssignInstruction {
+impl ToSexp for AssignStmt {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(
             Sexp::str("assign"),
@@ -181,13 +181,13 @@ impl ToSexp for AssignInstruction {
     }
 }
 
-impl ToSexp for EvalInstruction {
+impl ToSexp for EvalStmt {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(Sexp::str("eval"), self.expression.to_sexp())
     }
 }
 
-impl ToSexp for ReturnInstruction {
+impl ToSexp for ReturnStmt {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(Sexp::str("return"), self.expression.to_sexp())
     }
@@ -256,8 +256,8 @@ impl ToSexp for BlockExpr {
                 )
             ),
             sexp_list!(
-                Sexp::str("instructions"),
-                Sexp::List(self.instructions.iter().map(Instruction::to_sexp).collect())
+                Sexp::str("statements"),
+                Sexp::List(self.statements.iter().map(Statement::to_sexp).collect())
             ),
             sexp_list!(Sexp::str("value"), self.value.to_sexp())
         )

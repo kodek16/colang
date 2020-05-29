@@ -2,7 +2,7 @@
 
 mod kinds;
 
-use crate::program::{Expression, ExpressionImpl, ExpressionKind, InstructionKind};
+use crate::program::{Expression, ExpressionImpl, ExpressionKind, StatementKind};
 use crate::scope::NamedEntityKind;
 use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -177,9 +177,9 @@ fn maybe_explain_expression_type(expression: &Expression, error: &mut Compilatio
             ExpressionImpl::Block(ref block) => {
                 if !block.value.is_empty() {
                     explain_root_causes(&block.value, error);
-                } else if let Some(instruction) = block.instructions.last() {
+                } else if let Some(statement) = block.statements.last() {
                     error.bound_notes.push((
-                        instruction.location().as_plain(),
+                        statement.location().as_plain(),
                         "block ends with a statement, not an expression, so its type is `void`"
                             .to_string(),
                     ));

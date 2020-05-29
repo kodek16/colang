@@ -1,28 +1,28 @@
 use crate::program::expressions::{Expression, ExpressionKind};
-use crate::program::instructions::InstructionKind;
+use crate::program::statements::StatementKind;
 use crate::program::visitors::LocalCodeNode;
-use crate::program::Instruction;
+use crate::program::Statement;
 use crate::source::SourceOrigin;
 
-/// An instruction that evaluates an expression and does not use its value.
+/// A statement that evaluates an expression and does not use its value.
 ///
-/// This instruction creates one of the few "void contexts": `expression` can have type `void`.
-pub struct EvalInstruction {
+/// This statement creates one of the few "void contexts": `expression` can have type `void`.
+pub struct EvalStmt {
     /// Expression to be evaluated. Can be `void`.
     pub expression: Expression,
 }
 
-impl InstructionKind for EvalInstruction {
+impl StatementKind for EvalStmt {
     fn location(&self) -> SourceOrigin {
         self.expression.location()
     }
 }
 
-impl<'a> LocalCodeNode<'a> for EvalInstruction {
-    type InstrIter = std::iter::Empty<&'a mut Instruction>;
+impl<'a> LocalCodeNode<'a> for EvalStmt {
+    type StmtIter = std::iter::Empty<&'a mut Statement>;
     type ExprIter = std::iter::Once<&'a mut Expression>;
 
-    fn child_instructions(&'a mut self) -> Self::InstrIter {
+    fn child_statements(&'a mut self) -> Self::StmtIter {
         std::iter::empty()
     }
 

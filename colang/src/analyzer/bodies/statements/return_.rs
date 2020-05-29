@@ -50,7 +50,7 @@ pub fn compile_return_stmt(
         return;
     }
 
-    current_block.append_instruction(program::ReturnInstruction {
+    current_block.append_statement(program::ReturnStmt {
         expression,
         location: SourceOrigin::Plain(statement.span),
     });

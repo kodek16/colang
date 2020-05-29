@@ -83,7 +83,7 @@ fn compile_var_decl_entry(
             return;
         }
 
-        current_block.append_instruction(program::AssignInstruction {
+        current_block.append_statement(program::AssignStmt {
             target: program::Expression::new(
                 program::VariableExpr {
                     variable,

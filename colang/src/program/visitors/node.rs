@@ -1,7 +1,7 @@
-//! Provides a tree abstraction over expressions and instructions.
+//! Provides a tree abstraction over expressions and statements.
 
 use crate::program::expressions::Expression;
-use crate::program::instructions::Instruction;
+use crate::program::statements::Statement;
 
 /// A trait for any kind of statement or expression that provides a tree-like view.
 ///
@@ -9,12 +9,12 @@ use crate::program::instructions::Instruction;
 /// statements or expressions. It is implemented for all kinds of statements and expressions.
 pub trait LocalCodeNode<'a>
 where
-    Self::InstrIter: Iterator<Item = &'a mut Instruction>,
+    Self::StmtIter: Iterator<Item = &'a mut Statement>,
     Self::ExprIter: Iterator<Item = &'a mut Expression>,
 {
-    type InstrIter;
+    type StmtIter;
     type ExprIter;
 
-    fn child_instructions(&'a mut self) -> Self::InstrIter;
+    fn child_statements(&'a mut self) -> Self::StmtIter;
     fn child_expressions(&'a mut self) -> Self::ExprIter;
 }

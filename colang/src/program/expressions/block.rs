@@ -1,6 +1,6 @@
 use crate::program::expressions::empty::EmptyExpr;
 use crate::program::expressions::{Expression, ExpressionKind};
-use crate::program::instructions::Instruction;
+use crate::program::statements::Statement;
 use crate::program::visitors::LocalCodeNode;
 use crate::program::{Type, TypeRegistry, ValueCategory, Variable};
 use crate::source::{InputSpan, SourceOrigin};
@@ -20,8 +20,8 @@ pub struct BlockExpr {
     /// Local variables defined in the block.
     pub local_variables: Vec<Rc<RefCell<Variable>>>,
 
-    /// Instructions that are run when executing the block.
-    pub instructions: Vec<Instruction>,
+    /// Statements that are executed when running the block.
+    pub statements: Vec<Statement>,
 
     /// The final expression that produces the value for the whole block.
     ///
@@ -49,14 +49,14 @@ impl ExpressionKind for BlockExpr {
 /// Incremental interface for building block expressions.
 pub struct BlockBuilder {
     local_variables: Vec<Rc<RefCell<Variable>>>,
-    instructions: Vec<Instruction>,
+    statements: Vec<Statement>,
 }
 
 impl BlockBuilder {
     pub fn new() -> BlockBuilder {
         BlockBuilder {
             local_variables: vec![],
-            instructions: vec![],
+            statements: vec![],
         }
     }
 
@@ -64,8 +64,8 @@ impl BlockBuilder {
         self.local_variables.push(variable);
     }
 
-    pub fn append_instruction(&mut self, instruction: impl Into<Instruction>) {
-        self.instructions.push(instruction.into())
+    pub fn append_statement(&mut self, statement: impl Into<Statement>) {
+        self.statements.push(statement.into())
     }
 
     pub fn into_expr(
@@ -86,7 +86,7 @@ impl BlockBuilder {
         Expression::new(
             BlockExpr {
                 local_variables: self.local_variables,
-                instructions: self.instructions,
+                statements: self.statements,
                 value,
                 location: SourceOrigin::Plain(span),
             },
@@ -96,11 +96,11 @@ impl BlockBuilder {
 }
 
 impl<'a> LocalCodeNode<'a> for BlockExpr {
-    type InstrIter = std::slice::IterMut<'a, Instruction>;
+    type StmtIter = std::slice::IterMut<'a, Statement>;
     type ExprIter = std::iter::Once<&'a mut Expression>;
 
-    fn child_instructions(&'a mut self) -> Self::InstrIter {
-        self.instructions.iter_mut()
+    fn child_statements(&'a mut self) -> Self::StmtIter {
+        self.statements.iter_mut()
     }
 
     fn child_expressions(&'a mut self) -> Self::ExprIter {

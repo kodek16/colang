@@ -23,7 +23,7 @@ pub fn compile_while_stmt(
         context.errors.push(error)
     }
 
-    let body = program::Instruction::Eval(program::EvalInstruction { expression: body });
+    let body = program::Statement::Eval(program::EvalStmt { expression: body });
 
     if cond.is_error() {
         return;
@@ -31,7 +31,7 @@ pub fn compile_while_stmt(
 
     check_condition_is_bool(&cond, context);
 
-    current_block.append_instruction(program::WhileInstruction {
+    current_block.append_statement(program::WhileStmt {
         cond,
         body: Box::new(body),
         location: SourceOrigin::Plain(statement.span),

@@ -46,77 +46,59 @@ pub fn clone_function_body(
     clone_expression(&source_body.borrow(), &mut context)
 }
 
-fn clone_instruction(instruction: &Instruction, context: &mut CloneContext) -> Instruction {
-    use Instruction::*;
-    match instruction {
-        Assign(instruction) => Assign(clone_assign_instruction(instruction, context)),
-        Eval(instruction) => Eval(clone_eval_instruction(instruction, context)),
-        Read(instruction) => Read(clone_read_instruction(instruction, context)),
-        Return(instruction) => Return(clone_return_instruction(instruction, context)),
-        While(instruction) => While(clone_while_instruction(instruction, context)),
-        Write(instruction) => Write(clone_write_instruction(instruction, context)),
+fn clone_statement(statement: &Statement, context: &mut CloneContext) -> Statement {
+    use Statement::*;
+    match statement {
+        Assign(statement) => Assign(clone_assign_stmt(statement, context)),
+        Eval(statement) => Eval(clone_eval_stmt(statement, context)),
+        Read(statement) => Read(clone_read_stmt(statement, context)),
+        Return(statement) => Return(clone_return_stmt(statement, context)),
+        While(statement) => While(clone_while_stmt(statement, context)),
+        Write(statement) => Write(clone_write_stmt(statement, context)),
     }
 }
 
-fn clone_assign_instruction(
-    instruction: &AssignInstruction,
-    context: &mut CloneContext,
-) -> AssignInstruction {
-    AssignInstruction {
-        target: clone_expression(&instruction.target, context),
-        value: clone_expression(&instruction.value, context),
-        location: instruction.location,
+fn clone_assign_stmt(statement: &AssignStmt, context: &mut CloneContext) -> AssignStmt {
+    AssignStmt {
+        target: clone_expression(&statement.target, context),
+        value: clone_expression(&statement.value, context),
+        location: statement.location,
     }
 }
 
-fn clone_eval_instruction(
-    instruction: &EvalInstruction,
-    context: &mut CloneContext,
-) -> EvalInstruction {
-    EvalInstruction {
-        expression: clone_expression(&instruction.expression, context),
+fn clone_eval_stmt(statement: &EvalStmt, context: &mut CloneContext) -> EvalStmt {
+    EvalStmt {
+        expression: clone_expression(&statement.expression, context),
     }
 }
 
-fn clone_read_instruction(
-    instruction: &ReadInstruction,
-    context: &mut CloneContext,
-) -> ReadInstruction {
-    ReadInstruction {
-        target: clone_expression(&instruction.target, context),
-        whole_line: instruction.whole_line,
-        location: instruction.location,
+fn clone_read_stmt(statement: &ReadStmt, context: &mut CloneContext) -> ReadStmt {
+    ReadStmt {
+        target: clone_expression(&statement.target, context),
+        whole_line: statement.whole_line,
+        location: statement.location,
     }
 }
 
-fn clone_return_instruction(
-    instruction: &ReturnInstruction,
-    context: &mut CloneContext,
-) -> ReturnInstruction {
-    ReturnInstruction {
-        expression: clone_expression(&instruction.expression, context),
-        location: instruction.location,
+fn clone_return_stmt(statement: &ReturnStmt, context: &mut CloneContext) -> ReturnStmt {
+    ReturnStmt {
+        expression: clone_expression(&statement.expression, context),
+        location: statement.location,
     }
 }
 
-fn clone_while_instruction(
-    instruction: &WhileInstruction,
-    context: &mut CloneContext,
-) -> WhileInstruction {
-    WhileInstruction {
-        cond: clone_expression(&instruction.cond, context),
-        body: Box::new(clone_instruction(&instruction.body, context)),
-        location: instruction.location,
+fn clone_while_stmt(statement: &WhileStmt, context: &mut CloneContext) -> WhileStmt {
+    WhileStmt {
+        cond: clone_expression(&statement.cond, context),
+        body: Box::new(clone_statement(&statement.body, context)),
+        location: statement.location,
     }
 }
 
-fn clone_write_instruction(
-    instruction: &WriteInstruction,
-    context: &mut CloneContext,
-) -> WriteInstruction {
-    WriteInstruction {
-        expression: clone_expression(&instruction.expression, context),
-        location: instruction.location,
+fn clone_write_stmt(statement: &WriteStmt, context: &mut CloneContext) -> WriteStmt {
+    WriteStmt {
+        expression: clone_expression(&statement.expression, context),
+        location: statement.location,
     }
 }
 
@@ -197,17 +179,17 @@ fn clone_block_expr(block: &BlockExpr, context: &mut CloneContext) -> BlockExpr 
         })
         .collect();
 
-    let instructions = block
-        .instructions
+    let statements = block
+        .statements
         .iter()
-        .map(|instruction| clone_instruction(instruction, context))
+        .map(|statement| clone_statement(statement, context))
         .collect();
 
     let value = Box::new(clone_expression(&block.value, context));
 
     BlockExpr {
         local_variables,
-        instructions,
+        statements,
         value,
         location: block.location,
     }

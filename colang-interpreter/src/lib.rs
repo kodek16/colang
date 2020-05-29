@@ -45,7 +45,7 @@ type RunResult<T> = Result<T, EarlyExit>;
 
 /// Signifies that a computation exited early before producing its expected result.
 pub enum EarlyExit {
-    /// The computation encountered a return instruction.
+    /// The computation encountered a return statement.
     EarlyReturn(Value),
 
     /// The computation encountered a runtime error.
@@ -140,29 +140,29 @@ fn run_internal_function(
     }
 }
 
-fn run_instruction(instruction: &Instruction, state: &mut State) -> RunResult<()> {
-    match instruction {
-        Instruction::Read(ref s) => run_read(s, state),
-        Instruction::Write(ref s) => run_write(s, state),
-        Instruction::While(ref s) => run_while(s, state),
-        Instruction::Assign(ref s) => run_assign(s, state),
-        Instruction::Eval(ref s) => run_eval(s, state),
-        Instruction::Return(ref s) => run_return(s, state),
+fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
+    match statement {
+        Statement::Read(ref s) => run_read(s, state),
+        Statement::Write(ref s) => run_write(s, state),
+        Statement::While(ref s) => run_while(s, state),
+        Statement::Assign(ref s) => run_assign(s, state),
+        Statement::Eval(ref s) => run_eval(s, state),
+        Statement::Return(ref s) => run_return(s, state),
     }
 }
 
-fn run_read(instruction: &ReadInstruction, state: &mut State) -> RunResult<()> {
-    let target = run_expression(&instruction.target, state)?.into_lvalue();
+fn run_read(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
+    let target = run_expression(&statement.target, state)?.into_lvalue();
 
-    let string = if instruction.whole_line {
+    let string = if statement.whole_line {
         state.cin.read_line()
     } else {
         state.cin.read_word()
     };
     let string =
-        string.map_err(|error| RuntimeError::new(error.to_string(), Some(instruction.location)))?;
+        string.map_err(|error| RuntimeError::new(error.to_string(), Some(statement.location)))?;
 
-    match instruction.target.type_().borrow().type_id.clone() {
+    match statement.target.type_().borrow().type_id.clone() {
         TypeId::Int => {
             let new_value: i32 = string.parse().map_err(|_| {
                 RuntimeError::new(
@@ -186,39 +186,39 @@ fn run_read(instruction: &ReadInstruction, state: &mut State) -> RunResult<()> {
     Ok(())
 }
 
-fn run_write(instruction: &WriteInstruction, state: &mut State) -> RunResult<()> {
-    let value = run_expression(&instruction.expression, state)?.into_rvalue();
+fn run_write(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
+    let value = run_expression(&statement.expression, state)?.into_rvalue();
     print!("{}", value.as_utf8_string());
     Ok(())
 }
 
-fn run_while(instruction: &WhileInstruction, state: &mut State) -> RunResult<()> {
-    let mut cond = run_expression(&instruction.cond, state)?
+fn run_while(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
+    let mut cond = run_expression(&statement.cond, state)?
         .into_rvalue()
         .as_bool();
     while cond {
-        run_instruction(&instruction.body, state)?;
-        cond = run_expression(&instruction.cond, state)?
+        run_statement(&statement.body, state)?;
+        cond = run_expression(&statement.cond, state)?
             .into_rvalue()
             .as_bool();
     }
     Ok(())
 }
 
-fn run_assign(instruction: &AssignInstruction, state: &mut State) -> RunResult<()> {
-    let target = run_expression(&instruction.target, state)?.into_lvalue();
-    let new_value = run_expression(&instruction.value, state)?.into_rvalue();
+fn run_assign(statement: &AssignStmt, state: &mut State) -> RunResult<()> {
+    let target = run_expression(&statement.target, state)?.into_lvalue();
+    let new_value = run_expression(&statement.value, state)?.into_rvalue();
     *target.borrow_mut() = new_value;
     Ok(())
 }
 
-fn run_eval(instruction: &EvalInstruction, state: &mut State) -> RunResult<()> {
-    let _ = run_expression(&instruction.expression, state)?;
+fn run_eval(statement: &EvalStmt, state: &mut State) -> RunResult<()> {
+    let _ = run_expression(&statement.expression, state)?;
     Ok(())
 }
 
-fn run_return(instruction: &ReturnInstruction, state: &mut State) -> RunResult<()> {
-    let value = run_expression(&instruction.expression, state)?;
+fn run_return(statement: &ReturnStmt, state: &mut State) -> RunResult<()> {
+    let value = run_expression(&statement.expression, state)?;
     Err(EarlyExit::EarlyReturn(value))
 }
 
@@ -433,8 +433,8 @@ fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
         state.push(variable_id, initial_value);
     }
 
-    for instruction in block.instructions.iter() {
-        run_instruction(instruction, state)?;
+    for statement in block.statements.iter() {
+        run_statement(statement, state)?;
     }
 
     let value = run_expression(&block.value, state)?;

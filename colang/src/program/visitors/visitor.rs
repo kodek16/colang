@@ -10,43 +10,43 @@ use crate::program::*;
 pub trait LocalVisitor {
     fn types(&mut self) -> &mut TypeRegistry;
 
-    fn visit_instruction(&mut self, instruction: &mut Instruction) {
-        self.walk_instruction(instruction);
+    fn visit_statement(&mut self, statement: &mut Statement) {
+        self.walk_statement(statement);
     }
 
-    fn walk_instruction(&mut self, instruction: &mut Instruction) {
-        match instruction {
-            Instruction::Read(instruction) => self.visit_read(instruction),
-            Instruction::Write(instruction) => self.visit_write(instruction),
-            Instruction::While(instruction) => self.visit_while(instruction),
-            Instruction::Assign(instruction) => self.visit_assign(instruction),
-            Instruction::Eval(instruction) => self.visit_eval(instruction),
-            Instruction::Return(instruction) => self.visit_return(instruction),
+    fn walk_statement(&mut self, statement: &mut Statement) {
+        match statement {
+            Statement::Read(statement) => self.visit_read(statement),
+            Statement::Write(statement) => self.visit_write(statement),
+            Statement::While(statement) => self.visit_while(statement),
+            Statement::Assign(statement) => self.visit_assign(statement),
+            Statement::Eval(statement) => self.visit_eval(statement),
+            Statement::Return(statement) => self.visit_return(statement),
         }
     }
 
-    fn visit_read(&mut self, instruction: &mut ReadInstruction) {
-        self.walk(instruction);
+    fn visit_read(&mut self, statement: &mut ReadStmt) {
+        self.walk(statement);
     }
 
-    fn visit_write(&mut self, instruction: &mut WriteInstruction) {
-        self.walk(instruction);
+    fn visit_write(&mut self, statement: &mut WriteStmt) {
+        self.walk(statement);
     }
 
-    fn visit_while(&mut self, instruction: &mut WhileInstruction) {
-        self.walk(instruction);
+    fn visit_while(&mut self, statement: &mut WhileStmt) {
+        self.walk(statement);
     }
 
-    fn visit_assign(&mut self, instruction: &mut AssignInstruction) {
-        self.walk(instruction);
+    fn visit_assign(&mut self, statement: &mut AssignStmt) {
+        self.walk(statement);
     }
 
-    fn visit_eval(&mut self, instruction: &mut EvalInstruction) {
-        self.walk(instruction);
+    fn visit_eval(&mut self, statement: &mut EvalStmt) {
+        self.walk(statement);
     }
 
-    fn visit_return(&mut self, instruction: &mut ReturnInstruction) {
-        self.walk(instruction);
+    fn visit_return(&mut self, statement: &mut ReturnStmt) {
+        self.walk(statement);
     }
 
     fn visit_expression(&mut self, expression: &mut Expression) {
@@ -138,8 +138,8 @@ pub trait LocalVisitor {
     where
         for<'a> T: LocalCodeNode<'a>,
     {
-        for instruction in node.child_instructions() {
-            self.visit_instruction(instruction);
+        for statement in node.child_statements() {
+            self.visit_statement(statement);
         }
 
         for expression in node.child_expressions() {

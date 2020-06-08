@@ -23,12 +23,12 @@ struct CloneContext<'a> {
 /// `variable_clone_fn` defines how the local variables in the copied function body are created
 /// from the original variables.
 pub fn clone_function_body(
-    source_body: Rc<RefCell<Expression>>,
+    source_body: Rc<RefCell<Statement>>,
     source_parameters: &Vec<Rc<RefCell<Variable>>>,
     target_parameters: &Vec<Rc<RefCell<Variable>>>,
     variable_clone_fn: VariableCloneFn,
     types: &mut TypeRegistry,
-) -> Expression {
+) -> Statement {
     assert_eq!(source_parameters.len(), target_parameters.len());
 
     let variable_map: VariableMap = source_parameters
@@ -43,13 +43,14 @@ pub fn clone_function_body(
         types,
     };
 
-    clone_expression(&source_body.borrow(), &mut context)
+    clone_statement(&source_body.borrow(), &mut context)
 }
 
 fn clone_statement(statement: &Statement, context: &mut CloneContext) -> Statement {
     use Statement::*;
     match statement {
         Assign(statement) => Assign(clone_assign_stmt(statement, context)),
+        Block(statement) => Block(clone_block(statement, context)),
         Eval(statement) => Eval(clone_eval_stmt(statement, context)),
         Read(statement) => Read(clone_read_stmt(statement, context)),
         Return(statement) => Return(clone_return_stmt(statement, context)),
@@ -112,7 +113,7 @@ fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expr
         ArrayFromElements(ref expression) => {
             ArrayFromElements(clone_array_from_elements_expr(expression, context))
         }
-        Block(ref expression) => Block(clone_block_expr(expression, context)),
+        Block(ref expression) => Block(clone_block(expression, context)),
         BooleanOp(ref expression) => BooleanOp(clone_boolean_op_expr(expression, context)),
         Call(ref expression) => Call(clone_call_expr(expression, context)),
         Deref(ref expression) => Deref(clone_deref_expr(expression, context)),
@@ -160,38 +161,6 @@ fn clone_array_from_elements_expr(
             .collect(),
         element_type: Rc::clone(&expression.element_type),
         location: expression.location,
-    }
-}
-
-fn clone_block_expr(block: &BlockExpr, context: &mut CloneContext) -> BlockExpr {
-    let local_variables = block
-        .local_variables
-        .iter()
-        .map(|variable| {
-            let cloned_variable = Rc::new(RefCell::new((*context.variable_clone_fn)(
-                &variable.borrow(),
-                context.types,
-            )));
-            context
-                .variable_map
-                .insert(variable.borrow().id.clone(), Rc::clone(&cloned_variable));
-            cloned_variable
-        })
-        .collect();
-
-    let statements = block
-        .statements
-        .iter()
-        .map(|statement| clone_statement(statement, context))
-        .collect();
-
-    let value = Box::new(clone_expression(&block.value, context));
-
-    BlockExpr {
-        local_variables,
-        statements,
-        value,
-        location: block.location,
     }
 }
 
@@ -303,5 +272,40 @@ fn clone_variable_expr(expression: &VariableExpr, context: &mut CloneContext) ->
                 .expect("Attempt to clone access to non-cloned variable"),
         ),
         location: expression.location,
+    }
+}
+
+fn clone_block(block: &Block, context: &mut CloneContext) -> Block {
+    let local_variables = block
+        .local_variables
+        .iter()
+        .map(|variable| {
+            let cloned_variable = Rc::new(RefCell::new((*context.variable_clone_fn)(
+                &variable.borrow(),
+                context.types,
+            )));
+            context
+                .variable_map
+                .insert(variable.borrow().id.clone(), Rc::clone(&cloned_variable));
+            cloned_variable
+        })
+        .collect();
+
+    let statements = block
+        .statements
+        .iter()
+        .map(|statement| clone_statement(statement, context))
+        .collect();
+
+    let value = block
+        .value
+        .as_ref()
+        .map(|value| Box::new(clone_expression(&value, context)));
+
+    Block {
+        local_variables,
+        statements,
+        value,
+        location: block.location,
     }
 }

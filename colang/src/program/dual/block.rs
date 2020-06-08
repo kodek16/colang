@@ -1,22 +1,20 @@
-use crate::program::expressions::empty::EmptyExpr;
 use crate::program::expressions::{Expression, ExpressionKind};
 use crate::program::statements::Statement;
 use crate::program::visitors::LocalCodeNode;
-use crate::program::{Type, TypeRegistry, ValueCategory, Variable};
+use crate::program::{StatementKind, Type, TypeRegistry, ValueCategory, Variable};
 use crate::source::{InputSpan, SourceOrigin};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// An expression that runs a sequence of statements followed by a single final expression.
+/// A local code node that contains a sequence of statements potentially followed by an expression.
 ///
-/// The value of `BlockExpr` is taken from the value of its final expression.
+/// If the final expression in a block is present, the block itself is an expression, and its value
+/// is taken from the value of the final expression. If it is absent, the block is a statement.
 ///
 /// Blocks may have local variables defined in them that get created when the block execution
 /// starts, and destroyed when it ends. Block local variables are still available throughout the
 /// runtime of the final expression.
-///
-/// `BlockExpr` may be `void` if its final expression is `void`.
-pub struct BlockExpr {
+pub struct Block {
     /// Local variables defined in the block.
     pub local_variables: Vec<Rc<RefCell<Variable>>>,
 
@@ -24,17 +22,20 @@ pub struct BlockExpr {
     pub statements: Vec<Statement>,
 
     /// The final expression that produces the value for the whole block.
-    ///
-    /// May be `void` if the block itself is in a void context.
-    pub value: Box<Expression>,
+    pub value: Option<Box<Expression>>,
 
     /// The location of source code that produced this expression.
     pub location: SourceOrigin,
 }
 
-impl ExpressionKind for BlockExpr {
+impl ExpressionKind for Block {
     fn type_(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
-        Rc::clone(&self.value.type_())
+        match &self.value {
+            Some(value) => Rc::clone(value.type_()),
+            None => {
+                panic!("Attempt to treat a block statement as an expression.");
+            }
+        }
     }
 
     fn value_category(&self) -> ValueCategory {
@@ -46,7 +47,13 @@ impl ExpressionKind for BlockExpr {
     }
 }
 
-/// Incremental interface for building block expressions.
+impl StatementKind for Block {
+    fn location(&self) -> SourceOrigin {
+        self.location
+    }
+}
+
+/// Incremental interface for building blocks.
 pub struct BlockBuilder {
     local_variables: Vec<Rc<RefCell<Variable>>>,
     statements: Vec<Statement>,
@@ -68,26 +75,26 @@ impl BlockBuilder {
         self.statements.push(statement.into())
     }
 
+    pub fn into_stmt(self, span: InputSpan) -> Statement {
+        Statement::Block(Block {
+            local_variables: self.local_variables,
+            statements: self.statements,
+            value: None,
+            location: SourceOrigin::Plain(span),
+        })
+    }
+
     pub fn into_expr(
         self,
-        final_expr: Option<Expression>,
+        final_expr: Expression,
         types: &mut TypeRegistry,
         span: InputSpan,
     ) -> Expression {
-        let value = Box::new(final_expr.unwrap_or_else(|| {
-            Expression::new(
-                EmptyExpr {
-                    location: SourceOrigin::MissingBlockValue(span),
-                },
-                types,
-            )
-        }));
-
         Expression::new(
-            BlockExpr {
+            Block {
                 local_variables: self.local_variables,
                 statements: self.statements,
-                value,
+                value: Some(Box::new(final_expr)),
                 location: SourceOrigin::Plain(span),
             },
             types,
@@ -95,15 +102,18 @@ impl BlockBuilder {
     }
 }
 
-impl<'a> LocalCodeNode<'a> for BlockExpr {
+impl<'a> LocalCodeNode<'a> for Block {
     type StmtIter = std::slice::IterMut<'a, Statement>;
-    type ExprIter = std::iter::Once<&'a mut Expression>;
+    type ExprIter = std::vec::IntoIter<&'a mut Expression>;
 
     fn child_statements(&'a mut self) -> Self::StmtIter {
         self.statements.iter_mut()
     }
 
     fn child_expressions(&'a mut self) -> Self::ExprIter {
-        std::iter::once(&mut self.value)
+        match self.value {
+            Some(ref mut value) => vec![&mut **value].into_iter(),
+            None => vec![].into_iter(),
+        }
     }
 }

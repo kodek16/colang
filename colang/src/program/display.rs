@@ -143,6 +143,7 @@ impl ToSexp for Statement {
             Statement::Assign(statement) => statement.to_sexp(),
             Statement::Eval(statement) => statement.to_sexp(),
             Statement::Return(statement) => statement.to_sexp(),
+            Statement::Block(block) => block.to_sexp(),
         }
     }
 }
@@ -242,7 +243,7 @@ impl ToSexp for ArrayFromElementsExpr {
     }
 }
 
-impl ToSexp for BlockExpr {
+impl ToSexp for Block {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(
             Sexp::str("block"),
@@ -259,7 +260,10 @@ impl ToSexp for BlockExpr {
                 Sexp::str("statements"),
                 Sexp::List(self.statements.iter().map(Statement::to_sexp).collect())
             ),
-            sexp_list!(Sexp::str("value"), self.value.to_sexp())
+            sexp_list!(
+                Sexp::str("value"),
+                Sexp::List(self.value.iter().map(|v| v.to_sexp()).collect()),
+            )
         )
     }
 }

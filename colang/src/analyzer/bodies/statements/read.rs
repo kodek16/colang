@@ -1,6 +1,6 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::context::CompilerContext;
-use crate::program::expressions::block::BlockBuilder;
+use crate::program::BlockBuilder;
 use crate::program::{ExpressionKind, ValueCategory};
 use crate::source::SourceOrigin;
 use crate::{ast, errors, program};

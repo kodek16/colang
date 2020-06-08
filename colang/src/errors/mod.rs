@@ -175,8 +175,8 @@ fn maybe_explain_expression_type(expression: &Expression, error: &mut Compilatio
     fn explain_root_causes(expression: &Expression, error: &mut CompilationError) {
         match **expression {
             ExpressionImpl::Block(ref block) => {
-                if !block.value.is_empty() {
-                    explain_root_causes(&block.value, error);
+                if let Some(value) = &block.value {
+                    explain_root_causes(value, error);
                 } else if let Some(statement) = block.statements.last() {
                     error.bound_notes.push((
                         statement.location().as_plain(),

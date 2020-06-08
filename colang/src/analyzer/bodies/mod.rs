@@ -1,13 +1,16 @@
 //! This analyzer pass is responsible for analyzing all function bodies defined in the program.
 
+mod dual;
 mod expressions;
 mod statements;
 
-use crate::analyzer::bodies::expressions::compile_expression;
+use crate::analyzer::bodies::dual::DualNode;
+use crate::analyzer::bodies::expressions::{compile_expression, compile_expression_or_statement};
 use crate::analyzer::visitor::{GlobalVisitor, TypeMemberContext};
 use crate::errors;
 use crate::program::function::FunctionBody;
-use crate::program::{Expression, ExpressionKind, Function, Variable};
+use crate::program::{EvalStmt, ExpressionKind, Function, Statement, Variable};
+use crate::program::{ReturnStmt, StatementKind};
 use crate::scope::VariableEntity;
 use crate::source::{InputSpan, SourceOrigin};
 use crate::{ast, program, CompilerContext};
@@ -94,33 +97,54 @@ fn parse_and_fill_function_body_if_present(
     std::mem::swap(&mut body, &mut definition.body);
 
     if let Some(body) = body {
-        let body = compile_expression(
+        let body = compile_expression_or_statement(
             body,
             Some(Rc::clone(&function.borrow().return_type)),
             context,
         );
 
-        {
-            let body_type = body.type_();
-            let return_type = &function.borrow().return_type;
-
-            if !body_type.borrow().is_error()
-                && !return_type.borrow().is_error()
-                && body_type != return_type
-            {
-                let error = errors::function_body_type_mismatch(&function.borrow(), &body);
-                context.errors.push(error);
+        let body = match body {
+            DualNode::Statement(body) => {
+                if function.borrow().return_type.borrow().is_void() {
+                    body
+                } else {
+                    let error =
+                        errors::non_void_function_body_is_statement(&function.borrow(), &body);
+                    context.errors.push(error);
+                    Statement::error(body.location().as_plain())
+                }
             }
-        }
+            DualNode::Expression(body) => {
+                if function.borrow().return_type.borrow().is_void() {
+                    Statement::Eval(EvalStmt { expression: body })
+                } else {
+                    let body_type = body.type_();
+                    let return_type = &function.borrow().return_type;
+
+                    if !body_type.borrow().is_error()
+                        && !return_type.borrow().is_error()
+                        && body_type != return_type
+                    {
+                        let error = errors::function_body_type_mismatch(&function.borrow(), &body);
+                        context.errors.push(error);
+                    }
+
+                    Statement::Return(ReturnStmt {
+                        location: body.location(),
+                        expression: body,
+                    })
+                }
+            }
+        };
 
         function.borrow_mut().body = FunctionBody::Filled(Rc::new(RefCell::new(body)));
     } else {
         let error = errors::function_body_missing(definition);
         context.errors.push(error);
 
-        function.borrow_mut().body = FunctionBody::Filled(Rc::new(RefCell::new(
-            Expression::error(definition.signature_span),
-        )));
+        function.borrow_mut().body = FunctionBody::Filled(Rc::new(RefCell::new(Statement::error(
+            definition.signature_span,
+        ))));
     }
 }
 

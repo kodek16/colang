@@ -16,12 +16,13 @@ pub trait LocalVisitor {
 
     fn walk_statement(&mut self, statement: &mut Statement) {
         match statement {
-            Statement::Read(statement) => self.visit_read(statement),
-            Statement::Write(statement) => self.visit_write(statement),
-            Statement::While(statement) => self.visit_while(statement),
             Statement::Assign(statement) => self.visit_assign(statement),
+            Statement::Block(statement) => self.visit_block(statement),
             Statement::Eval(statement) => self.visit_eval(statement),
+            Statement::Read(statement) => self.visit_read(statement),
             Statement::Return(statement) => self.visit_return(statement),
+            Statement::While(statement) => self.visit_while(statement),
+            Statement::Write(statement) => self.visit_write(statement),
         }
     }
 
@@ -61,7 +62,7 @@ pub trait LocalVisitor {
             ArrayFromElements(ref mut expression) => {
                 self.visit_array_from_elements_expr(expression)
             }
-            Block(ref mut expression) => self.visit_block_expr(expression),
+            Block(ref mut expression) => self.visit_block(expression),
             BooleanOp(ref mut expression) => self.visit_boolean_op_expr(expression),
             Call(ref mut expression) => self.visit_call_expr(expression),
             Deref(ref mut expression) => self.visit_deref_expr(expression),
@@ -88,10 +89,6 @@ pub trait LocalVisitor {
 
     fn visit_array_from_elements_expr(&mut self, expression: &mut ArrayFromElementsExpr) {
         self.walk(expression);
-    }
-
-    fn visit_block_expr(&mut self, block: &mut BlockExpr) {
-        self.walk(block);
     }
 
     fn visit_boolean_op_expr(&mut self, expression: &mut BooleanOpExpr) {
@@ -132,6 +129,10 @@ pub trait LocalVisitor {
 
     fn visit_variable_expr(&mut self, expression: &mut VariableExpr) {
         self.walk(expression);
+    }
+
+    fn visit_block(&mut self, block: &mut Block) {
+        self.walk(block);
     }
 
     fn walk<T>(&mut self, node: &mut T)

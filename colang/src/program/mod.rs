@@ -9,6 +9,7 @@ pub(crate) mod function;
 pub(crate) mod internal;
 
 mod display;
+mod dual;
 mod field;
 mod statements;
 mod symbols;
@@ -174,7 +175,6 @@ pub use statements::{Statement, StatementKind};
 pub use expressions::address::AddressExpr;
 pub use expressions::array_from_copy::ArrayFromCopyExpr;
 pub use expressions::array_from_elements::ArrayFromElementsExpr;
-pub use expressions::block::BlockExpr;
 pub use expressions::boolean_op::{BooleanOp, BooleanOpExpr};
 pub use expressions::call::CallExpr;
 pub use expressions::deref::DerefExpr;
@@ -188,3 +188,5 @@ pub use expressions::new::NewExpr;
 pub use expressions::null::NullExpr;
 pub use expressions::variable::VariableExpr;
 pub use expressions::{Expression, ExpressionImpl, ExpressionKind};
+
+pub use dual::block::{Block, BlockBuilder};

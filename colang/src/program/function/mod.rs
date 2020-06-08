@@ -4,15 +4,14 @@ mod clone;
 mod signature;
 
 use crate::program::expressions::array_from_elements::ArrayFromElementsExpr;
-use crate::program::expressions::block::BlockExpr;
 use crate::program::expressions::call::CallExpr;
 use crate::program::expressions::field_access::FieldAccessExpr;
 use crate::program::expressions::new::NewExpr;
 use crate::program::expressions::null::NullExpr;
-use crate::program::expressions::Expression;
 use crate::program::internal::InternalFunctionTag;
 use crate::program::symbols::SymbolIdRegistry;
 use crate::program::visitors::LocalVisitor;
+use crate::program::{Block, Statement};
 use crate::program::{SymbolId, Type, TypeId, TypeRegistry, Variable};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
@@ -85,9 +84,11 @@ pub enum FunctionId {
 /// A stateful wrapper for function bodies that can be in one of a few states.
 pub(crate) enum FunctionBody {
     /// Function body is fully analyzed and ready to be used.
+    ///
+    /// If a function is non-void, its body must be terminated with a `return` statement.
     // Body is wrapped in a separate cell so that we can still borrow function immutably
     // while the body is borrowed mutably. This is very useful for recursive functions.
-    Filled(Rc<RefCell<Expression>>),
+    Filled(Rc<RefCell<Statement>>),
 
     /// Function body is expected to be filled in a future analysis pass.
     ToBeFilled,
@@ -183,7 +184,7 @@ impl Function {
     ///
     /// This method should only be called for user-defined functions only after
     /// the analysis is complete.
-    pub fn body(&self) -> &Rc<RefCell<Expression>> {
+    pub fn body(&self) -> &Rc<RefCell<Statement>> {
         match &self.body {
             FunctionBody::Filled(ref body) => body,
             _ => {
@@ -331,7 +332,7 @@ impl Function {
     pub fn instantiate_body(
         function: Rc<RefCell<Function>>,
         types: &mut TypeRegistry,
-    ) -> Rc<RefCell<Expression>> {
+    ) -> Rc<RefCell<Statement>> {
         // Extract body from function.
         let mut body = FunctionBody::ToBeFilled;
         std::mem::swap(&mut body, &mut function.borrow_mut().body);
@@ -367,7 +368,7 @@ impl Function {
                     types,
                     type_arguments: &type_arguments,
                 };
-                rewriter.visit_expression(&mut new_body);
+                rewriter.visit_statement(&mut new_body);
 
                 let new_body = Rc::new(RefCell::new(new_body));
                 function.borrow_mut().body = FunctionBody::Filled(Rc::clone(&new_body));
@@ -462,26 +463,6 @@ impl<'a> LocalVisitor for InstantiatedMethodBodyRewriter<'a> {
             Type::substitute(&expression.element_type, self.type_arguments, self.types);
     }
 
-    fn visit_block_expr(&mut self, block: &mut BlockExpr) {
-        for variable in &block.local_variables {
-            let variable = variable.borrow();
-
-            // The base variable type and the type arguments are assumed to be fully complete at this
-            // point, so we can assume no errors will occur.
-            // We do it here and not in `Variable::instantiate_local_variable` because running this code
-            // for method parameters is likely to cause a stack overflow by infinite loop.
-            Type::ensure_is_fully_complete(Rc::clone(&variable.type_), self.types)
-                .map_err(|_| ())
-                .expect(&format!(
-                    "Infinite type chain encountered while instantiating variable `{}` of type `{}",
-                    variable.name,
-                    variable.type_.borrow().name
-                ));
-        }
-
-        self.walk(block);
-    }
-
     fn visit_call_expr(&mut self, expression: &mut CallExpr) {
         self.walk(expression);
         if expression.arguments.is_empty() {
@@ -534,5 +515,25 @@ impl<'a> LocalVisitor for InstantiatedMethodBodyRewriter<'a> {
 
         expression.target_type =
             Type::substitute(&expression.target_type, self.type_arguments, self.types);
+    }
+
+    fn visit_block(&mut self, block: &mut Block) {
+        for variable in &block.local_variables {
+            let variable = variable.borrow();
+
+            // The base variable type and the type arguments are assumed to be fully complete at this
+            // point, so we can assume no errors will occur.
+            // We do it here and not in `Variable::instantiate_local_variable` because running this code
+            // for method parameters is likely to cause a stack overflow by infinite loop.
+            Type::ensure_is_fully_complete(Rc::clone(&variable.type_), self.types)
+                .map_err(|_| ())
+                .expect(&format!(
+                    "Infinite type chain encountered while instantiating variable `{}` of type `{}",
+                    variable.name,
+                    variable.type_.borrow().name
+                ));
+        }
+
+        self.walk(block);
     }
 }

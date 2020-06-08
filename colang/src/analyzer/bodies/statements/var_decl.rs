@@ -1,7 +1,7 @@
 use crate::analyzer::bodies::expressions::compile_expression;
 use crate::analyzer::type_exprs;
 use crate::context::CompilerContext;
-use crate::program::expressions::block::BlockBuilder;
+use crate::program::BlockBuilder;
 use crate::program::{Type, TypeRef, Variable};
 use crate::scope::VariableEntity;
 use crate::source::SourceOrigin;

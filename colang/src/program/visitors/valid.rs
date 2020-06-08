@@ -34,7 +34,7 @@ impl<'a> ValidityChecker<'a> {
             let function = function.borrow();
             let body = function.body();
             let mut body = body.borrow_mut();
-            self.visit_expression(&mut body);
+            self.visit_statement(&mut body);
         }
         self.errors
     }

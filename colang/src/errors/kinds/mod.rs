@@ -6,7 +6,6 @@ mod e0003_named_entity_kind_mismatch;
 mod e0004_named_entity_already_defined;
 mod e0005_condition_not_bool;
 mod e0006_array_size_not_int;
-mod e0007_while_body_not_void;
 mod e0008_deref_operand_not_pointer;
 mod e0009_read_unsupported_type;
 mod e0010_readln_unsupported_type;
@@ -56,6 +55,8 @@ mod e0053_trait_method_signature_mismatch;
 mod e0054_trait_method_not_implemented;
 mod e0055_conflicting_method_from_trait_bounds;
 mod e0056_type_argument_violates_trait_bound;
+mod e0057_statement_used_as_expression;
+mod e0058_non_void_function_body_is_statement;
 
 pub mod constructors {
     use super::*;
@@ -66,7 +67,6 @@ pub mod constructors {
     pub use e0004_named_entity_already_defined::named_entity_already_defined;
     pub use e0005_condition_not_bool::condition_not_bool;
     pub use e0006_array_size_not_int::array_size_not_int;
-    pub use e0007_while_body_not_void::while_body_not_void;
     pub use e0008_deref_operand_not_pointer::deref_operand_not_pointer;
     pub use e0009_read_unsupported_type::read_unsupported_type;
     pub use e0010_readln_unsupported_type::readln_unsupported_type;
@@ -116,4 +116,6 @@ pub mod constructors {
     pub use e0054_trait_method_not_implemented::trait_method_not_implemented;
     pub use e0055_conflicting_method_from_trait_bounds::conflicting_method_from_trait_bounds;
     pub use e0056_type_argument_violates_trait_bound::type_argument_violates_trait_bound;
+    pub use e0057_statement_used_as_expression::statement_used_as_expression;
+    pub use e0058_non_void_function_body_is_statement::non_void_function_body_is_statement;
 }

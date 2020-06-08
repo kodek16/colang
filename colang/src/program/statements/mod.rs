@@ -1,4 +1,5 @@
-use crate::source::SourceOrigin;
+use crate::program::{dual, Expression};
+use crate::source::{InputSpan, SourceOrigin};
 use enum_dispatch::enum_dispatch;
 
 pub mod assign;
@@ -11,16 +12,26 @@ pub mod write;
 /// A fragment of imperative CO code that does not evaluate to a value.
 #[enum_dispatch]
 pub enum Statement {
-    Read(read::ReadStmt),
-    Write(write::WriteStmt),
-    While(while_::WhileStmt),
     Assign(assign::AssignStmt),
+    Block(dual::block::Block),
     Eval(eval::EvalStmt),
+    Read(read::ReadStmt),
     Return(return_::ReturnStmt),
+    While(while_::WhileStmt),
+    Write(write::WriteStmt),
 }
 
 /// Common behavior for all kinds of statements.
 #[enum_dispatch(Statement)]
 pub trait StatementKind {
     fn location(&self) -> SourceOrigin;
+}
+
+impl Statement {
+    /// Creates a statement standing for a code with already reported errors.
+    pub fn error(span: InputSpan) -> Statement {
+        Statement::Eval(eval::EvalStmt {
+            expression: Expression::error(span),
+        })
+    }
 }

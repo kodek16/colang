@@ -104,8 +104,8 @@ impl State {
     }
 }
 
-fn run_user_function(function: &Function, state: &mut State) -> RunResult<Value> {
-    run_expression(&function.body().borrow(), state)
+fn run_user_function(function: &Function, state: &mut State) -> RunResult<()> {
+    run_statement(&function.body().borrow(), state)
 }
 
 fn run_internal_function(
@@ -142,12 +142,13 @@ fn run_internal_function(
 
 fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
     match statement {
-        Statement::Read(ref s) => run_read(s, state),
-        Statement::Write(ref s) => run_write(s, state),
-        Statement::While(ref s) => run_while(s, state),
         Statement::Assign(ref s) => run_assign(s, state),
+        Statement::Block(ref s) => run_block(s, state).map(|_| ()),
         Statement::Eval(ref s) => run_eval(s, state),
+        Statement::Read(ref s) => run_read(s, state),
         Statement::Return(ref s) => run_return(s, state),
+        Statement::While(ref s) => run_while(s, state),
+        Statement::Write(ref s) => run_write(s, state),
     }
 }
 
@@ -238,7 +239,7 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         Call(ref expr) => run_call_expr(expr, state),
         FieldAccess(ref expr) => run_field_access_expr(expr, state),
         If(ref expr) => run_if_expr(expr, state),
-        Block(ref expr) => run_block_expr(expr, state),
+        Block(ref expr) => run_block(expr, state).map(|value| value.unwrap()),
         Empty(_) => Ok(Value::Rvalue(Rvalue::Void)),
         Err(_) => panic_error(),
     }
@@ -392,7 +393,8 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
                 state.pop(variable_id)
             }
 
-            function_result
+            // User functions always terminate with a `return` statement.
+            function_result.map(|_| unreachable!())
         }
     };
 
@@ -426,7 +428,7 @@ fn run_if_expr(expression: &IfExpr, state: &mut State) -> RunResult<Value> {
     }
 }
 
-fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
+fn run_block(block: &Block, state: &mut State) -> RunResult<Option<Value>> {
     for variable in block.local_variables.iter() {
         let variable_id = variable.borrow().id.clone();
         let initial_value = default_value_for_type(&variable.borrow().type_.borrow());
@@ -437,7 +439,11 @@ fn run_block_expr(block: &BlockExpr, state: &mut State) -> RunResult<Value> {
         run_statement(statement, state)?;
     }
 
-    let value = run_expression(&block.value, state)?;
+    let value = block
+        .value
+        .as_ref()
+        .map(|value| run_expression(&value, state))
+        .transpose()?;
 
     for variable in block.local_variables.iter() {
         let variable_id = variable.borrow().id.clone();

@@ -200,13 +200,9 @@ impl CCodePrinter {
         )?;
 
         self.indent();
-
-        let return_value = self.write_expression(names, &function.body().borrow())?;
-        if let Some(return_value) = return_value {
-            write!(self, "return {};\n", return_value)?;
-        }
-
+        self.write_statement(names, &function.body().borrow())?;
         self.dedent();
+
         write!(self, "}}\n")?;
 
         Ok(())
@@ -245,7 +241,7 @@ impl CCodePrinter {
             Address(ref expr) => self.write_address_expr(names, expr),
             ArrayFromCopy(ref expr) => self.write_array_from_copy_expr(names, expr, &type_),
             ArrayFromElements(ref expr) => self.write_array_from_elements_expr(names, expr, &type_),
-            Block(ref block) => self.write_block_expr(names, block, &type_),
+            Block(ref block) => self.write_block(names, block, Some(&type_)),
             BooleanOp(ref expr) => self.write_boolean_op_expr(names, expr),
             Call(ref expr) => self.write_call_expr(names, expr),
             Deref(ref expr) => self.write_deref_expr(names, expr),
@@ -367,51 +363,6 @@ impl CCodePrinter {
         }
 
         Ok(Some(expression_name))
-    }
-
-    fn write_block_expr(
-        &mut self,
-        names: &mut impl CNameRegistry,
-        block: &BlockExpr,
-        block_type: &Type,
-    ) -> ExprWriteResult {
-        let expression_name = self.write_expr_value_placeholder(names, block_type)?;
-
-        write!(self, "{{\n")?;
-        self.indent();
-
-        for variable in &block.local_variables {
-            let variable = variable.borrow();
-            names.add_variable(&variable);
-
-            write!(
-                self,
-                "{} {};\n",
-                type_name(names, &variable.type_.borrow()),
-                names.variable_name(&variable)
-            )?;
-
-            write!(
-                self,
-                "{}(&{});\n",
-                init_function_name(names, &variable.type_.borrow()),
-                names.variable_name(&variable)
-            )?;
-        }
-
-        for statement in &block.statements {
-            self.write_statement(names, statement)?;
-        }
-
-        let value = self.write_expression(names, &block.value)?;
-        if let Some(ref target) = expression_name {
-            write!(self, "{} = {};\n", target, value.unwrap())?;
-        }
-
-        self.dedent();
-        write!(self, "}}\n")?;
-
-        Ok(expression_name)
     }
 
     fn write_boolean_op_expr(
@@ -641,6 +592,7 @@ impl CCodePrinter {
     ) -> fmt::Result {
         match statement {
             Statement::Assign(ref statement) => self.write_assign(names, statement),
+            Statement::Block(ref statement) => self.write_block(names, statement, None).map(|_| ()),
             Statement::Eval(ref statement) => self.write_eval(names, statement),
             Statement::Read(ref statement) => self.write_read(names, statement),
             Statement::Return(ref statement) => self.write_return(names, statement),
@@ -727,6 +679,60 @@ impl CCodePrinter {
             .write_expression(names, &statement.expression)?
             .unwrap();
         write!(self, "write_str({});\n", value)
+    }
+
+    fn write_block(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        block: &Block,
+        block_type: Option<&Type>,
+    ) -> ExprWriteResult {
+        let expression_name = block_type
+            .map(|type_| self.write_expr_value_placeholder(names, type_))
+            .transpose()?
+            .flatten();
+
+        write!(self, "{{\n")?;
+        self.indent();
+
+        for variable in &block.local_variables {
+            let variable = variable.borrow();
+            names.add_variable(&variable);
+
+            write!(
+                self,
+                "{} {};\n",
+                type_name(names, &variable.type_.borrow()),
+                names.variable_name(&variable)
+            )?;
+
+            write!(
+                self,
+                "{}(&{});\n",
+                init_function_name(names, &variable.type_.borrow()),
+                names.variable_name(&variable)
+            )?;
+        }
+
+        for statement in &block.statements {
+            self.write_statement(names, statement)?;
+        }
+
+        let value = block
+            .value
+            .as_ref()
+            .map(|value| self.write_expression(names, &value))
+            .transpose()?
+            .flatten();
+
+        if let Some(ref target) = expression_name {
+            write!(self, "{} = {};\n", target, value.unwrap())?;
+        }
+
+        self.dedent();
+        write!(self, "}}\n")?;
+
+        Ok(expression_name)
     }
 
     fn write_expr_value_placeholder(

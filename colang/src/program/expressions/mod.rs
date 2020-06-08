@@ -1,3 +1,4 @@
+use crate::program::dual;
 use crate::program::{Type, TypeRegistry, ValueCategory};
 use crate::source::{InputSpan, SourceOrigin};
 use enum_dispatch::enum_dispatch;
@@ -8,7 +9,6 @@ use std::rc::Rc;
 pub mod address;
 pub mod array_from_copy;
 pub mod array_from_elements;
-pub mod block;
 pub mod boolean_op;
 pub mod call;
 pub mod deref;
@@ -61,7 +61,7 @@ pub enum ExpressionImpl {
     Address(address::AddressExpr),
     ArrayFromCopy(array_from_copy::ArrayFromCopyExpr),
     ArrayFromElements(array_from_elements::ArrayFromElementsExpr),
-    Block(block::BlockExpr),
+    Block(dual::block::Block),
     BooleanOp(boolean_op::BooleanOpExpr),
     Call(call::CallExpr),
     Deref(deref::DerefExpr),

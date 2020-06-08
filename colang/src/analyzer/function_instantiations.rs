@@ -41,7 +41,7 @@ fn process_function(function: Rc<RefCell<Function>>, context: &mut CompilerConte
     match function.borrow().body {
         FunctionBody::Filled(ref body) => {
             let mut call_visitor = CallVisitor::new(context.program.types_mut());
-            call_visitor.visit_expression(&mut body.borrow_mut());
+            call_visitor.visit_statement(&mut body.borrow_mut());
 
             for (call_site, called_function) in &call_visitor.called_functions {
                 let result = instantiate_functions_transitively(
@@ -118,7 +118,7 @@ fn instantiate_functions_transitively(
             let body = Function::instantiate_body(Rc::clone(&function), program.types_mut());
 
             let mut call_visitor = CallVisitor::new(program.types_mut());
-            call_visitor.visit_expression(&mut body.borrow_mut());
+            call_visitor.visit_statement(&mut body.borrow_mut());
             for (_, called_function) in &call_visitor.called_functions {
                 if called_function.borrow().body_needs_instantiation()
                     && !stack.contains(called_function)

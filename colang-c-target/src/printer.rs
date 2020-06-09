@@ -29,7 +29,7 @@ pub struct CCodePrinter {
     indent_level: usize,
 }
 
-type ExprWriteResult = Result<Option<String>, fmt::Error>;
+type ExprWriteResult = Result<String, fmt::Error>;
 
 impl CCodePrinter {
     pub fn new() -> CCodePrinter {
@@ -241,9 +241,11 @@ impl CCodePrinter {
             Address(ref expr) => self.write_address_expr(names, expr),
             ArrayFromCopy(ref expr) => self.write_array_from_copy_expr(names, expr, &type_),
             ArrayFromElements(ref expr) => self.write_array_from_elements_expr(names, expr, &type_),
-            Block(ref block) => self.write_block(names, block, Some(&type_)),
+            Block(ref block) => self
+                .write_block(names, block, Some(&type_))
+                .map(Option::unwrap),
             BooleanOp(ref expr) => self.write_boolean_op_expr(names, expr),
-            Call(ref expr) => self.write_call(names, expr),
+            Call(ref expr) => self.write_call(names, expr).map(Option::unwrap),
             Deref(ref expr) => self.write_deref_expr(names, expr),
             FieldAccess(ref expr) => self.write_field_access_expr(names, expr),
             If(ref expr) => self.write_if_expr(names, expr, &type_),
@@ -262,8 +264,8 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         expression: &AddressExpr,
     ) -> ExprWriteResult {
-        let target = self.write_expression(names, &expression.target)?.unwrap();
-        Ok(Some(format!("&{}", target)))
+        let target = self.write_expression(names, &expression.target)?;
+        Ok(format!("&{}", target))
     }
 
     fn write_array_from_copy_expr(
@@ -275,8 +277,8 @@ impl CCodePrinter {
         let expression_name = names.expression_name();
         let element_type = expression.element.type_().borrow();
 
-        let element = self.write_expression(names, &expression.element)?.unwrap();
-        let size = self.write_expression(names, &expression.size)?.unwrap();
+        let element = self.write_expression(names, &expression.element)?;
+        let size = self.write_expression(names, &expression.size)?;
 
         write!(self, "assert_array_from_copy_size_ok({});\n", size)?;
         write!(
@@ -304,7 +306,7 @@ impl CCodePrinter {
             size, expression_name, element
         )?;
 
-        Ok(Some(expression_name))
+        Ok(expression_name)
     }
 
     fn write_array_from_elements_expr(
@@ -322,10 +324,7 @@ impl CCodePrinter {
             .map(|element| self.write_expression(names, element))
             .collect();
 
-        let elements: Vec<_> = elements?
-            .into_iter()
-            .map(|element| element.unwrap())
-            .collect();
+        let elements: Vec<_> = elements?;
 
         write!(
             self,
@@ -361,7 +360,7 @@ impl CCodePrinter {
             )?;
         }
 
-        Ok(Some(expression_name))
+        Ok(expression_name)
     }
 
     fn write_boolean_op_expr(
@@ -372,36 +371,36 @@ impl CCodePrinter {
         let expression_name = names.expression_name();
         match &expression.op {
             BooleanOp::And(lhs, rhs) => {
-                let lhs = self.write_expression(names, &lhs)?.unwrap();
+                let lhs = self.write_expression(names, &lhs)?;
                 write!(self, "char {} = {};\n", expression_name, lhs)?;
                 write!(self, "if ({}) {{\n", expression_name)?;
                 self.indent();
 
-                let rhs = self.write_expression(names, &rhs)?.unwrap();
+                let rhs = self.write_expression(names, &rhs)?;
                 write!(self, "{} &= {};\n", expression_name, rhs)?;
 
                 self.dedent();
                 write!(self, "}}\n")?;
 
-                Ok(Some(expression_name))
+                Ok(expression_name)
             }
             BooleanOp::Or(lhs, rhs) => {
-                let lhs = self.write_expression(names, &lhs)?.unwrap();
+                let lhs = self.write_expression(names, &lhs)?;
                 write!(self, "char {} = {};\n", expression_name, lhs)?;
                 write!(self, "if (!{}) {{\n", expression_name)?;
                 self.indent();
 
-                let rhs = self.write_expression(names, &rhs)?.unwrap();
+                let rhs = self.write_expression(names, &rhs)?;
                 write!(self, "{} |= {};\n", expression_name, rhs)?;
 
                 self.dedent();
                 write!(self, "}}\n")?;
 
-                Ok(Some(expression_name))
+                Ok(expression_name)
             }
             BooleanOp::Not(operand) => {
-                let operand = self.write_expression(names, operand)?.unwrap();
-                Ok(Some(format!("(!{})", operand)))
+                let operand = self.write_expression(names, operand)?;
+                Ok(format!("(!{})", operand))
             }
         }
     }
@@ -411,8 +410,8 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         expression: &DerefExpr,
     ) -> ExprWriteResult {
-        let pointer = self.write_expression(names, &expression.pointer)?.unwrap();
-        Ok(Some(format!("(*{})", pointer)))
+        let pointer = self.write_expression(names, &expression.pointer)?;
+        Ok(format!("(*{})", pointer))
     }
 
     fn write_field_access_expr(
@@ -420,9 +419,9 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         expression: &FieldAccessExpr,
     ) -> ExprWriteResult {
-        let receiver = self.write_expression(names, &expression.receiver)?.unwrap();
+        let receiver = self.write_expression(names, &expression.receiver)?;
         let field = expression.field.borrow();
-        Ok(Some(format!("({}.{})", receiver, names.field_name(&field))))
+        Ok(format!("({}.{})", receiver, names.field_name(&field)))
     }
 
     fn write_if_expr(
@@ -431,30 +430,26 @@ impl CCodePrinter {
         expression: &IfExpr,
         expression_type: &Type,
     ) -> ExprWriteResult {
-        let expression_name = self.write_expr_value_placeholder(names, expression_type)?;
+        let target = self.write_expr_value_placeholder(names, expression_type)?;
 
-        let cond_name = self.write_expression(names, &expression.cond)?.unwrap();
+        let cond_name = self.write_expression(names, &expression.cond)?;
         write!(self, "if ({}) {{\n", cond_name)?;
         self.indent();
 
         let then = self.write_expression(names, &expression.then)?;
-        if let Some(ref target) = expression_name {
-            write!(self, "{} = {};\n", target, then.unwrap())?;
-        }
+        write!(self, "{} = {};\n", target, then)?;
 
         self.dedent();
         write!(self, "}} else {{\n")?;
         self.indent();
 
         let else_ = self.write_expression(names, &expression.else_)?;
-        if let Some(ref target) = expression_name {
-            write!(self, "{} = {};\n", target, else_.unwrap())?;
-        }
+        write!(self, "{} = {};\n", target, else_)?;
 
         self.dedent();
         write!(self, "}}\n")?;
 
-        Ok(expression_name)
+        Ok(target)
     }
 
     fn write_is_expr(
@@ -463,10 +458,10 @@ impl CCodePrinter {
         expression: &IsExpr,
     ) -> ExprWriteResult {
         let expression_name = names.expression_name();
-        let lhs = self.write_expression(names, &expression.lhs)?.unwrap();
-        let rhs = self.write_expression(names, &expression.rhs)?.unwrap();
+        let lhs = self.write_expression(names, &expression.lhs)?;
+        let rhs = self.write_expression(names, &expression.rhs)?;
         write!(self, "char {} = {} == {};\n", expression_name, lhs, rhs)?;
-        Ok(Some(expression_name))
+        Ok(expression_name)
     }
 
     fn write_literal_expr(
@@ -475,9 +470,9 @@ impl CCodePrinter {
         expression: &LiteralExpr,
     ) -> ExprWriteResult {
         match &expression.value {
-            LiteralValue::Int(x) => Ok(Some(format!("{}", x))),
-            LiteralValue::Char(c) => Ok(Some(format!("'\\x{:x}'", c))),
-            LiteralValue::Bool(b) => Ok(Some(String::from(if *b { "1" } else { "0" }))),
+            LiteralValue::Int(x) => Ok(format!("{}", x)),
+            LiteralValue::Char(c) => Ok(format!("'\\x{:x}'", c)),
+            LiteralValue::Bool(b) => Ok(String::from(if *b { "1" } else { "0" })),
             LiteralValue::String(s) => {
                 let expression_name = names.expression_name();
                 write!(
@@ -486,7 +481,7 @@ impl CCodePrinter {
                     expression_name,
                     create_c_literal(s),
                 )?;
-                Ok(Some(expression_name))
+                Ok(expression_name)
             }
         }
     }
@@ -513,7 +508,7 @@ impl CCodePrinter {
             expression_name
         )?;
 
-        Ok(Some(expression_name))
+        Ok(expression_name)
     }
 
     fn write_null_expr(
@@ -531,7 +526,7 @@ impl CCodePrinter {
             expression_name,
         )?;
 
-        Ok(Some(expression_name))
+        Ok(expression_name)
     }
 
     fn write_variable_expr(
@@ -540,7 +535,7 @@ impl CCodePrinter {
         expression: &VariableExpr,
     ) -> ExprWriteResult {
         let name = names.variable_name(&expression.variable.borrow());
-        Ok(Some(name.to_string()))
+        Ok(name.to_string())
     }
 
     fn write_statement(
@@ -566,8 +561,8 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         statement: &AssignStmt,
     ) -> fmt::Result {
-        let target = self.write_expression(names, &statement.target)?.unwrap();
-        let value = self.write_expression(names, &statement.value)?.unwrap();
+        let target = self.write_expression(names, &statement.target)?;
+        let value = self.write_expression(names, &statement.value)?;
         write!(self, "{} = {};\n", target, value)
     }
 
@@ -577,7 +572,7 @@ impl CCodePrinter {
     }
 
     fn write_if(&mut self, names: &mut impl CNameRegistry, statement: &IfStmt) -> fmt::Result {
-        let cond_name = self.write_expression(names, &statement.cond)?.unwrap();
+        let cond_name = self.write_expression(names, &statement.cond)?;
         write!(self, "if ({}) {{\n", cond_name)?;
         self.indent();
 
@@ -598,7 +593,7 @@ impl CCodePrinter {
     }
 
     fn write_read(&mut self, names: &mut impl CNameRegistry, statement: &ReadStmt) -> fmt::Result {
-        let target = self.write_expression(names, &statement.target)?.unwrap();
+        let target = self.write_expression(names, &statement.target)?;
 
         if statement.whole_line {
             write!(self, "readln(&{});\n", target)
@@ -620,7 +615,7 @@ impl CCodePrinter {
         statement: &ReturnStmt,
     ) -> fmt::Result {
         if let Some(ref expression) = statement.expression {
-            let value = self.write_expression(names, expression)?.unwrap();
+            let value = self.write_expression(names, expression)?;
             write!(self, "return {};\n", value)
         } else {
             write!(self, "return;\n")
@@ -634,14 +629,14 @@ impl CCodePrinter {
     ) -> fmt::Result {
         let cond_name = names.expression_name();
 
-        let cond = self.write_expression(names, &statement.cond)?.unwrap();
+        let cond = self.write_expression(names, &statement.cond)?;
         write!(self, "char {} = {};\n", cond_name, cond)?;
 
         write!(self, "while ({}) {{\n", cond_name)?;
         self.indent();
 
         self.write_statement(names, &statement.body)?;
-        let next_cond = self.write_expression(names, &statement.cond)?.unwrap();
+        let next_cond = self.write_expression(names, &statement.cond)?;
         write!(self, "{} = {};\n", cond_name, next_cond)?;
 
         self.dedent();
@@ -656,9 +651,7 @@ impl CCodePrinter {
         statement: &WriteStmt,
     ) -> fmt::Result {
         // TODO(#11) optimize the case where expression is a string literal.
-        let value = self
-            .write_expression(names, &statement.expression)?
-            .unwrap();
+        let value = self.write_expression(names, &statement.expression)?;
         write!(self, "write_str({});\n", value)
     }
 
@@ -667,11 +660,10 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         block: &Block,
         block_type: Option<&Type>,
-    ) -> ExprWriteResult {
+    ) -> Result<Option<String>, fmt::Error> {
         let expression_name = block_type
             .map(|type_| self.write_expr_value_placeholder(names, type_))
-            .transpose()?
-            .flatten();
+            .transpose()?;
 
         write!(self, "{{\n")?;
         self.indent();
@@ -703,8 +695,7 @@ impl CCodePrinter {
             .value
             .as_ref()
             .map(|value| self.write_expression(names, &value))
-            .transpose()?
-            .flatten();
+            .transpose()?;
 
         if let Some(ref target) = expression_name {
             write!(self, "{} = {};\n", target, value.unwrap())?;
@@ -716,16 +707,17 @@ impl CCodePrinter {
         Ok(expression_name)
     }
 
-    fn write_call(&mut self, names: &mut impl CNameRegistry, call: &Call) -> ExprWriteResult {
-        let arguments: Result<Vec<Option<String>>, fmt::Error> = call
+    fn write_call(
+        &mut self,
+        names: &mut impl CNameRegistry,
+        call: &Call,
+    ) -> Result<Option<String>, fmt::Error> {
+        let arguments: Result<Vec<_>, fmt::Error> = call
             .arguments
             .iter()
             .map(|argument| self.write_expression(names, argument))
             .collect();
-        let arguments: Vec<_> = arguments?
-            .into_iter()
-            .map(|argument| argument.unwrap())
-            .collect();
+        let arguments: Vec<_> = arguments?;
 
         let function = call.function.borrow();
         let return_type = function.return_type.borrow();
@@ -758,14 +750,9 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         type_: &Type,
     ) -> ExprWriteResult {
-        // Only non-void expressions create a named result.
-        if !type_.is_void() {
-            let name = names.expression_name();
-            write!(self, "{} {};\n", type_name(names, &type_), name)?;
-            Ok(Some(name))
-        } else {
-            Ok(None)
-        }
+        let name = names.expression_name();
+        write!(self, "{} {};\n", type_name(names, &type_), name)?;
+        Ok(name)
     }
 
     fn indent(&mut self) {

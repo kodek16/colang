@@ -142,17 +142,44 @@ fn run_internal_function(
 
 fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
     match statement {
-        Statement::Assign(ref s) => run_assign(s, state),
+        Statement::Assign(ref s) => run_assign_stmt(s, state),
         Statement::Block(ref s) => run_block(s, state).map(|_| ()),
-        Statement::Eval(ref s) => run_eval(s, state),
-        Statement::Read(ref s) => run_read(s, state),
-        Statement::Return(ref s) => run_return(s, state),
-        Statement::While(ref s) => run_while(s, state),
-        Statement::Write(ref s) => run_write(s, state),
+        Statement::Eval(ref s) => run_eval_stmt(s, state),
+        Statement::If(ref s) => run_if_stmt(s, state),
+        Statement::Read(ref s) => run_read_stmt(s, state),
+        Statement::Return(ref s) => run_return_stmt(s, state),
+        Statement::While(ref s) => run_while_stmt(s, state),
+        Statement::Write(ref s) => run_write_stmt(s, state),
     }
 }
 
-fn run_read(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
+fn run_assign_stmt(statement: &AssignStmt, state: &mut State) -> RunResult<()> {
+    let target = run_expression(&statement.target, state)?.into_lvalue();
+    let new_value = run_expression(&statement.value, state)?.into_rvalue();
+    *target.borrow_mut() = new_value;
+    Ok(())
+}
+
+fn run_eval_stmt(statement: &EvalStmt, state: &mut State) -> RunResult<()> {
+    let _ = run_expression(&statement.expression, state)?;
+    Ok(())
+}
+
+fn run_if_stmt(statement: &IfStmt, state: &mut State) -> RunResult<()> {
+    let condition = run_expression(&statement.cond, state)?
+        .into_rvalue()
+        .as_bool();
+
+    if condition {
+        run_statement(&statement.then, state)?;
+    } else if let Some(ref else_) = statement.else_ {
+        run_statement(else_, state)?;
+    }
+
+    Ok(())
+}
+
+fn run_read_stmt(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
     let target = run_expression(&statement.target, state)?.into_lvalue();
 
     let string = if statement.whole_line {
@@ -187,13 +214,12 @@ fn run_read(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
     Ok(())
 }
 
-fn run_write(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
-    let value = run_expression(&statement.expression, state)?.into_rvalue();
-    print!("{}", value.as_utf8_string());
-    Ok(())
+fn run_return_stmt(statement: &ReturnStmt, state: &mut State) -> RunResult<()> {
+    let value = run_expression(&statement.expression, state)?;
+    Err(EarlyExit::EarlyReturn(value))
 }
 
-fn run_while(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
+fn run_while_stmt(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
     let mut cond = run_expression(&statement.cond, state)?
         .into_rvalue()
         .as_bool();
@@ -206,21 +232,10 @@ fn run_while(statement: &WhileStmt, state: &mut State) -> RunResult<()> {
     Ok(())
 }
 
-fn run_assign(statement: &AssignStmt, state: &mut State) -> RunResult<()> {
-    let target = run_expression(&statement.target, state)?.into_lvalue();
-    let new_value = run_expression(&statement.value, state)?.into_rvalue();
-    *target.borrow_mut() = new_value;
+fn run_write_stmt(statement: &WriteStmt, state: &mut State) -> RunResult<()> {
+    let value = run_expression(&statement.expression, state)?.into_rvalue();
+    print!("{}", value.as_utf8_string());
     Ok(())
-}
-
-fn run_eval(statement: &EvalStmt, state: &mut State) -> RunResult<()> {
-    let _ = run_expression(&statement.expression, state)?;
-    Ok(())
-}
-
-fn run_return(statement: &ReturnStmt, state: &mut State) -> RunResult<()> {
-    let value = run_expression(&statement.expression, state)?;
-    Err(EarlyExit::EarlyReturn(value))
 }
 
 fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value> {

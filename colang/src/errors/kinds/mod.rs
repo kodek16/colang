@@ -15,7 +15,6 @@ mod e0013_variable_no_type_or_initializer;
 mod e0014_variable_initializer_is_void;
 mod e0015_return_value_in_void_function;
 mod e0016_return_no_value_in_non_void_function;
-mod e0017_if_expression_missing_else;
 mod e0018_assignment_type_mismatch;
 mod e0019_variable_initializer_type_mismatch;
 mod e0020_function_body_type_mismatch;
@@ -76,7 +75,6 @@ pub mod constructors {
     pub use e0014_variable_initializer_is_void::variable_initializer_is_void;
     pub use e0015_return_value_in_void_function::return_value_in_void_function;
     pub use e0016_return_no_value_in_non_void_function::return_no_value_in_non_void_function;
-    pub use e0017_if_expression_missing_else::if_expression_missing_else;
     pub use e0018_assignment_type_mismatch::assignment_type_mismatch;
     pub use e0019_variable_initializer_type_mismatch::variable_initializer_type_mismatch;
     pub use e0020_function_body_type_mismatch::function_body_type_mismatch;

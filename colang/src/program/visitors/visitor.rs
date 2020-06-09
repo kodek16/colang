@@ -19,25 +19,13 @@ pub trait LocalVisitor {
             Statement::Assign(statement) => self.visit_assign(statement),
             Statement::Block(statement) => self.visit_block(statement),
             Statement::Eval(statement) => self.visit_eval(statement),
+            Statement::If(statement) => self.visit_if(statement),
             Statement::Read(statement) => self.visit_read(statement),
             Statement::Return(statement) => self.visit_return(statement),
             Statement::While(statement) => self.visit_while(statement),
             Statement::Write(statement) => self.visit_write(statement),
         }
     }
-
-    fn visit_read(&mut self, statement: &mut ReadStmt) {
-        self.walk(statement);
-    }
-
-    fn visit_write(&mut self, statement: &mut WriteStmt) {
-        self.walk(statement);
-    }
-
-    fn visit_while(&mut self, statement: &mut WhileStmt) {
-        self.walk(statement);
-    }
-
     fn visit_assign(&mut self, statement: &mut AssignStmt) {
         self.walk(statement);
     }
@@ -46,7 +34,23 @@ pub trait LocalVisitor {
         self.walk(statement);
     }
 
+    fn visit_if(&mut self, statement: &mut IfStmt) {
+        self.walk(statement);
+    }
+
+    fn visit_read(&mut self, statement: &mut ReadStmt) {
+        self.walk(statement);
+    }
+
     fn visit_return(&mut self, statement: &mut ReturnStmt) {
+        self.walk(statement);
+    }
+
+    fn visit_while(&mut self, statement: &mut WhileStmt) {
+        self.walk(statement);
+    }
+
+    fn visit_write(&mut self, statement: &mut WriteStmt) {
         self.walk(statement);
     }
 

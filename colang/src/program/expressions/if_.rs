@@ -8,6 +8,9 @@ use std::rc::Rc;
 /// An expression that executes one of its branches depending on the value of the condition.
 ///
 /// The expression value is taken from the value of the executed branch expression.
+///
+/// This class represents "if-expressions". "if-statements", which is a related code node,
+/// is represented by `statements::if_::IfStmt`.
 pub struct IfExpr {
     /// The condition expression that determines which branch is executed.
     ///
@@ -17,7 +20,7 @@ pub struct IfExpr {
     /// The branch that gets executed when `condition` evaluates to `true`.
     pub then: Box<Expression>,
 
-    /// The branch that gets executed when `condition` evaluated to `false`.
+    /// The branch that gets executed when `condition` evaluates to `false`.
     ///
     /// Must have the same type as `then`.
     pub else_: Box<Expression>,

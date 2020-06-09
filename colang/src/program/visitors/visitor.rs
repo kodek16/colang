@@ -17,7 +17,8 @@ pub trait LocalVisitor {
     fn walk_statement(&mut self, statement: &mut Statement) {
         match statement {
             Statement::Assign(statement) => self.visit_assign(statement),
-            Statement::Block(statement) => self.visit_block(statement),
+            Statement::Block(block) => self.visit_block(block),
+            Statement::Call(call) => self.visit_call(call),
             Statement::Eval(statement) => self.visit_eval(statement),
             Statement::If(statement) => self.visit_if(statement),
             Statement::Read(statement) => self.visit_read(statement),
@@ -68,7 +69,7 @@ pub trait LocalVisitor {
             }
             Block(ref mut expression) => self.visit_block(expression),
             BooleanOp(ref mut expression) => self.visit_boolean_op_expr(expression),
-            Call(ref mut expression) => self.visit_call_expr(expression),
+            Call(ref mut expression) => self.visit_call(expression),
             Deref(ref mut expression) => self.visit_deref_expr(expression),
             FieldAccess(ref mut expression) => self.visit_field_access_expr(expression),
             If(ref mut expression) => self.visit_if_expr(expression),
@@ -96,10 +97,6 @@ pub trait LocalVisitor {
     }
 
     fn visit_boolean_op_expr(&mut self, expression: &mut BooleanOpExpr) {
-        self.walk(expression);
-    }
-
-    fn visit_call_expr(&mut self, expression: &mut CallExpr) {
         self.walk(expression);
     }
 
@@ -137,6 +134,10 @@ pub trait LocalVisitor {
 
     fn visit_block(&mut self, block: &mut Block) {
         self.walk(block);
+    }
+
+    fn visit_call(&mut self, call: &mut Call) {
+        self.walk(call);
     }
 
     fn walk<T>(&mut self, node: &mut T)

@@ -46,7 +46,9 @@ pub fn compile_expression_or_statement(
 ) -> DualNode {
     let node = match expression {
         ast::Expression::Block(e) => block::compile_block(e, type_hint, context),
+        ast::Expression::Call(e) => call::compile_call(e, context),
         ast::Expression::If(e) => if_::compile_if(e, type_hint, context),
+        ast::Expression::MethodCall(e) => method_call::compile_method_call(e, context),
 
         other => DualNode::Expression(match other {
             ast::Expression::Variable(e) => variable::compile_variable_expr(e, context),
@@ -71,12 +73,12 @@ pub fn compile_expression_or_statement(
                 array_from_copy::compile_array_from_copy_expr(e, context)
             }
             ast::Expression::Index(e) => index::compile_index_expr(e, context),
-            ast::Expression::Call(e) => call::compile_call_expr(e, context),
             ast::Expression::FieldAccess(e) => field_access::compile_field_access_expr(e, context),
-            ast::Expression::MethodCall(e) => method_call::compile_method_call_expr(e, context),
 
-            ast::Expression::If(_) => unreachable!(),
             ast::Expression::Block(_) => unreachable!(),
+            ast::Expression::Call(_) => unreachable!(),
+            ast::Expression::If(_) => unreachable!(),
+            ast::Expression::MethodCall(_) => unreachable!(),
         }),
     };
 

@@ -1,4 +1,5 @@
 use super::compile_expression;
+use crate::analyzer::bodies::dual::DualNode;
 use crate::analyzer::bodies::{check_argument_types, compile_arguments, maybe_deref};
 use crate::context::CompilerContext;
 use crate::errors;
@@ -7,14 +8,14 @@ use crate::source::SourceOrigin;
 use crate::{ast, program};
 use std::rc::Rc;
 
-pub fn compile_method_call_expr(
+pub fn compile_method_call(
     expression: ast::MethodCallExpr,
     context: &mut CompilerContext,
-) -> program::Expression {
+) -> DualNode {
     let receiver_span = expression.receiver.span();
     let receiver = compile_expression(*expression.receiver, None, context);
     if receiver.is_error() {
-        return program::Expression::error(expression.span);
+        return DualNode::Expression(program::Expression::error(expression.span));
     }
 
     // Automatically dereference pointers.
@@ -30,7 +31,7 @@ pub fn compile_method_call_expr(
         Err(error) => {
             let error = error.into_direct_lookup_error(SourceOrigin::Plain(expression.method.span));
             context.errors.push(error);
-            return program::Expression::error(expression.method.span);
+            return DualNode::Expression(program::Expression::error(expression.method.span));
         }
     };
 
@@ -59,7 +60,7 @@ pub fn compile_method_call_expr(
         } else {
             let error = errors::self_must_be_lvalue(&receiver, &method.borrow());
             context.errors.push(error);
-            return program::Expression::error(expression.span);
+            return DualNode::Expression(program::Expression::error(expression.span));
         }
     } else {
         panic!("Unexpected method `self` type");
@@ -77,11 +78,11 @@ pub fn compile_method_call_expr(
     };
 
     if check_argument_types(&method, &arguments, expression.span, context).is_err() {
-        return program::Expression::error(expression.span);
+        return DualNode::Expression(program::Expression::error(expression.span));
     }
 
-    program::Expression::new(
-        program::CallExpr {
+    DualNode::from_call(
+        program::Call {
             function: method,
             arguments,
             location: SourceOrigin::Plain(expression.span),

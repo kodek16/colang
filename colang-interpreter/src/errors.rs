@@ -2,7 +2,7 @@
 
 use crate::values::{Rvalue, Value};
 use crate::EarlyExit;
-use colang::program::{CallExpr, Function};
+use colang::program::{Call, Function};
 use colang::source::{InputSpanFile, SourceOrigin};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -45,10 +45,10 @@ impl RuntimeError {
 
     /// Appends a new stack frame during the unwinding process.
     ///
-    /// The function called in the `CallExpr` is added as a frame, including information about
+    /// The function called in the `Call` is added as a frame, including information about
     /// the values of the arguments at the time of call, and the location reached inside the
     /// call (which is stored in `bottom_location`).
-    pub fn annotate_stack_frame(mut self, call: &CallExpr, arguments: Vec<Value>) -> RuntimeError {
+    pub fn annotate_stack_frame(mut self, call: &Call, arguments: Vec<Value>) -> RuntimeError {
         let frame = StackFrame {
             function: Rc::clone(&call.function),
             arguments: arguments.into_iter().map(debug_print_value).collect(),

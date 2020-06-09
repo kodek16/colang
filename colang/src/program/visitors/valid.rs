@@ -119,18 +119,6 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
         }
     }
 
-    fn visit_call_expr(&mut self, expression: &mut CallExpr) {
-        self.walk(expression);
-        let parameters = &expression.function.borrow().parameters;
-        if parameters.len() != expression.arguments.len() {
-            self.errors.push(format!(
-                "call expression expected {} parameters, got {}",
-                parameters.len(),
-                expression.arguments.len()
-            ))
-        }
-    }
-
     fn visit_deref_expr(&mut self, expression: &mut DerefExpr) {
         self.walk(expression);
         if !expression.pointer.type_().borrow().is_pointer() {
@@ -176,6 +164,18 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
         if expression.target_type.borrow().is_void() {
             self.errors
                 .push(format!("`new` expression for type `void`"));
+        }
+    }
+
+    fn visit_call(&mut self, call: &mut Call) {
+        self.walk(call);
+        let parameters = &call.function.borrow().parameters;
+        if parameters.len() != call.arguments.len() {
+            self.errors.push(format!(
+                "call expression expected {} parameters, got {}",
+                parameters.len(),
+                call.arguments.len()
+            ))
         }
     }
 

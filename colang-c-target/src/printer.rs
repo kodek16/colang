@@ -243,7 +243,7 @@ impl CCodePrinter {
             ArrayFromElements(ref expr) => self.write_array_from_elements_expr(names, expr, &type_),
             Block(ref block) => self.write_block(names, block, Some(&type_)),
             BooleanOp(ref expr) => self.write_boolean_op_expr(names, expr),
-            Call(ref expr) => self.write_call_expr(names, expr),
+            Call(ref expr) => self.write_call(names, expr),
             Deref(ref expr) => self.write_deref_expr(names, expr),
             FieldAccess(ref expr) => self.write_field_access_expr(names, expr),
             If(ref expr) => self.write_if_expr(names, expr, &type_),
@@ -407,47 +407,6 @@ impl CCodePrinter {
         }
     }
 
-    fn write_call_expr(
-        &mut self,
-        names: &mut impl CNameRegistry,
-        expression: &CallExpr,
-    ) -> ExprWriteResult {
-        let arguments: Result<Vec<Option<String>>, fmt::Error> = expression
-            .arguments
-            .iter()
-            .map(|argument| self.write_expression(names, argument))
-            .collect();
-        let arguments: Vec<_> = arguments?
-            .into_iter()
-            .map(|argument| argument.unwrap())
-            .collect();
-
-        let function = expression.function.borrow();
-        let return_type = function.return_type.borrow();
-
-        let value = if return_type.is_void() {
-            None
-        } else {
-            let expression_name = names.expression_name();
-            write!(
-                self,
-                "{} {} = ",
-                type_name(names, &return_type),
-                expression_name
-            )?;
-            Some(expression_name)
-        };
-
-        write!(
-            self,
-            "{}({});\n",
-            function_name(names, &function),
-            arguments.join(", ")
-        )?;
-
-        Ok(value)
-    }
-
     fn write_deref_expr(
         &mut self,
         names: &mut impl CNameRegistry,
@@ -593,6 +552,7 @@ impl CCodePrinter {
         match statement {
             Statement::Assign(ref statement) => self.write_assign(names, statement),
             Statement::Block(ref statement) => self.write_block(names, statement, None).map(|_| ()),
+            Statement::Call(ref statement) => self.write_call(names, statement).map(|_| ()),
             Statement::Eval(ref statement) => self.write_eval(names, statement),
             Statement::If(ref statement) => self.write_if(names, statement),
             Statement::Read(ref statement) => self.write_read(names, statement),
@@ -755,6 +715,43 @@ impl CCodePrinter {
         write!(self, "}}\n")?;
 
         Ok(expression_name)
+    }
+
+    fn write_call(&mut self, names: &mut impl CNameRegistry, call: &Call) -> ExprWriteResult {
+        let arguments: Result<Vec<Option<String>>, fmt::Error> = call
+            .arguments
+            .iter()
+            .map(|argument| self.write_expression(names, argument))
+            .collect();
+        let arguments: Vec<_> = arguments?
+            .into_iter()
+            .map(|argument| argument.unwrap())
+            .collect();
+
+        let function = call.function.borrow();
+        let return_type = function.return_type.borrow();
+
+        let value = if return_type.is_void() {
+            None
+        } else {
+            let expression_name = names.expression_name();
+            write!(
+                self,
+                "{} {} = ",
+                type_name(names, &return_type),
+                expression_name
+            )?;
+            Some(expression_name)
+        };
+
+        write!(
+            self,
+            "{}({});\n",
+            function_name(names, &function),
+            arguments.join(", ")
+        )?;
+
+        Ok(value)
     }
 
     fn write_expr_value_placeholder(

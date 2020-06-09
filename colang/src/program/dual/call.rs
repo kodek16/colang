@@ -1,15 +1,17 @@
 use crate::program::expressions::ExpressionKind;
 use crate::program::visitors::LocalCodeNode;
-use crate::program::{Expression, Function, Statement, Type, TypeRegistry, ValueCategory};
+use crate::program::{
+    Expression, Function, Statement, StatementKind, Type, TypeRegistry, ValueCategory,
+};
 use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// An expression that executes a function with certain arguments.
+/// A local code node that executes a function with certain arguments.
 ///
-/// The return value of the function becomes the value of the expression. If the function returns
-/// `void`, the expression is `void`, and so only allowed in void contexts.
-pub struct CallExpr {
+/// If the executed function is non-void, this node is an expression which takes its value from the
+/// value returned from the function. If the executed function is void, this node is a statement.
+pub struct Call {
     /// The function to be executed.
     pub function: Rc<RefCell<Function>>,
 
@@ -23,9 +25,14 @@ pub struct CallExpr {
     pub location: SourceOrigin,
 }
 
-impl ExpressionKind for CallExpr {
+impl ExpressionKind for Call {
     fn type_(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
-        Rc::clone(&self.function.borrow().return_type)
+        let type_ = Rc::clone(&self.function.borrow().return_type);
+        if !type_.borrow().is_void() {
+            type_
+        } else {
+            panic!("Attempt to treat void function call statement as an expression");
+        }
     }
 
     fn value_category(&self) -> ValueCategory {
@@ -37,7 +44,13 @@ impl ExpressionKind for CallExpr {
     }
 }
 
-impl<'a> LocalCodeNode<'a> for CallExpr {
+impl StatementKind for Call {
+    fn location(&self) -> SourceOrigin {
+        self.location
+    }
+}
+
+impl<'a> LocalCodeNode<'a> for Call {
     type StmtIter = std::iter::Empty<&'a mut Statement>;
     type ExprIter = std::slice::IterMut<'a, Expression>;
 

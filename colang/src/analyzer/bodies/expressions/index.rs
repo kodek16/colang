@@ -34,8 +34,9 @@ pub fn compile_index_expr(
         return program::Expression::error(expression.span);
     }
 
+    // TODO(#6): currently this will cause a compiler panic if `index` is a void method.
     let pointer = program::Expression::new(
-        program::CallExpr {
+        program::Call {
             function: method,
             arguments,
             location: SourceOrigin::Plain(expression.span),

@@ -11,7 +11,6 @@ pub mod array_from_copy;
 pub mod array_from_elements;
 pub mod boolean_op;
 pub mod deref;
-pub mod empty;
 pub mod error;
 pub mod field_access;
 pub mod if_;
@@ -64,7 +63,6 @@ pub enum ExpressionImpl {
     BooleanOp(boolean_op::BooleanOpExpr),
     Call(dual::call::Call),
     Deref(deref::DerefExpr),
-    Empty(empty::EmptyExpr),
     Err(error::ErrorExpr),
     FieldAccess(field_access::FieldAccessExpr),
     If(if_::IfExpr),
@@ -178,13 +176,6 @@ impl Expression {
 }
 
 impl ExpressionImpl {
-    pub fn is_empty(&self) -> bool {
-        match &self {
-            ExpressionImpl::Empty(_) => true,
-            _ => false,
-        }
-    }
-
     pub fn is_error(&self) -> bool {
         match &self {
             ExpressionImpl::Err(_) => true,

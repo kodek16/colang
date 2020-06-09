@@ -253,7 +253,6 @@ impl CCodePrinter {
             Null(ref expr) => self.write_null_expr(names, expr),
             Variable(ref expr) => self.write_variable_expr(names, expr),
 
-            Empty(_) => Ok(None),
             Err(_) => panic!("Error expression encountered"),
         }
     }
@@ -620,8 +619,8 @@ impl CCodePrinter {
         names: &mut impl CNameRegistry,
         statement: &ReturnStmt,
     ) -> fmt::Result {
-        let value = self.write_expression(names, &statement.expression)?;
-        if let Some(value) = value {
+        if let Some(ref expression) = statement.expression {
+            let value = self.write_expression(names, expression)?.unwrap();
             write!(self, "return {};\n", value)
         } else {
             write!(self, "return;\n")

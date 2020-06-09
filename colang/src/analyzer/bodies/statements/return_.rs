@@ -33,21 +33,12 @@ pub fn compile_return_stmt(
         return;
     }
 
-    let expression = expression.unwrap_or(program::Expression::new(
-        program::EmptyExpr {
-            location: SourceOrigin::MissingReturnValue(statement.span),
-        },
-        context.program.types_mut(),
-    ));
-
-    if expression.is_error() {
-        return;
-    }
-
-    if *expression.type_() != return_type {
-        let error = errors::return_statement_type_mismatch(&function.borrow(), &expression);
-        context.errors.push(error);
-        return;
+    if let Some(ref expression) = expression {
+        if *expression.type_() != return_type {
+            let error = errors::return_statement_type_mismatch(&function.borrow(), &expression);
+            context.errors.push(error);
+            return;
+        }
     }
 
     current_block.append_statement(program::ReturnStmt {

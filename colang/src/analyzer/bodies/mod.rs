@@ -131,7 +131,7 @@ fn parse_and_fill_function_body_if_present(
 
                     Statement::Return(ReturnStmt {
                         location: body.location(),
-                        expression: body,
+                        expression: Some(body),
                     })
                 }
             }

@@ -97,7 +97,10 @@ fn clone_read_stmt(statement: &ReadStmt, context: &mut CloneContext) -> ReadStmt
 
 fn clone_return_stmt(statement: &ReturnStmt, context: &mut CloneContext) -> ReturnStmt {
     ReturnStmt {
-        expression: clone_expression(&statement.expression, context),
+        expression: statement
+            .expression
+            .as_ref()
+            .map(|expression| clone_expression(expression, context)),
         location: statement.location,
     }
 }
@@ -131,7 +134,6 @@ fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expr
         BooleanOp(ref expression) => BooleanOp(clone_boolean_op_expr(expression, context)),
         Call(ref expression) => Call(clone_call(expression, context)),
         Deref(ref expression) => Deref(clone_deref_expr(expression, context)),
-        Empty(ref expression) => Empty(clone_empty_expr(expression, context)),
         Err(ref expression) => Err(clone_error_expr(expression, context)),
         FieldAccess(ref expression) => FieldAccess(clone_field_access_expr(expression, context)),
         If(ref expression) => If(clone_if_expr(expression, context)),
@@ -200,12 +202,6 @@ fn clone_boolean_op_expr(expression: &BooleanOpExpr, context: &mut CloneContext)
 fn clone_deref_expr(expression: &DerefExpr, context: &mut CloneContext) -> DerefExpr {
     DerefExpr {
         pointer: Box::new(clone_expression(&expression.pointer, context)),
-        location: expression.location,
-    }
-}
-
-fn clone_empty_expr(expression: &EmptyExpr, _: &mut CloneContext) -> EmptyExpr {
-    EmptyExpr {
         location: expression.location,
     }
 }

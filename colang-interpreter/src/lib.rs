@@ -108,12 +108,14 @@ fn run_user_function(function: &Function, state: &mut State) -> RunResult<()> {
     run_statement(&function.body().borrow(), state)
 }
 
+// For conformance with user functions, internal functions also simulate an early return in
+// all cases.
 fn run_internal_function(
     function_tag: &InternalFunctionTag,
     arguments: Vec<Value>,
-) -> RunResult<Value> {
+) -> RunResult<()> {
     use InternalFunctionTag::*;
-    match function_tag {
+    let result = match function_tag {
         Assert => internal::assert(arguments),
         AsciiCode => internal::ascii_code(arguments),
         AsciiChar => internal::ascii_char(arguments),
@@ -137,7 +139,9 @@ fn run_internal_function(
         ArrayPop(_) => internal::array_pop(arguments),
         ArrayLen(_) => internal::array_len(arguments),
         ArrayIndex(_) => internal::array_index(arguments),
-    }
+    };
+
+    result.and_then(|value| Err(EarlyExit::EarlyReturn(value)))
 }
 
 fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
@@ -408,13 +412,12 @@ fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
                 state.pop(variable_id)
             }
 
-            // User functions always terminate with a `return` statement.
-            function_result.map(|_| unreachable!())
+            function_result
         }
     };
 
     match result {
-        Ok(value) => Ok(value),
+        Ok(()) => Ok(Value::Rvalue(Rvalue::Void)),
         Err(EarlyExit::EarlyReturn(value)) => Ok(value),
         Err(EarlyExit::Error(error)) => Err(EarlyExit::Error(
             error.annotate_stack_frame(expression, arguments_for_backtrace),

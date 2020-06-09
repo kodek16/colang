@@ -45,12 +45,13 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
         self.program.types_mut()
     }
 
-    fn visit_write(&mut self, statement: &mut WriteStmt) {
+    fn visit_assign(&mut self, statement: &mut AssignStmt) {
         self.walk(statement);
-        if !statement.expression.type_().borrow().is_string() {
+        if statement.target.type_() != statement.value.type_() {
             self.errors.push(format!(
-                "`write` statement expression has type `{}`",
-                statement.expression.type_().borrow().name
+                "`assign` statement target has type `{}`, value has different type `{}`",
+                statement.target.type_().borrow().name,
+                statement.value.type_().borrow().name
             ))
         }
     }
@@ -65,13 +66,12 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
         }
     }
 
-    fn visit_assign(&mut self, statement: &mut AssignStmt) {
+    fn visit_write(&mut self, statement: &mut WriteStmt) {
         self.walk(statement);
-        if statement.target.type_() != statement.value.type_() {
+        if !statement.expression.type_().borrow().is_string() {
             self.errors.push(format!(
-                "`assign` statement target has type `{}`, value has different type `{}`",
-                statement.target.type_().borrow().name,
-                statement.value.type_().borrow().name
+                "`write` statement expression has type `{}`",
+                statement.expression.type_().borrow().name
             ))
         }
     }

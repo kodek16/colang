@@ -9,8 +9,9 @@ use crate::source::SourceOrigin;
 pub struct ReturnStmt {
     /// The return value for the current function.
     ///
-    /// Must have the same type as the function return type.
-    pub expression: Expression,
+    /// If the current function is void, this must be `None`. If the current function is non-void,
+    /// this must have the same type at the function return type.
+    pub expression: Option<Expression>,
 
     /// The location of the source code that produced this statement.
     pub location: SourceOrigin,
@@ -24,13 +25,13 @@ impl StatementKind for ReturnStmt {
 
 impl<'a> LocalCodeNode<'a> for ReturnStmt {
     type StmtIter = std::iter::Empty<&'a mut Statement>;
-    type ExprIter = std::iter::Once<&'a mut Expression>;
+    type ExprIter = std::option::IterMut<'a, Expression>;
 
     fn child_statements(&'a mut self) -> Self::StmtIter {
         std::iter::empty()
     }
 
     fn child_expressions(&'a mut self) -> Self::ExprIter {
-        std::iter::once(&mut self.expression)
+        self.expression.iter_mut()
     }
 }

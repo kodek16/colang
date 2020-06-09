@@ -78,7 +78,6 @@ pub trait LocalVisitor {
             New(ref mut expression) => self.visit_new_expr(expression),
             Null(ref mut expression) => self.visit_null_expr(expression),
             Variable(ref mut expression) => self.visit_variable_expr(expression),
-            Empty(_) => (),
             Err(_) => (),
         };
         expression.recalculate(self.types())

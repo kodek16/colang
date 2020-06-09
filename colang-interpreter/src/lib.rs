@@ -220,7 +220,11 @@ fn run_read_stmt(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
 }
 
 fn run_return_stmt(statement: &ReturnStmt, state: &mut State) -> RunResult<()> {
-    let value = run_expression(&statement.expression, state)?;
+    let value = match &statement.expression {
+        Some(expression) => run_expression(expression, state)?,
+        None => Value::Rvalue(Rvalue::Void),
+    };
+
     Err(EarlyExit::EarlyReturn(value))
 }
 
@@ -261,7 +265,6 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         FieldAccess(ref expr) => run_field_access_expr(expr, state),
         If(ref expr) => run_if_expr(expr, state),
         Block(ref expr) => run_block(expr, state).map(|value| value.unwrap()),
-        Empty(_) => Ok(Value::Rvalue(Rvalue::Void)),
         Err(_) => panic_error(),
     }
 }

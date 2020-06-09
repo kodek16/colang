@@ -196,7 +196,12 @@ impl ToSexp for ReadStmt {
 
 impl ToSexp for ReturnStmt {
     fn to_sexp(&self) -> Sexp {
-        sexp_list!(Sexp::str("return"), self.expression.to_sexp())
+        let mut list = vec![Sexp::str("return")];
+        if let Some(ref expression) = self.expression {
+            list.push(expression.to_sexp());
+        }
+
+        Sexp::List(list)
     }
 }
 
@@ -230,7 +235,6 @@ impl ToSexp for Expression {
             New(ref expr) => expr.to_sexp(),
             Null(ref expr) => expr.to_sexp(),
             Variable(ref expr) => expr.to_sexp(),
-            Empty(_) => Sexp::str("empty"),
             Err(_) => Sexp::str("error"),
         }
     }

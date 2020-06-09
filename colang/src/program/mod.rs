@@ -178,7 +178,6 @@ pub use expressions::array_from_copy::ArrayFromCopyExpr;
 pub use expressions::array_from_elements::ArrayFromElementsExpr;
 pub use expressions::boolean_op::{BooleanOp, BooleanOpExpr};
 pub use expressions::deref::DerefExpr;
-pub use expressions::empty::EmptyExpr;
 pub use expressions::error::ErrorExpr;
 pub use expressions::field_access::FieldAccessExpr;
 pub use expressions::if_::IfExpr;

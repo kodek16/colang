@@ -148,6 +148,7 @@ fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
     match statement {
         Statement::Assign(ref s) => run_assign_stmt(s, state),
         Statement::Block(ref s) => run_block(s, state).map(|_| ()),
+        Statement::Call(ref s) => run_call(s, state).map(|_| ()),
         Statement::Eval(ref s) => run_eval_stmt(s, state),
         Statement::If(ref s) => run_if_stmt(s, state),
         Statement::Read(ref s) => run_read_stmt(s, state),
@@ -255,7 +256,8 @@ fn run_expression(expression: &Expression, state: &mut State) -> RunResult<Value
         ArrayFromElements(ref expr) => run_array_from_elements_expr(expr, state),
         ArrayFromCopy(ref expr) => run_array_from_copy_expr(expr, state),
         BooleanOp(ref expr) => run_boolean_op_expr(expr, state),
-        Call(ref expr) => run_call_expr(expr, state),
+        Call(ref expr) => run_call(expr, state)
+            .map(|value| value.expect("call expression did not evaluate to a value")),
         FieldAccess(ref expr) => run_field_access_expr(expr, state),
         If(ref expr) => run_if_expr(expr, state),
         Block(ref expr) => run_block(expr, state).map(|value| value.unwrap()),
@@ -380,51 +382,6 @@ fn run_boolean_op_expr(expression: &BooleanOpExpr, state: &mut State) -> RunResu
     Ok(Value::Rvalue(Rvalue::Bool(value)))
 }
 
-fn run_call_expr(expression: &CallExpr, state: &mut State) -> RunResult<Value> {
-    let function = expression.function.borrow();
-
-    let arguments: RunResult<Vec<Value>> = expression
-        .arguments
-        .iter()
-        .map(|argument| run_expression(argument, state))
-        .collect();
-    let arguments = arguments?;
-
-    // Currently we make a copy of all arguments for every call, so that they could be later
-    // used for error reporting in case an error occurs. Need to benchmark how big of an impact
-    // this makes on performance, and consider switching to a faster unwinding model like GDB.
-    let arguments_for_backtrace = arguments.clone();
-
-    let result = match function.id {
-        FunctionId::Internal(ref tag) => run_internal_function(tag, arguments),
-        _ => {
-            let parameters = function.parameters.iter();
-
-            for (parameter, value) in parameters.zip(arguments.into_iter()) {
-                let variable_id = parameter.borrow().id.clone();
-                state.push(variable_id, value.into_rvalue())
-            }
-
-            let function_result = run_user_function(&expression.function.borrow(), state);
-
-            for parameter in function.parameters.iter() {
-                let variable_id = parameter.borrow().id.clone();
-                state.pop(variable_id)
-            }
-
-            function_result
-        }
-    };
-
-    match result {
-        Ok(()) => Ok(Value::Rvalue(Rvalue::Void)),
-        Err(EarlyExit::EarlyReturn(value)) => Ok(value),
-        Err(EarlyExit::Error(error)) => Err(EarlyExit::Error(
-            error.annotate_stack_frame(expression, arguments_for_backtrace),
-        )),
-    }
-}
-
 fn run_field_access_expr(expression: &FieldAccessExpr, state: &mut State) -> RunResult<Value> {
     let receiver = run_expression(&expression.receiver, state)?;
     let field_id = expression.field.borrow().id.clone();
@@ -469,6 +426,51 @@ fn run_block(block: &Block, state: &mut State) -> RunResult<Option<Value>> {
     }
 
     Ok(value)
+}
+
+fn run_call(call: &Call, state: &mut State) -> RunResult<Option<Value>> {
+    let function = call.function.borrow();
+
+    let arguments: RunResult<Vec<Value>> = call
+        .arguments
+        .iter()
+        .map(|argument| run_expression(argument, state))
+        .collect();
+    let arguments = arguments?;
+
+    // Currently we make a copy of all arguments for every call, so that they could be later
+    // used for error reporting in case an error occurs. Need to benchmark how big of an impact
+    // this makes on performance, and consider switching to a faster unwinding model like GDB.
+    let arguments_for_backtrace = arguments.clone();
+
+    let result = match function.id {
+        FunctionId::Internal(ref tag) => run_internal_function(tag, arguments),
+        _ => {
+            let parameters = function.parameters.iter();
+
+            for (parameter, value) in parameters.zip(arguments.into_iter()) {
+                let variable_id = parameter.borrow().id.clone();
+                state.push(variable_id, value.into_rvalue())
+            }
+
+            let function_result = run_user_function(&call.function.borrow(), state);
+
+            for parameter in function.parameters.iter() {
+                let variable_id = parameter.borrow().id.clone();
+                state.pop(variable_id)
+            }
+
+            function_result
+        }
+    };
+
+    match result {
+        Ok(()) => Ok(None),
+        Err(EarlyExit::EarlyReturn(value)) => Ok(Some(value)),
+        Err(EarlyExit::Error(error)) => Err(EarlyExit::Error(
+            error.annotate_stack_frame(call, arguments_for_backtrace),
+        )),
+    }
 }
 
 fn default_value_for_type(type_: &Type) -> Rvalue {

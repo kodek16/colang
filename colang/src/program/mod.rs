@@ -177,7 +177,6 @@ pub use expressions::address::AddressExpr;
 pub use expressions::array_from_copy::ArrayFromCopyExpr;
 pub use expressions::array_from_elements::ArrayFromElementsExpr;
 pub use expressions::boolean_op::{BooleanOp, BooleanOpExpr};
-pub use expressions::call::CallExpr;
 pub use expressions::deref::DerefExpr;
 pub use expressions::empty::EmptyExpr;
 pub use expressions::error::ErrorExpr;
@@ -191,3 +190,4 @@ pub use expressions::variable::VariableExpr;
 pub use expressions::{Expression, ExpressionImpl, ExpressionKind};
 
 pub use dual::block::{Block, BlockBuilder};
+pub use dual::call::Call;

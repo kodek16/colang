@@ -90,7 +90,7 @@ fn compile_method_backed_binary_op_expr(
     }
 
     program::Expression::new(
-        program::CallExpr {
+        program::Call {
             function,
             arguments,
             location: SourceOrigin::Plain(span),

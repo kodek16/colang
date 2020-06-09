@@ -15,6 +15,7 @@ pub mod write;
 pub enum Statement {
     Assign(assign::AssignStmt),
     Block(dual::block::Block),
+    Call(dual::call::Call),
     Eval(eval::EvalStmt),
     If(if_::IfStmt),
     Read(read::ReadStmt),

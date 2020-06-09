@@ -6,7 +6,7 @@ use crate::ast::FunctionDef;
 use crate::errors;
 use crate::program::function::FunctionBody;
 use crate::program::visitors::LocalVisitor;
-use crate::program::{CallExpr, Function, Program, TypeRegistry};
+use crate::program::{Call, Function, Program, TypeRegistry};
 use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::cell::RefCell;
@@ -87,10 +87,10 @@ impl<'a> LocalVisitor for CallVisitor<'a> {
         self.types
     }
 
-    fn visit_call_expr(&mut self, expression: &mut CallExpr) {
-        self.walk(expression);
+    fn visit_call(&mut self, call: &mut Call) {
+        self.walk(call);
         self.called_functions
-            .push((expression.location, Rc::clone(&expression.function)));
+            .push((call.location, Rc::clone(&call.function)));
     }
 }
 

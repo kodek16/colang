@@ -3,8 +3,8 @@
 mod clone;
 mod signature;
 
+use crate::program::dual::call::Call;
 use crate::program::expressions::array_from_elements::ArrayFromElementsExpr;
-use crate::program::expressions::call::CallExpr;
 use crate::program::expressions::field_access::FieldAccessExpr;
 use crate::program::expressions::new::NewExpr;
 use crate::program::expressions::null::NullExpr;
@@ -463,29 +463,6 @@ impl<'a> LocalVisitor for InstantiatedMethodBodyRewriter<'a> {
             Type::substitute(&expression.element_type, self.type_arguments, self.types);
     }
 
-    fn visit_call_expr(&mut self, expression: &mut CallExpr) {
-        self.walk(expression);
-        if expression.arguments.is_empty() {
-            return;
-        }
-
-        let receiver_type = expression.arguments[0].type_();
-        let self_type = Rc::clone(&expression.function.borrow().parameters[0].borrow().type_);
-
-        if *receiver_type != self_type {
-            let receiver_type = match receiver_type.borrow().pointer_target_type() {
-                Some(target_type) => target_type,
-                None => Rc::clone(receiver_type),
-            };
-
-            let rewired_method = expression
-                .function
-                .borrow()
-                .rewire_method(&receiver_type.borrow());
-            expression.function = rewired_method;
-        }
-    }
-
     fn visit_field_access_expr(&mut self, expression: &mut FieldAccessExpr) {
         self.walk(expression);
 
@@ -535,5 +512,28 @@ impl<'a> LocalVisitor for InstantiatedMethodBodyRewriter<'a> {
         }
 
         self.walk(block);
+    }
+
+    fn visit_call(&mut self, expression: &mut Call) {
+        self.walk(expression);
+        if expression.arguments.is_empty() {
+            return;
+        }
+
+        let receiver_type = expression.arguments[0].type_();
+        let self_type = Rc::clone(&expression.function.borrow().parameters[0].borrow().type_);
+
+        if *receiver_type != self_type {
+            let receiver_type = match receiver_type.borrow().pointer_target_type() {
+                Some(target_type) => target_type,
+                None => Rc::clone(receiver_type),
+            };
+
+            let rewired_method = expression
+                .function
+                .borrow()
+                .rewire_method(&receiver_type.borrow());
+            expression.function = rewired_method;
+        }
     }
 }

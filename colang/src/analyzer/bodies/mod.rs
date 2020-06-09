@@ -200,7 +200,10 @@ fn check_argument_types(
 
     let mut had_errors = false;
     for (argument, parameter) in arguments.iter().zip(parameters) {
-        if *argument.type_() != *parameter.borrow().type_ {
+        if *argument.type_() != *parameter.borrow().type_
+            && !argument.type_().borrow().is_error()
+            && !parameter.borrow().type_.borrow().is_error()
+        {
             let error = errors::call_argument_type_mismatch(&argument, &parameter.borrow());
             context.errors.push(error);
             had_errors = true;

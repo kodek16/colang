@@ -50,7 +50,8 @@ fn clone_statement(statement: &Statement, context: &mut CloneContext) -> Stateme
     use Statement::*;
     match statement {
         Assign(statement) => Assign(clone_assign_stmt(statement, context)),
-        Block(statement) => Block(clone_block(statement, context)),
+        Block(block) => Block(clone_block(block, context)),
+        Call(call) => Call(clone_call(call, context)),
         Eval(statement) => Eval(clone_eval_stmt(statement, context)),
         If(statement) => If(clone_if_stmt(statement, context)),
         Read(statement) => Read(clone_read_stmt(statement, context)),
@@ -128,7 +129,7 @@ fn clone_expression(expression: &Expression, context: &mut CloneContext) -> Expr
         }
         Block(ref expression) => Block(clone_block(expression, context)),
         BooleanOp(ref expression) => BooleanOp(clone_boolean_op_expr(expression, context)),
-        Call(ref expression) => Call(clone_call_expr(expression, context)),
+        Call(ref expression) => Call(clone_call(expression, context)),
         Deref(ref expression) => Deref(clone_deref_expr(expression, context)),
         Empty(ref expression) => Empty(clone_empty_expr(expression, context)),
         Err(ref expression) => Err(clone_error_expr(expression, context)),
@@ -192,18 +193,6 @@ fn clone_boolean_op_expr(expression: &BooleanOpExpr, context: &mut CloneContext)
 
     BooleanOpExpr {
         op,
-        location: expression.location,
-    }
-}
-
-fn clone_call_expr(expression: &CallExpr, context: &mut CloneContext) -> CallExpr {
-    CallExpr {
-        function: Rc::clone(&expression.function),
-        arguments: expression
-            .arguments
-            .iter()
-            .map(|argument| clone_expression(argument, context))
-            .collect(),
         location: expression.location,
     }
 }
@@ -320,5 +309,17 @@ fn clone_block(block: &Block, context: &mut CloneContext) -> Block {
         statements,
         value,
         location: block.location,
+    }
+}
+
+fn clone_call(call: &Call, context: &mut CloneContext) -> Call {
+    Call {
+        function: Rc::clone(&call.function),
+        arguments: call
+            .arguments
+            .iter()
+            .map(|argument| clone_expression(argument, context))
+            .collect(),
+        location: call.location,
     }
 }

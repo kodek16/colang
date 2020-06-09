@@ -26,7 +26,7 @@ pub fn compile_write_stmt(
                 .internal_function(InternalFunctionTag::IntToString);
 
             program::Expression::new(
-                program::CallExpr {
+                program::Call {
                     function: Rc::clone(conversion),
                     arguments: vec![expression],
                     location: SourceOrigin::Stringified(location.as_plain()),

@@ -139,6 +139,7 @@ impl ToSexp for Statement {
         match self {
             Statement::Assign(statement) => statement.to_sexp(),
             Statement::Block(block) => block.to_sexp(),
+            Statement::Call(call) => call.to_sexp(),
             Statement::Eval(statement) => statement.to_sexp(),
             Statement::If(statement) => statement.to_sexp(),
             Statement::Read(statement) => statement.to_sexp(),
@@ -299,7 +300,7 @@ impl ToSexp for BooleanOpExpr {
     }
 }
 
-impl ToSexp for CallExpr {
+impl ToSexp for Call {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(
             Sexp::str("call"),

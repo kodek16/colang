@@ -10,7 +10,6 @@ pub mod address;
 pub mod array_from_copy;
 pub mod array_from_elements;
 pub mod boolean_op;
-pub mod call;
 pub mod deref;
 pub mod empty;
 pub mod error;
@@ -63,7 +62,7 @@ pub enum ExpressionImpl {
     ArrayFromElements(array_from_elements::ArrayFromElementsExpr),
     Block(dual::block::Block),
     BooleanOp(boolean_op::BooleanOpExpr),
-    Call(call::CallExpr),
+    Call(dual::call::Call),
     Deref(deref::DerefExpr),
     Empty(empty::EmptyExpr),
     Err(error::ErrorExpr),

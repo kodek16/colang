@@ -594,6 +594,7 @@ impl CCodePrinter {
             Statement::Assign(ref statement) => self.write_assign(names, statement),
             Statement::Block(ref statement) => self.write_block(names, statement, None).map(|_| ()),
             Statement::Eval(ref statement) => self.write_eval(names, statement),
+            Statement::If(ref statement) => self.write_if(names, statement),
             Statement::Read(ref statement) => self.write_read(names, statement),
             Statement::Return(ref statement) => self.write_return(names, statement),
             Statement::While(ref statement) => self.write_while(names, statement),
@@ -613,6 +614,27 @@ impl CCodePrinter {
 
     fn write_eval(&mut self, names: &mut impl CNameRegistry, statement: &EvalStmt) -> fmt::Result {
         let _ = self.write_expression(names, &statement.expression)?;
+        Ok(())
+    }
+
+    fn write_if(&mut self, names: &mut impl CNameRegistry, statement: &IfStmt) -> fmt::Result {
+        let cond_name = self.write_expression(names, &statement.cond)?.unwrap();
+        write!(self, "if ({}) {{\n", cond_name)?;
+        self.indent();
+
+        self.write_statement(names, &statement.then)?;
+
+        self.dedent();
+        write!(self, "}} else {{\n")?;
+        self.indent();
+
+        if let Some(ref else_) = statement.else_ {
+            self.write_statement(names, else_)?;
+        }
+
+        self.dedent();
+        write!(self, "}}\n")?;
+
         Ok(())
     }
 

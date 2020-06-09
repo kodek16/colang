@@ -137,38 +137,15 @@ impl ToSexp for Field {
 impl ToSexp for Statement {
     fn to_sexp(&self) -> Sexp {
         match self {
-            Statement::Read(statement) => statement.to_sexp(),
-            Statement::Write(statement) => statement.to_sexp(),
-            Statement::While(statement) => statement.to_sexp(),
             Statement::Assign(statement) => statement.to_sexp(),
-            Statement::Eval(statement) => statement.to_sexp(),
-            Statement::Return(statement) => statement.to_sexp(),
             Statement::Block(block) => block.to_sexp(),
+            Statement::Eval(statement) => statement.to_sexp(),
+            Statement::If(statement) => statement.to_sexp(),
+            Statement::Read(statement) => statement.to_sexp(),
+            Statement::Return(statement) => statement.to_sexp(),
+            Statement::While(statement) => statement.to_sexp(),
+            Statement::Write(statement) => statement.to_sexp(),
         }
-    }
-}
-
-impl ToSexp for ReadStmt {
-    fn to_sexp(&self) -> Sexp {
-        let mut list = Vec::new();
-        list.push(Sexp::str("read"));
-        if self.whole_line {
-            list.push(Sexp::str("whole-line"));
-        }
-        list.push(self.target.to_sexp());
-        Sexp::List(list)
-    }
-}
-
-impl ToSexp for WriteStmt {
-    fn to_sexp(&self) -> Sexp {
-        sexp_list!(Sexp::str("write"), self.expression.to_sexp())
-    }
-}
-
-impl ToSexp for WhileStmt {
-    fn to_sexp(&self) -> Sexp {
-        sexp_list!(Sexp::str("while"), self.cond.to_sexp(), self.body.to_sexp())
     }
 }
 
@@ -188,9 +165,49 @@ impl ToSexp for EvalStmt {
     }
 }
 
+impl ToSexp for IfStmt {
+    fn to_sexp(&self) -> Sexp {
+        let mut list = vec![
+            Sexp::str("if"),
+            self.cond.to_sexp(),
+            sexp_list!(Sexp::str("then"), self.then.to_sexp()),
+        ];
+
+        if let Some(ref else_) = self.else_ {
+            list.push(sexp_list!(Sexp::str("else"), else_.to_sexp()))
+        }
+
+        Sexp::List(list)
+    }
+}
+
+impl ToSexp for ReadStmt {
+    fn to_sexp(&self) -> Sexp {
+        let mut list = Vec::new();
+        list.push(Sexp::str("read"));
+        if self.whole_line {
+            list.push(Sexp::str("whole-line"));
+        }
+        list.push(self.target.to_sexp());
+        Sexp::List(list)
+    }
+}
+
 impl ToSexp for ReturnStmt {
     fn to_sexp(&self) -> Sexp {
         sexp_list!(Sexp::str("return"), self.expression.to_sexp())
+    }
+}
+
+impl ToSexp for WhileStmt {
+    fn to_sexp(&self) -> Sexp {
+        sexp_list!(Sexp::str("while"), self.cond.to_sexp(), self.body.to_sexp())
+    }
+}
+
+impl ToSexp for WriteStmt {
+    fn to_sexp(&self) -> Sexp {
+        sexp_list!(Sexp::str("write"), self.expression.to_sexp())
     }
 }
 

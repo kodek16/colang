@@ -4,6 +4,7 @@ use enum_dispatch::enum_dispatch;
 
 pub mod assign;
 pub mod eval;
+pub mod if_;
 pub mod read;
 pub mod return_;
 pub mod while_;
@@ -15,6 +16,7 @@ pub enum Statement {
     Assign(assign::AssignStmt),
     Block(dual::block::Block),
     Eval(eval::EvalStmt),
+    If(if_::IfStmt),
     Read(read::ReadStmt),
     Return(return_::ReturnStmt),
     While(while_::WhileStmt),

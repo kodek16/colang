@@ -52,6 +52,7 @@ fn clone_statement(statement: &Statement, context: &mut CloneContext) -> Stateme
         Assign(statement) => Assign(clone_assign_stmt(statement, context)),
         Block(statement) => Block(clone_block(statement, context)),
         Eval(statement) => Eval(clone_eval_stmt(statement, context)),
+        If(statement) => If(clone_if_stmt(statement, context)),
         Read(statement) => Read(clone_read_stmt(statement, context)),
         Return(statement) => Return(clone_return_stmt(statement, context)),
         While(statement) => While(clone_while_stmt(statement, context)),
@@ -70,6 +71,18 @@ fn clone_assign_stmt(statement: &AssignStmt, context: &mut CloneContext) -> Assi
 fn clone_eval_stmt(statement: &EvalStmt, context: &mut CloneContext) -> EvalStmt {
     EvalStmt {
         expression: clone_expression(&statement.expression, context),
+    }
+}
+
+fn clone_if_stmt(statement: &IfStmt, context: &mut CloneContext) -> IfStmt {
+    IfStmt {
+        cond: Box::new(clone_expression(&statement.cond, context)),
+        then: Box::new(clone_statement(&statement.then, context)),
+        else_: statement
+            .else_
+            .as_ref()
+            .map(|else_| Box::new(clone_statement(else_, context))),
+        location: statement.location,
     }
 }
 

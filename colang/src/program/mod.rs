@@ -166,6 +166,7 @@ pub use variable::{Variable, VariableId};
 
 pub use statements::assign::AssignStmt;
 pub use statements::eval::EvalStmt;
+pub use statements::if_::IfStmt;
 pub use statements::read::ReadStmt;
 pub use statements::return_::ReturnStmt;
 pub use statements::while_::WhileStmt;

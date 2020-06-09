@@ -67,14 +67,6 @@ impl CompilationError {
                 span,
                 Some("reference to method receiver was automatically taken"),
             ),
-            SourceOrigin::MissingElse(span) => {
-                (span, Some("`else` branch of an `if` expression is missing"))
-            }
-            SourceOrigin::MissingBlockValue(span) => (
-                span,
-                Some("block has type `void` because it is does not contain a finishing expression"),
-            ),
-            SourceOrigin::MissingReturnValue(span) => (span, Some("return value is not specified")),
         };
 
         let location_note = location_note.map(|note| (location, note.to_string()));

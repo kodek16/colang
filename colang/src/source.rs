@@ -62,18 +62,6 @@ pub enum SourceOrigin {
 
     /// Object is an `AddressExpr` wrapping a receiver of a method accepting `&self`.
     AddressedForMethodCall(InputSpan),
-
-    /// Object is an empty expression created as a value of a missing `else` branch.
-    /// Enclosing `if` expression location is preserved.
-    MissingElse(InputSpan),
-
-    /// Object is an empty expression created as a value of a block not terminated with an
-    /// expression. The block location is preserved.
-    MissingBlockValue(InputSpan),
-
-    /// Object is an empty expression created as a value of a `void` return statement.
-    /// The statement location is preserved.
-    MissingReturnValue(InputSpan),
 }
 
 impl SourceOrigin {
@@ -85,9 +73,6 @@ impl SourceOrigin {
             SourceOrigin::DereferencedIndex(span) => *span,
             SourceOrigin::Stringified(span) => *span,
             SourceOrigin::AddressedForMethodCall(span) => *span,
-            SourceOrigin::MissingElse(span) => *span,
-            SourceOrigin::MissingBlockValue(span) => *span,
-            SourceOrigin::MissingReturnValue(span) => *span,
         }
     }
 }

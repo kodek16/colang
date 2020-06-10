@@ -115,7 +115,7 @@ fn create_assert_function(types: &TypeRegistry) -> Function {
         "assert".to_string(),
         InternalFunctionTag::Assert,
         vec![internal_param("fact", types.bool())],
-        Rc::clone(types.void()),
+        None,
     )
 }
 
@@ -124,7 +124,7 @@ fn create_ascii_code_function(types: &TypeRegistry) -> Function {
         "ascii_code".to_string(),
         InternalFunctionTag::AsciiCode,
         vec![internal_param("ch", types.char())],
-        Rc::clone(types.int()),
+        Some(Rc::clone(types.int())),
     )
 }
 
@@ -133,7 +133,7 @@ fn create_ascii_char_function(types: &TypeRegistry) -> Function {
         "ascii_char".to_string(),
         InternalFunctionTag::AsciiChar,
         vec![internal_param("code", types.int())],
-        Rc::clone(types.char()),
+        Some(Rc::clone(types.char())),
     )
 }
 
@@ -145,7 +145,7 @@ fn create_add_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.int()),
+        Some(Rc::clone(types.int())),
     )
 }
 
@@ -157,7 +157,7 @@ fn create_sub_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.int()),
+        Some(Rc::clone(types.int())),
     )
 }
 
@@ -169,7 +169,7 @@ fn create_mul_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.int()),
+        Some(Rc::clone(types.int())),
     )
 }
 
@@ -181,7 +181,7 @@ fn create_div_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.int()),
+        Some(Rc::clone(types.int())),
     )
 }
 
@@ -193,7 +193,7 @@ fn create_mod_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.int()),
+        Some(Rc::clone(types.int())),
     )
 }
 
@@ -205,7 +205,7 @@ fn create_less_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.bool()),
+        Some(Rc::clone(types.bool())),
     )
 }
 
@@ -217,7 +217,7 @@ fn create_greater_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.bool()),
+        Some(Rc::clone(types.bool())),
     )
 }
 
@@ -229,7 +229,7 @@ fn create_less_eq_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.bool()),
+        Some(Rc::clone(types.bool())),
     )
 }
 
@@ -241,7 +241,7 @@ fn create_greater_eq_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.bool()),
+        Some(Rc::clone(types.bool())),
     )
 }
 
@@ -253,7 +253,7 @@ fn create_eq_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.bool()),
+        Some(Rc::clone(types.bool())),
     )
 }
 
@@ -265,7 +265,7 @@ fn create_not_eq_int_function(types: &TypeRegistry) -> Function {
             internal_param("lhs", types.int()),
             internal_param("rhs", types.int()),
         ],
-        Rc::clone(types.bool()),
+        Some(Rc::clone(types.bool())),
     )
 }
 
@@ -274,7 +274,7 @@ fn create_int_to_string_function(types: &TypeRegistry) -> Function {
         "<int as string>".to_string(),
         InternalFunctionTag::IntToString,
         vec![internal_param("value", types.int())],
-        Rc::clone(types.string()),
+        Some(Rc::clone(types.string())),
     )
 }
 
@@ -286,7 +286,7 @@ fn create_string_add_method(types: &TypeRegistry) -> Function {
             internal_param("self", types.string()),
             internal_param("other", types.string()),
         ],
-        Rc::clone(types.string()),
+        Some(Rc::clone(types.string())),
     )
 }
 
@@ -301,7 +301,7 @@ fn create_string_index_method(types: &mut TypeRegistry) -> Function {
             internal_param("self", types.string()),
             internal_param("index", types.int()),
         ],
-        pointer_to_char,
+        Some(pointer_to_char),
     )
 }
 
@@ -313,7 +313,7 @@ fn create_string_eq_method(types: &TypeRegistry) -> Function {
             internal_param("self", types.string()),
             internal_param("other", types.string()),
         ],
-        Rc::clone(types.bool()),
+        Some(Rc::clone(types.bool())),
     )
 }
 
@@ -325,7 +325,7 @@ fn create_string_not_eq_method(types: &TypeRegistry) -> Function {
             internal_param("self", types.string()),
             internal_param("other", types.string()),
         ],
-        Rc::clone(types.bool()),
+        Some(Rc::clone(types.bool())),
     )
 }
 
@@ -346,19 +346,19 @@ fn create_array_methods(types: &mut TypeRegistry) -> Vec<Rc<RefCell<Function>>> 
                 internal_param("self", &pointer_to_array_type),
                 internal_param("element", &type_parameter),
             ],
-            Rc::clone(types.void()),
+            None,
         ),
         Function::new_internal(
             "pop".to_string(),
             InternalFunctionTag::ArrayPop(type_parameter.borrow().type_id.clone()),
             vec![internal_param("self", &pointer_to_array_type)],
-            Rc::clone(&type_parameter),
+            Some(Rc::clone(&type_parameter)),
         ),
         Function::new_internal(
             "len".to_string(),
             InternalFunctionTag::ArrayLen(type_parameter.borrow().type_id.clone()),
             vec![internal_param("self", &array_type)],
-            Rc::clone(types.int()),
+            Some(Rc::clone(types.int())),
         ),
         Function::new_internal(
             "index".to_string(),
@@ -367,7 +367,7 @@ fn create_array_methods(types: &mut TypeRegistry) -> Vec<Rc<RefCell<Function>>> 
                 internal_param("self", &array_type),
                 internal_param("index", types.int()),
             ],
-            pointer_to_type_parameter,
+            Some(pointer_to_type_parameter),
         ),
     ];
 

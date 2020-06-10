@@ -11,10 +11,10 @@ pub fn non_void_function_body_is_statement(
         format!(
             "body of the function `{}` with return type `{}` does not specify a return value",
             function.name,
-            function.return_type.borrow().name
+            function.return_type.as_ref().unwrap().borrow().name
         ),
     )
     .with_location(body.location())
-    // TODO (#3): rework explain_type_... to work with statements
+    .maybe_with_dual_node_statement_explanation(body)
     .with_free_note("consider adding a `return` statement or a terminating expression")
 }

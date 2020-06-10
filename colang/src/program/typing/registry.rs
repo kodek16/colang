@@ -29,7 +29,6 @@ impl TypeRegistry {
             templates: HashMap::new(),
         };
 
-        create_basic_type("void", TypeId::Void, &mut registry);
         create_basic_type("int", TypeId::Int, &mut registry);
         create_basic_type("bool", TypeId::Bool, &mut registry);
         create_basic_type("char", TypeId::Char, &mut registry);
@@ -61,10 +60,6 @@ impl TypeRegistry {
     /// Looks up a type from the registry by its ID.
     pub fn lookup(&self, type_id: &TypeId) -> &Rc<RefCell<Type>> {
         &self.types[type_id]
-    }
-
-    pub fn void(&self) -> &Rc<RefCell<Type>> {
-        &self.types[&TypeId::Void]
     }
 
     pub fn int(&self) -> &Rc<RefCell<Type>> {

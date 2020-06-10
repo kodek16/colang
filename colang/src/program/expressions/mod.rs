@@ -23,14 +23,10 @@ pub mod variable;
 /// A fragment of imperative CO code that evaluates to some value.
 ///
 /// Expressions comprise most of the code in function bodies. Some of them can contain statements
-/// (`BlockExpr`, `IfExpr`), which in turn can contain expressions.
+/// (`Block`, `If`), which in turn can contain other expressions.
 ///
 /// Expressions have a statically determined type and "value category". Value category determines
 /// if an expression is assignable, to put it simply.
-///
-/// Expressions may have type `void`, indicating that they do not in fact produce a useful value,
-/// but this is allowed only in a select few "void contexts". If not documented otherwise, it
-/// should be assumed that an expression context does not allow `void` expressions.
 ///
 /// The implementation of `Expression` uses caching for type calculation: if an expression is
 /// modified through a mutable reference, the modifying code must call `recalculate` after it's

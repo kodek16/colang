@@ -484,7 +484,6 @@ fn run_call(call: &Call, state: &mut State) -> RunResult<Option<Value>> {
 
 fn default_value_for_type(type_: &Type) -> Rvalue {
     match type_.type_id {
-        TypeId::Void => panic!("Tried to default-initialize a value of type `void`"),
         TypeId::Int => Rvalue::Int(0),
         TypeId::Bool => Rvalue::Bool(false),
         TypeId::Char => Rvalue::Char(0),

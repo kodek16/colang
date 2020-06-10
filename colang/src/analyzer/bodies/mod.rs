@@ -97,11 +97,8 @@ fn parse_and_fill_function_body_if_present(
     std::mem::swap(&mut body, &mut definition.body);
 
     if let Some(body) = body {
-        let body = compile_expression_or_statement(
-            body,
-            Some(Rc::clone(&function.borrow().return_type)),
-            context,
-        );
+        let type_hint = function.borrow().return_type.as_ref().map(Rc::clone);
+        let body = compile_expression_or_statement(body, type_hint, context);
 
         let body = match body {
             DualNode::Statement(body) => {
@@ -114,12 +111,9 @@ fn parse_and_fill_function_body_if_present(
                     Statement::error(body.location().as_plain())
                 }
             }
-            DualNode::Expression(body) => {
-                if function.borrow().is_void() {
-                    Statement::Eval(EvalStmt { expression: body })
-                } else {
+            DualNode::Expression(body) => match function.borrow().return_type {
+                Some(ref return_type) => {
                     let body_type = body.type_();
-                    let return_type = &function.borrow().return_type;
 
                     if !body_type.borrow().is_error()
                         && !return_type.borrow().is_error()
@@ -134,7 +128,8 @@ fn parse_and_fill_function_body_if_present(
                         expression: Some(body),
                     })
                 }
-            }
+                None => Statement::Eval(EvalStmt { expression: body }),
+            },
         };
 
         function.borrow_mut().body = FunctionBody::Filled(Rc::new(RefCell::new(body)));

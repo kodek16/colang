@@ -75,18 +75,24 @@ impl Function {
     }
 
     fn signature_sexp(&self) -> Sexp {
-        sexp_list!(
-            sexp_list!(
-                Sexp::str("params"),
-                Sexp::List(
-                    self.parameters
-                        .iter()
-                        .map(|param| param.borrow().to_full_sexp())
-                        .collect()
-                ),
+        let mut list = vec![sexp_list!(
+            Sexp::str("params"),
+            Sexp::List(
+                self.parameters
+                    .iter()
+                    .map(|param| param.borrow().to_full_sexp())
+                    .collect()
             ),
-            sexp_list!(Sexp::str("returns"), self.return_type.borrow().to_sexp(),)
-        )
+        )];
+
+        if let Some(ref return_type) = self.return_type {
+            list.push(sexp_list!(
+                Sexp::str("returns"),
+                return_type.borrow().to_sexp()
+            ));
+        }
+
+        Sexp::List(list)
     }
 }
 

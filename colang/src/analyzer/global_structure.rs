@@ -123,7 +123,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
         let method = Rc::new(RefCell::new(Function::new(
             name,
             all_parameters,
-            Rc::clone(&return_type),
+            return_type,
             SourceOrigin::Plain(method_def.signature_span),
             context.program.symbol_ids_mut(),
         )));
@@ -170,7 +170,7 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
         let function = Rc::new(RefCell::new(Function::new(
             name,
             parameters,
-            Rc::clone(&return_type),
+            return_type,
             SourceOrigin::Plain(function_def.signature_span),
             context.program.symbol_ids_mut(),
         )));
@@ -190,11 +190,8 @@ impl GlobalVisitor for GlobalStructureAnalyzerPass {
 fn compile_return_type(
     return_type: Option<&ast::TypeExpr>,
     context: &mut CompilerContext,
-) -> Rc<RefCell<Type>> {
-    match return_type {
-        Some(return_type) => type_exprs::compile_type_expr(return_type, context).into(),
-        None => Rc::clone(context.program.types().void()),
-    }
+) -> Option<Rc<RefCell<Type>>> {
+    return_type.map(|return_type| type_exprs::compile_type_expr(return_type, context).into())
 }
 
 fn compile_normal_parameter(

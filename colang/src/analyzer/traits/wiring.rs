@@ -197,11 +197,11 @@ fn generate_synthetic_trait_method_implementation(
         })
         .collect();
 
-    let return_type = Type::substitute(
-        &trait_method.borrow().return_type,
-        &substitutions,
-        program.types_mut(),
-    );
+    let return_type = trait_method
+        .borrow()
+        .return_type
+        .as_ref()
+        .map(|return_type| Type::substitute(return_type, &substitutions, program.types_mut()));
 
     let implementation = Rc::new(RefCell::new(Function::new(
         trait_method.borrow().name.clone(),

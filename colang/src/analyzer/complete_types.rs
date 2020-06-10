@@ -6,7 +6,7 @@ use crate::analyzer::visitor::{GlobalVisitor, TypeMemberContext};
 use crate::ast::{self, FieldDef, FunctionDef};
 use crate::errors;
 use crate::program::{Field, Function, Type};
-use crate::source::{InputSpan, SourceOrigin};
+use crate::source::SourceOrigin;
 use crate::CompilerContext;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -63,17 +63,13 @@ fn complete_function_types(
         );
     }
 
-    let return_type = Rc::clone(&function.borrow().return_type);
-    complete_type(
-        return_type,
-        function_def
-            .return_type
-            .as_ref()
-            .map(|type_expr| SourceOrigin::Plain(type_expr.span()))
-            // Completing `void` should never fail.
-            .unwrap_or(SourceOrigin::Plain(InputSpan::top_of_file())),
-        context,
-    );
+    if let Some(ref return_type) = function.borrow().return_type {
+        complete_type(
+            Rc::clone(return_type),
+            SourceOrigin::Plain(function_def.return_type.as_ref().unwrap().span()),
+            context,
+        );
+    }
 }
 
 fn complete_type(

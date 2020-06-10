@@ -6,13 +6,13 @@ use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
-// A function signature object for use in diagnostic messages.
+/// A function signature object for use in diagnostic messages.
 pub struct Signature {
     /// Function parameter types.
     pub parameters: Vec<Rc<RefCell<Type>>>,
 
     /// Function return type.
-    pub return_type: Rc<RefCell<Type>>,
+    pub return_type: Option<Rc<RefCell<Type>>>,
 }
 
 impl Signature {
@@ -31,7 +31,10 @@ impl Signature {
                 .iter()
                 .map(|parameter_type| Type::substitute(parameter_type, substitutions, types))
                 .collect(),
-            return_type: Type::substitute(&self.return_type, substitutions, types),
+            return_type: self
+                .return_type
+                .as_ref()
+                .map(|return_type| Type::substitute(return_type, substitutions, types)),
         }
     }
 }
@@ -58,7 +61,9 @@ impl Display for Signature {
             )?
         }
 
-        write!(f, " -> {}", self.return_type.borrow().name)?;
+        if let Some(ref return_type) = self.return_type {
+            write!(f, " -> {}", return_type.borrow().name)?;
+        }
 
         Ok(())
     }

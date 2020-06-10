@@ -26,7 +26,6 @@ use crate::context::CompilerContext;
 use crate::errors;
 use crate::program;
 use crate::program::{ExpressionKind, Type};
-use crate::source::SourceOrigin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -118,8 +117,8 @@ pub fn compile_expression(
     let node = compile_expression_or_statement(expression, type_hint, context);
     match node {
         DualNode::Expression(expression) => expression,
-        DualNode::Statement(_) => {
-            let error = errors::statement_used_as_expression(SourceOrigin::Plain(location));
+        DualNode::Statement(statement) => {
+            let error = errors::statement_used_as_expression(&statement);
             context.errors.push(error);
             program::Expression::error(location)
         }

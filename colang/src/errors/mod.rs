@@ -2,7 +2,7 @@
 
 mod kinds;
 
-use crate::program::{Expression, ExpressionImpl, ExpressionKind, StatementKind};
+use crate::program::{Expression, ExpressionImpl, ExpressionKind, Statement, StatementKind};
 use crate::scope::NamedEntityKind;
 use crate::source::{InputSpan, InputSpanFile, SourceOrigin};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -117,9 +117,89 @@ impl CompilationError {
     /// Annotates an error with an explanation of type deduction for a given expression.
     ///
     /// If the expression is trivial, explanation is not added.
-    fn maybe_with_type_explanation(mut self, expression: &Expression) -> CompilationError {
-        maybe_explain_expression_type(expression, &mut self);
-        self
+    fn maybe_with_type_explanation(self, expression: &Expression) -> CompilationError {
+        fn explain_root_causes(
+            error: CompilationError,
+            expression: &Expression,
+        ) -> CompilationError {
+            match **expression {
+                ExpressionImpl::Block(ref block) => {
+                    explain_root_causes(error, block.value.as_ref().unwrap())
+                }
+                // TODO(#8) also dig into `if`s.
+                _ => error.with_bound_note(
+                    expression.location(),
+                    format!(
+                        "has type `{}`, which becomes the type of the overall expression",
+                        expression.type_().borrow().name
+                    ),
+                ),
+            }
+        }
+
+        match **expression {
+            ExpressionImpl::Block(_) => explain_root_causes(self, expression),
+            _ => self,
+        }
+    }
+
+    /// Potentially annotates an error with an explanation of why a dual node is a statement.
+    ///
+    /// For statements that are not ambiguous (i.e. not dual nodes), the explanation is not added.
+    fn maybe_with_dual_node_statement_explanation(self, statement: &Statement) -> CompilationError {
+        fn explain_root_causes(error: CompilationError, statement: &Statement) -> CompilationError {
+            match statement {
+                Statement::Block(ref block) => {
+                    if let Some(statement) = block.statements.last() {
+                        explain_root_causes(error, statement)
+                    } else {
+                        error.with_bound_note(block.location, "an empty block is a statement")
+                    }
+                },
+
+                Statement::If(ref if_) => {
+                    match if_.else_ {
+                        Some(ref _else_) => {
+                            // TODO(#8): check both branches and make sure that the error messages
+                            // make sense. E.g. one of the branches might end with an Eval statement,
+                            // which is an expression - need to make sure that the error message is
+                            // not confusing in that case.
+                            explain_root_causes(error, &if_.then)
+                        },
+                        None => {
+                            error.with_bound_note(if_.location, "an `if` without an `else` branch is always a statement")
+                        }
+                    }
+                },
+
+                Statement::Call(ref call) => {
+                    error.with_bound_note(
+                        call.location,
+                        format!(
+                            "a call to void function `{}` is a statement, so the enclosing block is also a statement",
+                            call.function.borrow().name
+                        )
+                    )
+                },
+
+                _ => error.with_bound_note(
+                    statement.location(),
+                    "is a statement, so the enclosing block is also a statement",
+                ),
+            }
+        }
+
+        match statement {
+            Statement::Block(_) | Statement::If(_) => explain_root_causes(self, statement),
+            Statement::Call(call) => self.with_bound_note(
+                call.location,
+                format!(
+                    "a call to void function `{}` is a statement, not an expression",
+                    call.function.borrow().name
+                ),
+            ),
+            _ => self,
+        }
     }
 
     /// Annotates an error with a note that cannot be linked to source code in a meaningful way.
@@ -160,41 +240,6 @@ impl CompilationError {
             .with_message(&self.message)
             .with_labels(labels)
             .with_notes(self.free_notes.clone())
-    }
-}
-
-fn maybe_explain_expression_type(expression: &Expression, error: &mut CompilationError) {
-    fn explain_root_causes(expression: &Expression, error: &mut CompilationError) {
-        match **expression {
-            ExpressionImpl::Block(ref block) => {
-                if let Some(value) = &block.value {
-                    explain_root_causes(value, error);
-                } else if let Some(statement) = block.statements.last() {
-                    error.bound_notes.push((
-                        statement.location().as_plain(),
-                        "block ends with a statement, not an expression, so its type is `void`"
-                            .to_string(),
-                    ));
-                } else {
-                    error.bound_notes.push((
-                        block.location.as_plain(),
-                        "empty block has type `void`, which becomes the type of the overall expression".to_string()));
-                }
-            }
-            // TODO(#8) also dig into `if`s.
-            _ => error.bound_notes.push((
-                expression.location().as_plain(),
-                format!(
-                    "has type `{}`, which becomes the type of the overall expression",
-                    expression.type_().borrow().name
-                ),
-            )),
-        }
-    }
-
-    match **expression {
-        ExpressionImpl::Block(_) => explain_root_causes(expression, error),
-        _ => (),
     }
 }
 

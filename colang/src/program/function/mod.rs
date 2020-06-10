@@ -180,6 +180,13 @@ impl Function {
         }
     }
 
+    /// Checks if the function is a "void function".
+    ///
+    /// Void functions are functions that do not return a value.
+    pub fn is_void(&self) -> bool {
+        self.return_type.borrow().is_void()
+    }
+
     /// Accesses the function body which is assumed to be present.
     ///
     /// This method should only be called for user-defined functions only after

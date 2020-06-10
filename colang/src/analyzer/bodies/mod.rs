@@ -105,7 +105,7 @@ fn parse_and_fill_function_body_if_present(
 
         let body = match body {
             DualNode::Statement(body) => {
-                if function.borrow().return_type.borrow().is_void() {
+                if function.borrow().is_void() {
                     body
                 } else {
                     let error =
@@ -115,7 +115,7 @@ fn parse_and_fill_function_body_if_present(
                 }
             }
             DualNode::Expression(body) => {
-                if function.borrow().return_type.borrow().is_void() {
+                if function.borrow().is_void() {
                     Statement::Eval(EvalStmt { expression: body })
                 } else {
                     let body_type = body.type_();

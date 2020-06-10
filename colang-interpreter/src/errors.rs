@@ -133,7 +133,6 @@ fn debug_print_value(value: Value) -> String {
         Rvalue::Array(_) => "<array>".to_string(),
         Rvalue::Pointer(_) => "<pointer>".to_string(),
         Rvalue::Struct(_) => "<struct>".to_string(),
-        Rvalue::Void => panic!("void value encountered"),
     }
 }
 

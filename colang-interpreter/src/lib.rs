@@ -46,7 +46,7 @@ type RunResult<T> = Result<T, EarlyExit>;
 /// Signifies that a computation exited early before producing its expected result.
 pub enum EarlyExit {
     /// The computation encountered a return statement.
-    EarlyReturn(Value),
+    EarlyReturn(Option<Value>),
 
     /// The computation encountered a runtime error.
     Error(RuntimeError),
@@ -109,39 +109,44 @@ fn run_user_function(function: &Function, state: &mut State) -> RunResult<()> {
 }
 
 // For conformance with user functions, internal functions also simulate an early return in
-// all cases.
+// all cases where a return value is present.
 fn run_internal_function(
     function_tag: &InternalFunctionTag,
     arguments: Vec<Value>,
 ) -> RunResult<()> {
     use InternalFunctionTag::*;
-    let result = match function_tag {
-        Assert => internal::assert(arguments),
-        AsciiCode => internal::ascii_code(arguments),
-        AsciiChar => internal::ascii_char(arguments),
-        AddInt => internal::add_int(arguments),
-        SubInt => internal::sub_int(arguments),
-        MulInt => internal::mul_int(arguments),
-        DivInt => internal::div_int(arguments),
-        ModInt => internal::mod_int(arguments),
-        LessInt => internal::less_int(arguments),
-        GreaterInt => internal::greater_int(arguments),
-        LessEqInt => internal::less_eq_int(arguments),
-        GreaterEqInt => internal::greater_eq_int(arguments),
-        EqInt => internal::eq_int(arguments),
-        NotEqInt => internal::not_eq_int(arguments),
-        IntToString => internal::int_to_string(arguments),
-        StringAdd => internal::array_concat(arguments),
-        StringIndex => internal::array_index(arguments),
-        StringEq => internal::string_eq(arguments),
-        StringNotEq => internal::string_not_eq(arguments),
-        ArrayPush(_) => internal::array_push(arguments),
-        ArrayPop(_) => internal::array_pop(arguments),
-        ArrayLen(_) => internal::array_len(arguments),
-        ArrayIndex(_) => internal::array_index(arguments),
-    };
 
-    result.and_then(|value| Err(EarlyExit::EarlyReturn(value)))
+    match function_tag {
+        Assert => internal::assert(arguments),
+        ArrayPush(_) => internal::array_push(arguments),
+
+        other => (match other {
+            AsciiCode => internal::ascii_code(arguments),
+            AsciiChar => internal::ascii_char(arguments),
+            AddInt => internal::add_int(arguments),
+            SubInt => internal::sub_int(arguments),
+            MulInt => internal::mul_int(arguments),
+            DivInt => internal::div_int(arguments),
+            ModInt => internal::mod_int(arguments),
+            LessInt => internal::less_int(arguments),
+            GreaterInt => internal::greater_int(arguments),
+            LessEqInt => internal::less_eq_int(arguments),
+            GreaterEqInt => internal::greater_eq_int(arguments),
+            EqInt => internal::eq_int(arguments),
+            NotEqInt => internal::not_eq_int(arguments),
+            IntToString => internal::int_to_string(arguments),
+            StringAdd => internal::array_concat(arguments),
+            StringIndex => internal::array_index(arguments),
+            StringEq => internal::string_eq(arguments),
+            StringNotEq => internal::string_not_eq(arguments),
+            ArrayPop(_) => internal::array_pop(arguments),
+            ArrayLen(_) => internal::array_len(arguments),
+            ArrayIndex(_) => internal::array_index(arguments),
+
+            Assert | ArrayPush(_) => unreachable!(),
+        })
+        .and_then(|value| Err(EarlyExit::EarlyReturn(Some(value)))),
+    }
 }
 
 fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
@@ -220,10 +225,11 @@ fn run_read_stmt(statement: &ReadStmt, state: &mut State) -> RunResult<()> {
 }
 
 fn run_return_stmt(statement: &ReturnStmt, state: &mut State) -> RunResult<()> {
-    let value = match &statement.expression {
-        Some(expression) => run_expression(expression, state)?,
-        None => Value::Rvalue(Rvalue::Void),
-    };
+    let value = statement
+        .expression
+        .as_ref()
+        .map(|expression| run_expression(expression, state))
+        .transpose()?;
 
     Err(EarlyExit::EarlyReturn(value))
 }
@@ -469,7 +475,7 @@ fn run_call(call: &Call, state: &mut State) -> RunResult<Option<Value>> {
 
     match result {
         Ok(()) => Ok(None),
-        Err(EarlyExit::EarlyReturn(value)) => Ok(Some(value)),
+        Err(EarlyExit::EarlyReturn(value)) => Ok(value),
         Err(EarlyExit::Error(error)) => Err(EarlyExit::Error(
             error.annotate_stack_frame(call, arguments_for_backtrace),
         )),

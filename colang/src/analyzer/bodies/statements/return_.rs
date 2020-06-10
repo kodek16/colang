@@ -17,14 +17,14 @@ pub fn compile_return_stmt(
         .expression
         .map(|expr| compile_expression(expr, Some(Rc::clone(&return_type)), context));
 
-    if expression.is_some() && return_type.borrow().is_void() {
+    if expression.is_some() && function.borrow().is_void() {
         let error =
             errors::return_value_in_void_function(&function.borrow(), expression.as_ref().unwrap());
         context.errors.push(error);
         return;
     }
 
-    if expression.is_none() && !return_type.borrow().is_void() {
+    if expression.is_none() && !function.borrow().is_void() {
         let error = errors::return_no_value_in_non_void_function(
             &function.borrow(),
             SourceOrigin::Plain(statement.span),

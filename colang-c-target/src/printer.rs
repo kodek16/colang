@@ -720,11 +720,11 @@ impl CCodePrinter {
         let arguments: Vec<_> = arguments?;
 
         let function = call.function.borrow();
-        let return_type = function.return_type.borrow();
 
-        let value = if return_type.is_void() {
+        let value = if function.is_void() {
             None
         } else {
+            let return_type = function.return_type.borrow();
             let expression_name = names.expression_name();
             write!(
                 self,

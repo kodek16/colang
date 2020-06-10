@@ -159,14 +159,6 @@ impl<'a> LocalVisitor for ValidityChecker<'a> {
         }
     }
 
-    fn visit_new_expr(&mut self, expression: &mut NewExpr) {
-        self.walk(expression);
-        if expression.target_type.borrow().is_void() {
-            self.errors
-                .push(format!("`new` expression for type `void`"));
-        }
-    }
-
     fn visit_call(&mut self, call: &mut Call) {
         self.walk(call);
         let parameters = &call.function.borrow().parameters;

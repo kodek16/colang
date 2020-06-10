@@ -1,5 +1,5 @@
-use super::compile_expression;
 use crate::analyzer::bodies::dual::DualNode;
+use crate::analyzer::bodies::expressions::compile_expression_or_statement;
 use crate::analyzer::bodies::statements::compile_statement;
 use crate::ast;
 use crate::context::CompilerContext;
@@ -21,13 +21,19 @@ pub fn compile_block(
 
     let result = match block.final_expr {
         Some(final_expr) => {
-            // TODO: this is not an expression-only context.
-            let final_expr = compile_expression(*final_expr, type_hint, context);
-            DualNode::Expression(builder.into_expr(
-                final_expr,
-                context.program.types_mut(),
-                block.span,
-            ))
+            let final_node = compile_expression_or_statement(*final_expr, type_hint, context);
+
+            match final_node {
+                DualNode::Expression(final_expr) => DualNode::Expression(builder.into_expr(
+                    final_expr,
+                    context.program.types_mut(),
+                    block.span,
+                )),
+                DualNode::Statement(final_stmt) => {
+                    builder.append_statement(final_stmt);
+                    DualNode::Statement(builder.into_stmt(block.span))
+                }
+            }
         }
         None => DualNode::Statement(builder.into_stmt(block.span)),
     };

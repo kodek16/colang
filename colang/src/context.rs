@@ -33,7 +33,7 @@ impl CompilerContext {
         let mut program = program::Program::new();
         let mut scope = FreeScope::new();
 
-        for type_ in program.types().basic_types() {
+        for type_ in program.types().visible_basic_types() {
             scope.add(TypeEntity(Rc::clone(type_))).unwrap();
         }
 

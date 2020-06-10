@@ -13,9 +13,6 @@ pub fn compile_new_expr(
         return program::Expression::error(expression.span);
     }
 
-    // `void` cannot be referred to, so an error would have been already reported.
-    assert!(!target_type.borrow().is_void());
-
     program::Expression::new(
         program::NewExpr {
             target_type: target_type.into(),

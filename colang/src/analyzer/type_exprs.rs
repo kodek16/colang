@@ -43,11 +43,6 @@ fn compile_scalar_type_expr(
     let type_ = context.scope.lookup::<TypeEntity>(&name.text);
 
     let type_ = match type_ {
-        Ok(type_) if type_.borrow().is_void() => {
-            let error = errors::explicit_reference_to_void(SourceOrigin::Plain(type_expr.span));
-            context.errors.push(error);
-            Type::error()
-        }
         Ok(type_) => type_,
         Err(error) => {
             let error = error.into_direct_lookup_error(SourceOrigin::Plain(type_expr.span));

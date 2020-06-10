@@ -114,14 +114,8 @@ impl TypeRegistry {
     }
 
     /// Basic types are non-template internal types.
-    pub fn basic_types(&self) -> Vec<&Rc<RefCell<Type>>> {
-        vec![
-            self.void(),
-            self.int(),
-            self.bool(),
-            self.char(),
-            self.string(),
-        ]
+    pub fn visible_basic_types(&self) -> Vec<&Rc<RefCell<Type>>> {
+        vec![self.int(), self.bool(), self.char(), self.string()]
     }
 
     pub fn all_types(&self) -> impl Iterator<Item = &Rc<RefCell<Type>>> {

@@ -1,8 +1,9 @@
 use crate::errors::CompilationError;
 use crate::program::{Expression, Function};
 
+// `function` is assumed to be non-void.
 pub fn function_body_type_mismatch(function: &Function, body: &Expression) -> CompilationError {
-    let return_type = function.return_type.borrow();
+    let return_type = function.return_type.as_ref().unwrap().borrow();
 
     CompilationError::new(
         "E0020",

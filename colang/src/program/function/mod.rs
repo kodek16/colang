@@ -23,9 +23,15 @@ pub use signature::Signature;
 /// A function in CO: an executable subroutine in the program.
 ///
 /// CO functions are executable subroutines that can be _called_ by providing an argument
-/// for every parameter in the function definition. The function call is an expression that
-/// ultimately evaluates to the return value of the function. Functions that do not return
-/// a useful value can be defined with return type `void` which is treated specially in the syntax.
+/// for every parameter in the function definition.
+///
+/// Functions can return a value from their body which gets passed to the caller. The type of the
+/// returned value has to specified in the function signature as `return_type`. Functions with a
+/// return type are called _non-void functions_, and functions without a return type (i.e. those
+/// that do not return a value) are called _void functions_.
+///
+/// A call to a void function is a statement. A call to a non-void function is an expression that
+/// ultimately evaluates to the return value of the function.
 ///
 /// Functions can be divided into two syntactic categories: _free functions_ which are defined in
 /// the global scope, and _methods_ which are defined in the context of some type. From a semantic
@@ -54,7 +60,9 @@ pub struct Function {
     pub parameters: Vec<Rc<RefCell<Variable>>>,
 
     /// The return type of the function.
-    pub return_type: Rc<RefCell<Type>>,
+    ///
+    /// For functions that do not return a value ("void functions"), this is `None`.
+    pub return_type: Option<Rc<RefCell<Type>>>,
 
     /// The location where function was defined.
     ///
@@ -121,7 +129,7 @@ impl Function {
     pub fn new(
         name: String,
         parameters: Vec<Rc<RefCell<Variable>>>,
-        return_type: Rc<RefCell<Type>>,
+        return_type: Option<Rc<RefCell<Type>>>,
         definition_site: SourceOrigin,
         symbol_ids: &mut SymbolIdRegistry,
     ) -> Function {
@@ -142,7 +150,7 @@ impl Function {
         name: String,
         tag: InternalFunctionTag,
         parameters: Vec<ProtoInternalParameter>,
-        return_type: Rc<RefCell<Type>>,
+        return_type: Option<Rc<RefCell<Type>>>,
     ) -> Function {
         let id = FunctionId::Internal(tag.clone());
         let parameters = parameters
@@ -176,7 +184,7 @@ impl Function {
                 .iter()
                 .map(|parameter| Rc::clone(&parameter.borrow().type_))
                 .collect(),
-            return_type: Rc::clone(&self.return_type),
+            return_type: self.return_type.clone(),
         }
     }
 
@@ -184,7 +192,7 @@ impl Function {
     ///
     /// Void functions are functions that do not return a value.
     pub fn is_void(&self) -> bool {
-        self.return_type.borrow().is_void()
+        self.return_type.is_none()
     }
 
     /// Accesses the function body which is assumed to be present.
@@ -235,6 +243,12 @@ impl Function {
     ) -> Rc<RefCell<Function>> {
         let base_method = Rc::clone(&function);
 
+        let return_type = function
+            .borrow()
+            .return_type
+            .as_ref()
+            .map(|return_type| Type::substitute(return_type, type_arguments, types));
+
         match function.borrow().id {
             FunctionId::Internal(ref tag) => {
                 let function = function.borrow();
@@ -268,8 +282,6 @@ impl Function {
                         ))
                     })
                     .collect();
-
-                let return_type = Type::substitute(&function.return_type, type_arguments, types);
 
                 Rc::new(RefCell::new(Function {
                     id,
@@ -305,7 +317,6 @@ impl Function {
                         )))
                     })
                     .collect();
-                let return_type = Type::substitute(&function.return_type, type_arguments, types);
 
                 Rc::new(RefCell::new(Function {
                     name: function.name.clone(),

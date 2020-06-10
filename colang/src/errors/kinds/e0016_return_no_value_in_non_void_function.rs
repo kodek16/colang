@@ -6,7 +6,7 @@ pub fn return_no_value_in_non_void_function(
     function: &Function,
     location: SourceOrigin,
 ) -> CompilationError {
-    let return_type = function.return_type.borrow();
+    let return_type = function.return_type.as_ref().unwrap().borrow();
 
     CompilationError::new(
         "E0016",

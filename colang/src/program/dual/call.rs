@@ -27,11 +27,11 @@ pub struct Call {
 
 impl ExpressionKind for Call {
     fn type_(&self, _: &mut TypeRegistry) -> Rc<RefCell<Type>> {
-        let type_ = Rc::clone(&self.function.borrow().return_type);
-        if !type_.borrow().is_void() {
-            type_
-        } else {
-            panic!("Attempt to treat void function call statement as an expression");
+        match self.function.borrow().return_type {
+            Some(ref return_type) => Rc::clone(return_type),
+            None => {
+                panic!("Attempt to treat void function call statement as an expression");
+            }
         }
     }
 

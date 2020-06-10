@@ -5,10 +5,8 @@ use crate::program::Statement;
 use crate::source::SourceOrigin;
 
 /// A statement that evaluates an expression and does not use its value.
-///
-/// This statement creates one of the few "void contexts": `expression` can have type `void`.
 pub struct EvalStmt {
-    /// Expression to be evaluated. Can be `void`.
+    /// Expression to be evaluated.
     pub expression: Expression,
 }
 

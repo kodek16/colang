@@ -1,12 +1,13 @@
 use crate::errors::CompilationError;
 use crate::program::{Expression, ExpressionKind, Function};
 
+// `function` is assumed to be non-void.
 pub fn return_statement_type_mismatch(
     function: &Function,
     expression: &Expression,
 ) -> CompilationError {
     let expression_type = expression.type_().borrow();
-    let return_type = function.return_type.borrow();
+    let return_type = function.return_type.as_ref().unwrap().borrow();
 
     CompilationError::new(
         "E0021",

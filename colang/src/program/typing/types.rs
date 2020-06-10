@@ -26,11 +26,6 @@ const MAX_TYPE_INSTANTIATION_DEPTH: usize = 64;
 ///
 /// - Technical types vs. normal types: a technical type is a compile-time abstraction in the type
 ///   system. During runtime no values of technical types may exist.
-///
-/// - `void` vs. normal types: `void` should really be a technical type but currently a notion
-///   of "void expressions" exists which makes it a bit of a corner case. The simplest explanation
-///   would be that currently all values of `void` type are as short-lived as possible. In the
-///   future `void` type will be made technical or removed altogether.
 pub struct Type {
     /// The name of the type.
     pub name: String,
@@ -72,7 +67,6 @@ pub struct Type {
 /// Types can be looked up from `TypeRegistry` using their IDs.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeId {
-    Void,
     Int,
     Bool,
     Char,
@@ -229,13 +223,6 @@ impl Type {
         }
 
         check(&self.type_id)
-    }
-
-    pub fn is_void(&self) -> bool {
-        match self.type_id {
-            TypeId::Void => true,
-            _ => false,
-        }
     }
 
     pub fn is_int(&self) -> bool {
@@ -502,7 +489,10 @@ impl Type {
         }
 
         for method in &self.methods {
-            result.push(Rc::clone(&method.borrow().return_type));
+            if let Some(ref return_type) = method.borrow().return_type {
+                result.push(Rc::clone(return_type));
+            }
+
             for parameter in &method.borrow().parameters {
                 result.push(Rc::clone(&parameter.borrow().type_));
             }

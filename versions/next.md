@@ -37,3 +37,10 @@
     p.print(f);  // will print "42"
   }
   ```
+
+## Other changes
+
+- Remove `void` type. What was previously called "void-expressions" are now usual
+  statements. All expressions now evaluate to a non-void value. Functions can be
+  now said to be either "void" or "non-void" depending on whether they return a
+  value (have a return type) or not.

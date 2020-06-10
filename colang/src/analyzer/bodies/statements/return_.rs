@@ -11,11 +11,11 @@ pub fn compile_return_stmt(
     context: &mut CompilerContext,
 ) {
     let function = Rc::clone(&context.local().function);
-    let return_type = Rc::clone(&function.borrow().return_type);
+    let type_hint = function.borrow().return_type.as_ref().map(Rc::clone);
 
     let expression = statement
         .expression
-        .map(|expr| compile_expression(expr, Some(Rc::clone(&return_type)), context));
+        .map(|expr| compile_expression(expr, type_hint, context));
 
     if expression.is_some() && function.borrow().is_void() {
         let error =
@@ -34,7 +34,7 @@ pub fn compile_return_stmt(
     }
 
     if let Some(ref expression) = expression {
-        if *expression.type_() != return_type {
+        if expression.type_() != function.borrow().return_type.as_ref().unwrap() {
             let error = errors::return_statement_type_mismatch(&function.borrow(), &expression);
             context.errors.push(error);
             return;

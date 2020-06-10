@@ -160,7 +160,7 @@ impl CCodePrinter {
         write!(
             self,
             "{} {}({}); /* {} */\n",
-            type_name(names, &function.return_type.borrow()),
+            c_return_type(names, function),
             names.function_name(function),
             function
                 .parameters
@@ -194,7 +194,7 @@ impl CCodePrinter {
         write!(
             self,
             "{} {}({}) {{\n",
-            type_name(names, &function.return_type.borrow()),
+            c_return_type(names, function),
             names.function_name(function),
             parameters
         )?;
@@ -721,18 +721,18 @@ impl CCodePrinter {
 
         let function = call.function.borrow();
 
-        let value = if function.is_void() {
-            None
-        } else {
-            let return_type = function.return_type.borrow();
-            let expression_name = names.expression_name();
-            write!(
-                self,
-                "{} {} = ",
-                type_name(names, &return_type),
-                expression_name
-            )?;
-            Some(expression_name)
+        let value = match function.return_type {
+            Some(ref return_type) => {
+                let expression_name = names.expression_name();
+                write!(
+                    self,
+                    "{} {} = ",
+                    type_name(names, &return_type.borrow()),
+                    expression_name
+                )?;
+                Some(expression_name)
+            }
+            None => None,
         };
 
         write!(
@@ -772,7 +772,6 @@ fn type_name(names: &impl CNameRegistry, type_: &Type) -> String {
         TypeId::Int => String::from("i32"),
         TypeId::Char => String::from("char"),
         TypeId::Bool => String::from("char"),
-        TypeId::Void => String::from("void"),
         TypeId::String => String::from("str"),
 
         TypeId::TemplateInstance(TypeTemplateId::Pointer, _) => format!(
@@ -842,6 +841,14 @@ fn function_name(names: &impl CNameRegistry, function: &Function) -> String {
 
         FunctionId::UserDefined(_) => String::from(names.function_name(function)),
         FunctionId::InstantiatedMethod(_, _) => String::from(names.function_name(function)),
+    }
+}
+
+/// Determines the return type for a C function corresponding to `function`.
+fn c_return_type(names: &impl CNameRegistry, function: &Function) -> String {
+    match function.return_type {
+        Some(ref return_type) => type_name(names, &return_type.borrow()),
+        None => "void".to_string(),
     }
 }
 

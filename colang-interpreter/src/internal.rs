@@ -6,12 +6,12 @@ use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::rc::Rc;
 
-pub fn assert(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn assert(mut arguments: Vec<Value>) -> RunResult<()> {
     let value = arguments.pop().unwrap().into_rvalue().as_bool();
     if !value {
         return Err(RuntimeError::new("Assertion failed", None));
     }
-    Ok(Value::Rvalue(Rvalue::Void))
+    Ok(())
 }
 
 pub fn ascii_code(mut arguments: Vec<Value>) -> RunResult<Value> {
@@ -152,7 +152,7 @@ pub fn string_not_eq(arguments: Vec<Value>) -> RunResult<Value> {
     }
 }
 
-pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {
+pub fn array_push(mut arguments: Vec<Value>) -> RunResult<()> {
     let element = arguments.pop().unwrap().into_rvalue();
     let array_pointer = arguments.pop().unwrap().into_rvalue().into_pointer();
 
@@ -166,7 +166,7 @@ pub fn array_push(mut arguments: Vec<Value>) -> RunResult<Value> {
         .into_array()
         .borrow_mut()
         .push(Lvalue::store(element));
-    Ok(Value::Rvalue(Rvalue::Void))
+    Ok(())
 }
 
 pub fn array_pop(mut arguments: Vec<Value>) -> RunResult<Value> {

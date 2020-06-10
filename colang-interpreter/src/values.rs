@@ -112,12 +112,6 @@ pub enum Rvalue {
     /// CO structs are collections of fields referencable by their `FieldId`s, where each of the
     /// fields is an individually referencable value (`Lvalue`).
     Struct(HashMap<FieldId, Lvalue>),
-
-    /// A value of a CO expression of `void` type.
-    ///
-    /// This value can only occur when evaluating an expression in a void context. Its propagation
-    /// is restricted to minimum.
-    Void,
 }
 
 impl Rvalue {
@@ -212,7 +206,6 @@ impl Rvalue {
             Rvalue::Array(_) => "array",
             Rvalue::Pointer(_) => "pointer",
             Rvalue::Struct(_) => "struct",
-            Rvalue::Void => "void",
         }
     }
 }
@@ -231,7 +224,6 @@ impl Clone for Rvalue {
                     .map(|(id, lvalue)| (id.clone(), lvalue.clone_contents()))
                     .collect(),
             ),
-            Rvalue::Void => Rvalue::Void,
         }
     }
 }

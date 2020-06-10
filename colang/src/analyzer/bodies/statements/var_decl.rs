@@ -70,12 +70,6 @@ fn compile_var_decl_entry(
     current_block.add_local_variable(Rc::clone(&variable));
 
     if let Some(initializer) = initializer {
-        if initializer.type_().borrow().is_void() {
-            let error = errors::variable_initializer_is_void(&name.text, &initializer);
-            context.errors.push(error);
-            return;
-        }
-
         if *initializer.type_() != *variable.borrow().type_ {
             let error =
                 errors::variable_initializer_type_mismatch(&variable.borrow(), &initializer);

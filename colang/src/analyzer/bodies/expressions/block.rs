@@ -21,6 +21,7 @@ pub fn compile_block(
 
     let result = match block.final_expr {
         Some(final_expr) => {
+            // TODO: this is not an expression-only context.
             let final_expr = compile_expression(*final_expr, type_hint, context);
             DualNode::Expression(builder.into_expr(
                 final_expr,

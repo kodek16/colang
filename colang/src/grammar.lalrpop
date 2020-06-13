@@ -113,7 +113,7 @@ TypeMember: TypeMember = {
 };
 
 FieldDef: TypeMember = {
-    <start:@L> <name:Ident> ":" <type_:TypeExpr> <end:@R> ";" => {
+    <start:@L> <name:Ident> ":" <type_:TypeExpr> <end:@R> => {
         TypeMember::Field(FieldDef {
             name,
             type_,

@@ -1,5 +1,5 @@
 struct Wrapper<T> {
-  value: T;
+  value: T
 }
 
 fun main() {

@@ -1,10 +1,10 @@
 struct ListNode<T> {
-  value: T;
-  next: &ListNode<T>;
+  value: T
+  next: &ListNode<T>
 }
 
 struct List<T> {
-  head: &ListNode<T>;
+  head: &ListNode<T>
 
   fun prepend(&self, value: T) {
     self.head = {

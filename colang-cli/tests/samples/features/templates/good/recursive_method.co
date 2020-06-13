@@ -1,5 +1,5 @@
 struct Wrapper<T> {
-  arr: [T];
+  arr: [T]
 
   fun index(self, index: int): &T {
     if (index == 0) {

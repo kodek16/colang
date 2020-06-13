@@ -10,7 +10,7 @@ struct Squarer<T: IntoInt> {
 }
 
 struct Foo : IntoInt {
-  x: int;
+  x: int
 
   fun into(self): int {
     self.x

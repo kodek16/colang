@@ -1,9 +1,9 @@
 struct A<T> {
-  x: B<T>;
+  x: B<T>
 }
 
 struct B<Q> {
-  y: &A<Q>;
+  y: &A<Q>
 }
 
 fun main() {

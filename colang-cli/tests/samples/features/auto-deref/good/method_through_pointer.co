@@ -1,6 +1,6 @@
 struct Point {
-  x: int;
-  y: int;
+  x: int
+  y: int
 
   fun reflect(&self) {
     self.x = -1 * self.x;

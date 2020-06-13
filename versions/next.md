@@ -37,6 +37,10 @@
     p.print(f);  // will print "42"
   }
   ```
+  
+## Breaking changes
+
+- Semicolons are no longer allowed after field definitions.
 
 ## Other changes
 

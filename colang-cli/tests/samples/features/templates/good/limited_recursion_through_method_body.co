@@ -1,5 +1,5 @@
 struct Foo<T> {
-  y: int;
+  y: int
 
   fun meth(&self): int {
     var x: Foo<Foo<T>>;

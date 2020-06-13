@@ -7,7 +7,7 @@ trait ClearableB {
 }
 
 struct Foo : ClearableA, ClearableB {
-  x: int;
+  x: int
 
   fun clear(&self) {
     self.x = 0;

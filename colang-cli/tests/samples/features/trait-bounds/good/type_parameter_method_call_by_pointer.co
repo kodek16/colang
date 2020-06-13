@@ -3,7 +3,7 @@ trait Clearable {
 }
 
 struct Foo : Clearable {
-  x: int;
+  x: int
 
   fun clear(&self) {
     self.x = 0;

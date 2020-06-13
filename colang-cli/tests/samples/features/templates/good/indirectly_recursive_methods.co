@@ -1,5 +1,5 @@
 struct Wrapper<T> {
-  arr: [T];
+  arr: [T]
 
   fun middle_left(&self): T {
     if (self.arr.len() == 1) {

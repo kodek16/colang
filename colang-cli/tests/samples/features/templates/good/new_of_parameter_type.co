@@ -1,5 +1,5 @@
 struct Foo<T> {
-  ptr: &T;
+  ptr: &T
 
   fun run(self) {
     self.ptr = new T;

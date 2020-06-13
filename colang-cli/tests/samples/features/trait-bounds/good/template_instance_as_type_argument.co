@@ -3,7 +3,7 @@ trait IntoInt {
 }
 
 struct Foo : IntoInt {
-  x: int;
+  x: int
 
   fun into(self): int {
     self.x
@@ -11,7 +11,7 @@ struct Foo : IntoInt {
 }
 
 struct Wrapper<T: IntoInt> : IntoInt {
-  t: T;
+  t: T
 
   fun into(self): int {
     self.t.into()

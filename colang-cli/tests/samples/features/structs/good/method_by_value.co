@@ -1,6 +1,6 @@
 struct Point {
-  x: int;
-  y: int;
+  x: int
+  y: int
 
   fun len_squared(self): int {
     self.x*self.x + self.y*self.y

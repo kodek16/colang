@@ -1,6 +1,6 @@
 struct Pair<A, B> {
-  first: A;
-  second: B;
+  first: A
+  second: B
 }
 
 fun main() {

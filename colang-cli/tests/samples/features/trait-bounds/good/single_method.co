@@ -9,7 +9,7 @@ struct Foo : Intable {
 }
 
 struct Wrapper<T: Intable> {
-  value: T;
+  value: T
 
   fun bar(self): int {
     self.value.to_int()

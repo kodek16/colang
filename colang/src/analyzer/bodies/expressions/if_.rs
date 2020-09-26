@@ -34,6 +34,8 @@ pub fn compile_if(
 
     check_condition_is_bool(&cond, context);
 
+    eprintln!("{:?}", then);
+    eprintln!("{:?}", else_);
     match (then, else_) {
         (DualNode::Expression(then), Some(DualNode::Expression(else_))) => {
             if then.type_() == else_.type_() {

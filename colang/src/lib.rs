@@ -11,6 +11,7 @@ mod analyzer;
 mod ast;
 mod context;
 mod escapes;
+mod parser;
 mod scope;
 mod utils;
 lalrpop_mod!(grammar);
@@ -83,7 +84,8 @@ pub fn debug(source_code: &str) -> Result<(), ()> {
 
 /// Parses the source code of a file and returns an AST root node.
 fn parse(source_code: &str, file: InputSpanFile) -> Result<ast::Program, ast::ParseError> {
-    grammar::ProgramParser::new().parse(file, source_code)
+    // grammar::ProgramParser::new().parse(file, source_code)
+    Ok(parser::parse(source_code, file))
 }
 
 /// Constructs an intermediate representation of a program and performs all static error checking.

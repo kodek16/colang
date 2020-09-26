@@ -1,6 +1,7 @@
 //! Dual code node kinds can be either expressions or statements depending on their configuration.
 
 use crate::program::{Call, EvalStmt, Expression, Statement, TypeRegistry};
+use std::fmt::{self, Debug, Formatter};
 
 /// Either an expression or a statement.
 pub enum DualNode {
@@ -23,6 +24,15 @@ impl DualNode {
         match self {
             DualNode::Expression(expression) => Statement::Eval(EvalStmt { expression }),
             DualNode::Statement(statement) => statement,
+        }
+    }
+}
+
+impl Debug for DualNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            DualNode::Statement(_) => f.write_str("statement"),
+            DualNode::Expression(_) => f.write_str("expression"),
         }
     }
 }

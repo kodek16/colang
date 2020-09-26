@@ -1,0 +1,229 @@
+// Global symbols:
+
+program = { SOI ~ (function_def | struct_def | trait_def)* ~ EOI }
+
+function_def = { KW_FUN ~ IDENT ~ "(" ~ param_list ~ ")" ~ return_type? ~ function_body? }
+
+param_list = { (param_def ~ ("," ~ param_def)*)? }
+return_type = { ":" ~ type_expr }
+function_body = { block }
+
+param_def = { normal_param_def | self_by_pointer_param_def | self_by_value_param_def }
+normal_param_def = { IDENT ~ ":" ~ type_expr }
+self_by_pointer_param_def = { "&" ~ KW_SELF }
+self_by_value_param_def = { KW_SELF }
+
+struct_def = { KW_STRUCT ~ IDENT ~ type_param_list? ~ implemented_traits_list? ~ user_type_body}
+
+type_param_list = { "<" ~ type_param_def ~ ("," ~ type_param_def)* ~ ">" }
+type_param_def = { IDENT ~ type_param_bounds? }
+type_param_bounds = { ":" ~ type_expr ~ ("+" ~ type_expr)* }
+
+implemented_traits_list = { ":" ~ type_expr ~ ("," ~ type_expr)* }
+
+user_type_body = { "{" ~ (method_def | field_def)* ~ "}" }
+
+field_def = { IDENT ~ ":" ~ type_expr }
+method_def = { function_def }
+
+trait_def = { KW_TRAIT ~ IDENT ~ user_type_body }
+
+// Statements and expressions:
+
+stmt = {
+    read_stmt ~ ";"? |
+    readln_stmt ~ ";"? |
+    return_stmt ~ ";"? |
+    var_decl_stmt ~ ";"? |
+    while_stmt ~ ";"? |
+    write_stmt ~ ";"? |
+    writeln_stmt ~ ";"? |
+
+    assign_stmt ~ ";"? |
+
+    // Note that a semicolon is required for this rule to match.
+    expr_stmt ~ ";"
+}
+
+assign_stmt = { expr ~ "=" ~ expr }
+expr_stmt = { expr }
+read_stmt = { KW_READ ~ expr ~ ("," ~ expr)* }
+readln_stmt = { KW_READ_LN ~ expr ~ ("," ~ expr)* }
+return_stmt = { KW_RETURN ~ expr? }
+var_decl_stmt = { KW_VAR ~ var_decl_entry ~ ("," ~ var_decl_entry)* }
+while_stmt = { KW_WHILE ~ "(" ~ expr ~ ")" ~ block }
+write_stmt = { KW_WRITE ~ expr }
+writeln_stmt = { KW_WRITE_LN ~ expr }
+
+var_decl_entry = { IDENT ~ var_type? ~ var_initializer? }
+var_type = { ":" ~ type_expr }
+var_initializer = { "=" ~ expr }
+
+expr = {
+    block |
+    if_expr |
+    new_expr |
+    disjunction_level_expr
+}
+
+block = { "{" ~ (stmt | expr)* ~ "}" }
+if_expr = { KW_IF ~ "(" ~ expr ~ ")" ~ expr ~ (KW_ELSE ~ expr)? }
+
+new_expr = { KW_NEW ~ type_expr }
+
+disjunction_level_expr = _{
+    disjunction_expr |
+    conjunction_level_expr
+}
+disjunction_expr = { conjunction_level_expr ~ disjunction_op ~ disjunction_level_expr }
+disjunction_op = { "||" }
+
+conjunction_level_expr = _{
+    conjunction_expr |
+    equality_level_expr
+}
+conjunction_expr = { equality_level_expr ~ conjunction_op ~ conjunction_level_expr }
+conjunction_op = { "&&" }
+
+equality_level_expr = _{
+    equality_expr |
+    is_level_expr
+}
+equality_expr = { is_level_expr ~ equality_op ~ equality_level_expr }
+equality_op = { "==" | "!=" }
+
+is_level_expr = _{
+    is_expr |
+    comparison_level_expr
+}
+is_expr = { comparison_level_expr ~ KW_IS ~ is_level_expr }
+
+comparison_level_expr = _{
+    comparison_expr |
+    additive_level_expr
+}
+comparison_expr = { additive_level_expr ~ comparison_op ~ comparison_level_expr }
+comparison_op = { "<=" | ">=" | "<" | ">" }
+
+additive_level_expr = _{
+    addition_expr |
+    multiplicative_level_expr
+}
+addition_expr = { multiplicative_level_expr ~ additive_expr_op ~ additive_level_expr }
+additive_expr_op = { "+" | "-" }
+
+multiplicative_level_expr = _{
+    multiplication_expr |
+    prefix_op_level_expr
+}
+multiplication_expr = { prefix_op_level_expr ~ multiplicative_expr_op ~ multiplicative_level_expr }
+multiplicative_expr_op = { "*" | "/" | "%" }
+
+prefix_op_level_expr = _{
+    address_expr |
+    deref_expr |
+    logical_not_expr |
+    postfix_op_level_expr
+}
+
+address_expr = { "&" ~ prefix_op_level_expr }
+deref_expr = { "*" ~ prefix_op_level_expr }
+logical_not_expr = { "!" ~ prefix_op_level_expr }
+
+postfix_op_level_expr = _{
+    method_call_expr |
+    field_access_expr |
+    index_expr |
+    call_expr |
+    primary_expr
+}
+
+index_expr = { primary_expr ~ "[" ~ expr ~ "]" }
+call_expr = { IDENT ~ "(" ~ call_arg_list? ~ ")" }
+field_access_expr = { primary_expr ~ "." ~ IDENT }
+method_call_expr = { primary_expr ~ "." ~ IDENT ~ "(" ~ call_arg_list? ~ ")" }
+
+call_arg_list = { expr ~ ("," ~ expr)* ~ ","? }
+
+primary_expr = _{
+    parens_expr |
+    array_from_copy_expr |
+    array_from_elems_expr |
+    char_literal_expr |
+    string_literal_expr |
+    null_expr |
+    self_expr |
+    bool_literal_expr |
+    int_literal_expr |
+    variable_expr
+}
+
+variable_expr = { IDENT }
+int_literal_expr = { INTEGER }
+bool_literal_expr = { KW_TRUE | KW_FALSE }
+char_literal_expr = { CHAR_LITERAL }
+string_literal_expr = { STRING_LITERAL }
+null_expr = { KW_NULL }
+self_expr = { KW_SELF }
+array_from_elems_expr = { "[" ~ (expr ~ ("," ~ expr)* ~ ","?)? ~ "]" }
+array_from_copy_expr = { "[" ~ expr ~ ";" ~ expr ~ "]" }
+parens_expr = _{ "(" ~ expr ~ ")" }
+
+// Type expressions:
+
+type_expr = {
+    tmpl_inst_type_expr |
+    array_type_expr |
+    pointer_type_expr |
+    scalar_type_expr
+}
+
+scalar_type_expr = { IDENT }
+array_type_expr = { "[" ~ type_expr ~ "]" }
+pointer_type_expr = { "&" ~ type_expr }
+tmpl_inst_type_expr = { IDENT ~ "<" ~ (type_expr ~ ("," ~ type_expr)* ~ ","?) ~ ">"}
+
+// Terminals:
+
+IDENT = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+INTEGER = @{ "-"? ~ ASCII_DIGIT+ }
+CHAR_LITERAL = @{ "'" ~ CHAR_LITERAL_ELEM* ~ "'" }
+STRING_LITERAL = @{ "\"" ~ STRING_LITERAL_ELEM* ~ "\"" }
+
+CHAR_LITERAL_ELEM = @{
+    "\\" ~ !NEWLINE ~ ANY |
+    !"'" ~ !NEWLINE ~ ANY
+}
+
+STRING_LITERAL_ELEM = @{
+    "\\" ~ !NEWLINE ~ ANY |
+    !"\"" ~ !NEWLINE ~ ANY
+}
+
+// Keywords:
+
+KW_ELSE = @{ "else" }
+KW_FALSE = @{ "false" }
+KW_FUN = @{ "fun" }
+KW_IF = @{ "if" }
+KW_IS = @{ "is" }
+KW_NEW = @{ "new" }
+KW_NULL = @{ "null" }
+KW_READ = @{ "read" }
+KW_READ_LN = @{ "readln" }
+KW_RETURN = @{ "return" }
+KW_SELF = @{ "self" }
+KW_STRUCT = @{ "struct" }
+KW_TRAIT = @{ "trait" }
+KW_TRUE = @{ "true" }
+KW_VAR = @{ "var" }
+KW_WHILE = @{ "while" }
+KW_WRITE = @{ "write" }
+KW_WRITE_LN = @{ "writeln" }
+
+// Ignored tokens:
+
+WHITESPACE = _{INLINE_WS | NEWLINE }
+INLINE_WS = @{ " " | "\t" }
+
+COMMENT = _{ "//" ~ (!NEWLINE ~ ANY)* }

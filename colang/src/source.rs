@@ -1,5 +1,7 @@
 //! Bindings between generated program IR and the actual source code.
 
+use std::ops::Add;
+
 /// A substring (interval) of a file with source code.
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub struct InputSpan {
@@ -37,6 +39,21 @@ impl InputSpan {
             file: InputSpanFile::UserProgram,
             start: 0,
             end: 1,
+        }
+    }
+}
+
+impl Add for InputSpan {
+    type Output = InputSpan;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.file, rhs.file);
+        let start = usize::min(self.start, rhs.start);
+        let end = usize::max(self.end, rhs.end);
+        InputSpan {
+            file: self.file,
+            start,
+            end,
         }
     }
 }

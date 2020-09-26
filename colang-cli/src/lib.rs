@@ -12,6 +12,8 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 pub struct Config {
     pub source_path: String,
 
+    pub experimental_parser: bool,
+
     /// The expected compiler behavior.
     pub target: Target,
 
@@ -33,7 +35,7 @@ impl Config {
     pub fn new() -> Config {
         let program = || {
             Arg::with_name("PROGRAM")
-                .help("Sets the file with the CO program")
+                .help("Path to the CO program")
                 .required(true)
                 .index(1)
         };
@@ -45,7 +47,13 @@ impl Config {
             .subcommand(
                 SubCommand::with_name("run")
                     .about("Executes the program in an interpreter")
-                    .arg(program()),
+                    .arg(program())
+                    .arg(
+                        Arg::with_name("use-experimental-parser")
+                            .short("e")
+                            .long("--experimental-parser")
+                            .help("Whether to use the new experimental parser"),
+                    ),
             )
             .subcommand(
                 SubCommand::with_name("compile")
@@ -56,7 +64,7 @@ impl Config {
                             .short("o")
                             .long("--output")
                             .takes_value(true)
-                            .help("Sets the path for the generated C file"),
+                            .help("Path to use for the generated C file"),
                     ),
             )
             .subcommand(
@@ -71,6 +79,7 @@ impl Config {
 
         Config {
             source_path: sub_matches.value_of("PROGRAM").unwrap().to_string(),
+            experimental_parser: sub_matches.is_present("use-experimental-parser"),
             target: match subcommand {
                 "run" => Target::Run(Box::new(InterpreterBackend)),
                 "compile" => Target::Run(Box::new(CBackend::new(sub_matches.value_of("output")))),
@@ -113,7 +122,7 @@ pub fn run(config: Config) -> RunResult {
             }
         }
         Target::Run(backend) => {
-            let program = match colang::compile(&source_code) {
+            let program = match colang::compile(&source_code, config.experimental_parser) {
                 Ok(program) => program,
                 Err(errors) => {
                     report_compilation_errors(

@@ -58,7 +58,10 @@ mod e0058_non_void_function_body_is_statement;
 pub mod constructors {
     use super::*;
 
+    // TODO delete
     pub use e0001_syntax_error::syntax_error;
+    pub use e0001_syntax_error::syntax_error_new;
+
     pub use e0002_named_entity_not_found::named_entity_not_found;
     pub use e0003_named_entity_kind_mismatch::named_entity_kind_mismatch;
     pub use e0004_named_entity_already_defined::named_entity_already_defined;

@@ -181,6 +181,7 @@ dependencies = [
  "enum_dispatch",
  "lalrpop",
  "lalrpop-util",
+ "lazy_static",
  "petgraph 0.5.0",
  "regex",
 ]

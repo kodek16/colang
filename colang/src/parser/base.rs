@@ -13,14 +13,27 @@ pub struct Ignored;
 impl Parser for Ignored {
     type N = ();
 
-    fn parse<'a>(input: Input<'a>, _: &ParsingContext) -> ParseResult<'a, Self::N> {
-        // TODO: also skip comments.
-        let idx = input.find(|c: char| !c.is_whitespace());
-        let (_, remaining) = match idx {
-            Some(idx) => input.split_at(idx),
-            None => input.consume_all(),
-        };
-        ParseResult(ParsedNode::Ok(()), remaining)
+    fn parse<'a>(mut input: Input<'a>, _: &ParsingContext) -> ParseResult<'a, Self::N> {
+        loop {
+            if input.starts_with(char::is_whitespace) {
+                let (_, remaining) = match input.find(|c: char| !c.is_whitespace()) {
+                    Some(idx) => input.split_at(idx),
+                    None => input.consume_all(),
+                };
+                input = remaining;
+                continue;
+            }
+            if input.starts_with("//") {
+                let (_, remaining) = match input.find('\n') {
+                    Some(idx) => input.split_at(idx),
+                    None => input.consume_all(),
+                };
+                input = remaining;
+                continue;
+            }
+            break;
+        }
+        ParseResult(ParsedNode::Ok(()), input)
     }
 }
 

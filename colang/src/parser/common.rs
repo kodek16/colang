@@ -65,4 +65,18 @@ impl<'a, T> ParseResult<'a, T> {
         };
         ParseResult(node, input)
     }
+
+    /// If `self` is a successful or recovered parse, adds a syntax error at its end.
+    pub fn add_error(self, error: SyntaxError) -> ParseResult<'a, T> {
+        let ParseResult(node, input) = self;
+        let node = match node {
+            ParsedNode::Ok(node) => ParsedNode::Recovered(node, vec![error]),
+            ParsedNode::Recovered(node, mut errors) => {
+                errors.push(error);
+                ParsedNode::Recovered(node, errors)
+            }
+            m @ ParsedNode::Missing(_) => m,
+        };
+        ParseResult(node, input)
+    }
 }

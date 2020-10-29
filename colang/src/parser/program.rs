@@ -12,13 +12,21 @@ impl Parser for Program {
     type N = ast::Program;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <RepeatZeroOrMore<FunctionDef, RecoverToNextGlobal>>::parse(input, ctx).map(|functions| {
-            ast::Program {
-                functions,
-                structs: vec![],
-                traits: vec![],
-            }
-        })
+        let ParseResult(node, input) = <RepeatZeroOrMore<FunctionDef, RecoverToNextGlobal>>::parse(
+            input, ctx,
+        )
+        .map(|functions| ast::Program {
+            functions,
+            structs: vec![],
+            traits: vec![],
+        });
+        let ParseResult(_, input) = Ignored::parse(input, ctx);
+        if input.is_fully_consumed() {
+            ParseResult(node, input)
+        } else {
+            let error = SyntaxError::UnexpectedToken(input.span_of_first(ctx));
+            ParseResult(node, input).add_error(error)
+        }
     }
 }
 

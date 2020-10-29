@@ -1,14 +1,20 @@
 mod base;
 mod block;
+mod comma_list;
 mod common;
 mod context;
 mod function_def;
 mod ident;
 mod input;
+mod normal_param_def;
+mod param_def;
+mod param_list;
 mod prelude;
 mod program;
 mod repeat;
+mod scalar_type_expr;
 mod seq;
+mod type_expr;
 
 use crate::ast;
 use crate::parser::common::{ParseResult, ParsedNode, Parser};
@@ -23,8 +29,7 @@ pub fn parse(source_code: &str, file: InputSpanFile) -> Result<ast::Program, Vec
     let ctx = ParsingContext { file };
     let input = Input::new(source_code);
 
-    let ParseResult(program, input) = program::Program::parse(input, &ctx);
-    assert!(input.is_fully_consumed());
+    let ParseResult(program, _) = program::Program::parse(input, &ctx);
     match program {
         ParsedNode::Ok(program) => Ok(program),
         ParsedNode::Recovered(_, errors) => Err(errors),

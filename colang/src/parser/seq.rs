@@ -220,3 +220,26 @@ impl<I1: Item, I2: Item, I3: Item, I4: Item, I5: Item> Parser for Seq5<I1, I2, I
             .map(|(i1, (i2, i3, i4, i5))| (i1, i2, i3, i4, i5))
     }
 }
+
+/// Sequencing parser combinator constructor for 6-element sequences.
+pub struct Seq6<I1: Item, I2: Item, I3: Item, I4: Item, I5: Item, I6: Item> {
+    phantom: PhantomData<(I1, I2, I3, I4, I5, I6)>,
+}
+
+impl<I1: Item, I2: Item, I3: Item, I4: Item, I5: Item, I6: Item> Parser
+    for Seq6<I1, I2, I3, I4, I5, I6>
+{
+    type N = (
+        <I1::P as Parser>::N,
+        <I2::P as Parser>::N,
+        <I3::P as Parser>::N,
+        <I4::P as Parser>::N,
+        <I5::P as Parser>::N,
+        <I6::P as Parser>::N,
+    );
+
+    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+        <Seq2<I1, AbortIfMissing<Seq5<I2, I3, I4, I5, I6>>>>::parse(input, ctx)
+            .map(|(i1, (i2, i3, i4, i5, i6))| (i1, i2, i3, i4, i5, i6))
+    }
+}

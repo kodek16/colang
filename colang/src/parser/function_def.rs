@@ -3,6 +3,7 @@
 use crate::ast;
 use crate::parser::block::Block;
 use crate::parser::ident::Identifier;
+use crate::parser::param_list::ParameterList;
 use crate::parser::prelude::*;
 
 pub struct FunctionDef;
@@ -11,21 +12,23 @@ impl Parser for FunctionDef {
     type N = ast::FunctionDef;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq5<
+        <Seq6<
             AbortIfMissing<word::KwFun>,
             NameItem,
             LeftParenItem,
+            ParameterListItem,
             RightParenItem,
-            Optional<Block>
-        >>::parse(input, ctx).map(|(kw_fun, name, _, _, body)| {
-            ast::FunctionDef {
-                signature_span: kw_fun + name.span,
+            Optional<Block>,
+        >>::parse(input, ctx)
+        .map(
+            |(kw_fun, name, _, parameters, paren_r, body)| ast::FunctionDef {
+                signature_span: kw_fun + paren_r,
                 name,
-                parameters: vec![],
+                parameters,
                 return_type: None,
                 body: body.map(ast::Expression::Block),
-            }
-        })
+            },
+        )
     }
 }
 
@@ -49,6 +52,16 @@ impl SynthesizeIfMissing for LeftParenItem {
 
     fn synthesize(location: InputSpan) -> InputSpan {
         location
+    }
+}
+
+struct ParameterListItem;
+
+impl SynthesizeIfMissing for ParameterListItem {
+    type P = ParameterList;
+
+    fn synthesize(_: InputSpan) -> Vec<ast::Parameter> {
+        vec![]
     }
 }
 

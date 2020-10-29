@@ -104,6 +104,8 @@ pub mod chars {
     chars_parser!(RightBrace, "}");
     chars_parser!(LeftParen, "(");
     chars_parser!(RightParen, ")");
+    chars_parser!(Comma, ",");
+    chars_parser!(Colon, ":");
 }
 
 /// Consumes the next full word if it matches the expected word (`$target`).

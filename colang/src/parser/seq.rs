@@ -243,3 +243,27 @@ impl<I1: Item, I2: Item, I3: Item, I4: Item, I5: Item, I6: Item> Parser
             .map(|(i1, (i2, i3, i4, i5, i6))| (i1, i2, i3, i4, i5, i6))
     }
 }
+
+/// Sequencing parser combinator constructor for 7-element sequences.
+pub struct Seq7<I1: Item, I2: Item, I3: Item, I4: Item, I5: Item, I6: Item, I7: Item> {
+    phantom: PhantomData<(I1, I2, I3, I4, I5, I6, I7)>,
+}
+
+impl<I1: Item, I2: Item, I3: Item, I4: Item, I5: Item, I6: Item, I7: Item> Parser
+    for Seq7<I1, I2, I3, I4, I5, I6, I7>
+{
+    type N = (
+        <I1::P as Parser>::N,
+        <I2::P as Parser>::N,
+        <I3::P as Parser>::N,
+        <I4::P as Parser>::N,
+        <I5::P as Parser>::N,
+        <I6::P as Parser>::N,
+        <I7::P as Parser>::N,
+    );
+
+    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+        <Seq2<I1, AbortIfMissing<Seq6<I2, I3, I4, I5, I6, I7>>>>::parse(input, ctx)
+            .map(|(i1, (i2, i3, i4, i5, i6, i7))| (i1, i2, i3, i4, i5, i6, i7))
+    }
+}

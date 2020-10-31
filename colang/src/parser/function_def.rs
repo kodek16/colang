@@ -5,6 +5,7 @@ use crate::parser::block::Block;
 use crate::parser::ident::Identifier;
 use crate::parser::param_list::ParameterList;
 use crate::parser::prelude::*;
+use crate::parser::type_expr::TypeExprOrSynthesize;
 
 pub struct FunctionDef;
 
@@ -12,21 +13,30 @@ impl Parser for FunctionDef {
     type N = ast::FunctionDef;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq6<
+        <Seq7<
             AbortIfMissing<word::KwFun>,
             NameItem,
             LeftParenItem,
             ParameterListItem,
             RightParenItem,
+            Optional<Seq2<AbortIfMissing<chars::Colon>, TypeExprOrSynthesize>>,
             Optional<Block>,
         >>::parse(input, ctx)
         .map(
-            |(kw_fun, name, _, parameters, paren_r, body)| ast::FunctionDef {
-                signature_span: kw_fun + paren_r,
-                name,
-                parameters,
-                return_type: None,
-                body: body.map(ast::Expression::Block),
+            |(kw_fun, name, _, parameters, paren_r, return_type, body)| {
+                let signature_span = kw_fun
+                    + if let Some((_, ref type_)) = return_type {
+                        type_.span()
+                    } else {
+                        paren_r
+                    };
+                ast::FunctionDef {
+                    signature_span,
+                    name,
+                    parameters,
+                    return_type: return_type.map(|(_, type_)| type_),
+                    body: body.map(ast::Expression::Block),
+                }
             },
         )
     }

@@ -23,6 +23,6 @@ pub use crate::parser::seq::OnMissingStrategy;
 pub use crate::parser::seq::OnMissingStrategyOutput;
 pub use crate::parser::seq::Optional;
 pub use crate::parser::seq::SynthesizeIfMissing;
-pub use crate::parser::seq::{Seq2, Seq3, Seq4, Seq5, Seq6};
+pub use crate::parser::seq::{Seq2, Seq3, Seq4, Seq5, Seq6, Seq7};
 
 pub use crate::source::InputSpan;

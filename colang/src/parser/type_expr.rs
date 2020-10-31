@@ -13,3 +13,19 @@ impl Parser for TypeExpr {
         ScalarTypeExpr::parse(input, ctx)
     }
 }
+
+pub struct TypeExprOrSynthesize;
+
+impl SynthesizeIfMissing for TypeExprOrSynthesize {
+    type P = TypeExpr;
+
+    fn synthesize(location: InputSpan) -> ast::TypeExpr {
+        ast::TypeExpr::Scalar(ast::ScalarTypeExpr {
+            name: ast::Identifier {
+                text: "<missing>".to_string(),
+                span: location,
+            },
+            span: location,
+        })
+    }
+}

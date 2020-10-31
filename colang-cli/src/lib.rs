@@ -17,6 +17,9 @@ pub struct Config {
     /// The expected compiler behavior.
     pub target: Target,
 
+    /// A flag that allows to compile a file without using the standard library,
+    pub no_std: bool,
+
     /// A flag for integration tests: this allows to better capture output. There is
     /// no way to set it through command-line.
     pub plaintext_compilation_errors: bool,
@@ -40,6 +43,12 @@ impl Config {
                 .index(1)
         };
 
+        let no_std_arg = || {
+            Arg::with_name("no-std")
+                .long("--no-std")
+                .help("Do not use standard library")
+        };
+
         let matches = App::new("colang")
             .version(VERSION)
             .about("Compiler and interpreter for the CO language")
@@ -52,8 +61,9 @@ impl Config {
                         Arg::with_name("use-experimental-parser")
                             .short("e")
                             .long("--experimental-parser")
-                            .help("Whether to use the new experimental parser"),
-                    ),
+                            .help("Use the new experimental parser"),
+                    )
+                    .arg(no_std_arg()),
             )
             .subcommand(
                 SubCommand::with_name("compile")
@@ -65,7 +75,8 @@ impl Config {
                             .long("--output")
                             .takes_value(true)
                             .help("Path to use for the generated C file"),
-                    ),
+                    )
+                    .arg(no_std_arg()),
             )
             .subcommand(
                 SubCommand::with_name("internal-dump-ir")
@@ -80,6 +91,7 @@ impl Config {
         Config {
             source_path: sub_matches.value_of("PROGRAM").unwrap().to_string(),
             experimental_parser: sub_matches.is_present("use-experimental-parser"),
+            no_std: sub_matches.is_present("no-std"),
             target: match subcommand {
                 "run" => Target::Run(Box::new(InterpreterBackend)),
                 "compile" => Target::Run(Box::new(CBackend::new(sub_matches.value_of("output")))),
@@ -122,18 +134,19 @@ pub fn run(config: Config) -> RunResult {
             }
         }
         Target::Run(backend) => {
-            let program = match colang::compile(&source_code, config.experimental_parser) {
-                Ok(program) => program,
-                Err(errors) => {
-                    report_compilation_errors(
-                        &config.source_path,
-                        &source_code,
-                        &errors,
-                        config.plaintext_compilation_errors,
-                    );
-                    return RunResult::CompilerError;
-                }
-            };
+            let program =
+                match colang::compile(&source_code, config.experimental_parser, config.no_std) {
+                    Ok(program) => program,
+                    Err(errors) => {
+                        report_compilation_errors(
+                            &config.source_path,
+                            &source_code,
+                            &errors,
+                            config.plaintext_compilation_errors,
+                        );
+                        return RunResult::CompilerError;
+                    }
+                };
 
             match backend.run(&config.source_path, &source_code, program) {
                 Ok(()) => RunResult::Ok,

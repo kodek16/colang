@@ -38,8 +38,17 @@ use std::rc::Rc;
 pub fn compile(
     source_code: &str,
     experimental_parser: bool,
+    no_std: bool,
 ) -> Result<program::Program, Vec<CompilationError>> {
-    let std_ast = parse(stdlib::STD_SOURCE, InputSpanFile::Std, experimental_parser)?;
+    let std_ast = if !no_std {
+        parse(stdlib::STD_SOURCE, InputSpanFile::Std, experimental_parser)?
+    } else {
+        ast::Program {
+            traits: vec![],
+            structs: vec![],
+            functions: vec![],
+        }
+    };
     let program_ast = parse(
         &source_code,
         InputSpanFile::UserProgram,

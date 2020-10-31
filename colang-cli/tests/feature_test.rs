@@ -18,6 +18,7 @@ fn good_interpret(path: &str) {
         source_path: strip_crate_name(path),
         target: Target::Run(Box::new(InterpreterBackend)),
         plaintext_compilation_errors: false,
+        experimental_parser: false,
     };
 
     let result = colang_cli::run(config);
@@ -75,6 +76,7 @@ fn compile_error(path: &str) {
         source_path: strip_crate_name(path),
         target: Target::Run(Box::new(InterpreterBackend)),
         plaintext_compilation_errors: true,
+        experimental_parser: false,
     };
 
     let result = colang_cli::run(config);
@@ -87,6 +89,7 @@ fn runtime_error_interpret(path: &str) {
         source_path: strip_crate_name(path),
         target: Target::Run(Box::new(InterpreterBackend)),
         plaintext_compilation_errors: false,
+        experimental_parser: false,
     };
 
     let result = colang_cli::run(config);

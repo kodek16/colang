@@ -214,7 +214,7 @@ fn check_argument_types(
 
 /// Compile a list of arguments using type hints from their corresponding parameters.
 fn compile_arguments<'a>(
-    arguments: impl Iterator<Item = ast::Expression>,
+    arguments: impl Iterator<Item = ast::ExpressionLike>,
     parameters: impl Iterator<Item = &'a Rc<RefCell<Variable>>>,
     context: &mut CompilerContext,
 ) -> Vec<program::Expression> {

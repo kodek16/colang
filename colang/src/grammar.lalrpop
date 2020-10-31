@@ -27,7 +27,7 @@ FunctionDef: FunctionDef = {
             name,
             parameters,
             return_type,
-            body: body.map(Expression::Block),
+            body: body.map(ExpressionLike::Block),
             signature_span: InputSpan { file, start, end }
         }
     },
@@ -126,30 +126,27 @@ MethodDef: TypeMember = {
     FunctionDef => TypeMember::Method(<>),
 };
 
-Stmt: Statement = {
+Stmt: StmtOrExpr = {
     StmtNotExpr,
 
     <start: @L> <expression:ExprWithBlock> <end: @R> => {
-        Statement::Expr(ExprStmt {
-            expression,
-            span: InputSpan { file, start, end },
-        })
+        StmtOrExpr::ExprLike(expression)
     },
 }
 
 // Somewhat ambiguously named, StmtNotExpr is a statement that was not trivially converted
 // from an expression ending with block. If a semicolon was added to an expression, it can
 // also be a StmtNotExpr.
-StmtNotExpr: Statement = {
+StmtNotExpr: StmtOrExpr = {
     <start: @L> KwVar <entries:CommaSeparatedNotEmpty<VarDeclEntry>> ";" <end: @R> => {
-        Statement::VarDecl(VarDeclStmt {
+        StmtOrExpr::VarDecl(VarDeclStmt {
             entries,
             span: InputSpan { file, start, end },
         })
     },
 
     <start: @L> KwRead <entries:CommaSeparatedNotEmpty<ReadEntry>> ";" <end: @R> => {
-        Statement::Read(ReadStmt {
+        StmtOrExpr::Read(ReadStmt {
             entries,
             whole_line: false,
             span: InputSpan { file, start, end },
@@ -157,7 +154,7 @@ StmtNotExpr: Statement = {
     },
 
     <start: @L> KwReadLn <entries:CommaSeparatedNotEmpty<ReadEntry>> ";" <end: @R> => {
-        Statement::Read(ReadStmt {
+        StmtOrExpr::Read(ReadStmt {
             entries,
             whole_line: true,
             span: InputSpan { file, start, end },
@@ -165,7 +162,7 @@ StmtNotExpr: Statement = {
     },
 
     <start: @L> KwWrite <expression:Expr> ";" <end: @R> => {
-        Statement::Write(WriteStmt {
+        StmtOrExpr::Write(WriteStmt {
             expression,
             newline: false,
             span: InputSpan { file, start, end },
@@ -173,7 +170,7 @@ StmtNotExpr: Statement = {
     },
 
     <start:@L> KwWriteLn <expression:Expr> ";" <end:@R> => {
-        Statement::Write(WriteStmt {
+        StmtOrExpr::Write(WriteStmt {
             expression,
             newline: true,
             span: InputSpan { file, start, end },
@@ -181,22 +178,22 @@ StmtNotExpr: Statement = {
     },
 
     <start: @L> KwWhile <cond:Expr> <body:Block> <end: @R> => {
-        Statement::While(WhileStmt {
+        StmtOrExpr::While(WhileStmt {
             cond: Box::new(cond),
-            body: Box::new(Expression::Block(body)),
+            body: Box::new(ExpressionLike::Block(body)),
             span: InputSpan { file, start, end },
         })
     },
 
     <start:@L> KwReturn <expression:Expr?> ";" <end:@R> => {
-        Statement::Return(ReturnStmt {
+        StmtOrExpr::Return(ReturnStmt {
             expression,
             span: InputSpan { file, start, end },
         })
     },
 
     <start: @L> <lhs:Expr> "=" <rhs:Expr> ";" <end: @R> => {
-        Statement::Assign(AssignStmt {
+        StmtOrExpr::Assign(AssignStmt {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
             span: InputSpan { file, start, end },
@@ -204,10 +201,7 @@ StmtNotExpr: Statement = {
     },
 
     <start: @L> <expression:Expr> ";" <end: @R> => {
-        Statement::Expr(ExprStmt {
-            expression,
-            span: InputSpan { file, start, end },
-        })
+        StmtOrExpr::ExprLike(expression)
     },
 };
 
@@ -238,24 +232,24 @@ ReadEntry: ReadEntry = {
 // Duplicated XExpr/XExprWithBlock non-terminals are there to make en exception
 // and allow expressions that end in a block to be converted to statements without
 // a terminating semicolon.
-Expr: Expression = {
+Expr: ExpressionLike = {
     OpenIfExpr,
     ClosedExpr,
 };
 
-ExprWithBlock: Expression = {
+ExprWithBlock: ExpressionLike = {
     BlockExpr,
     IfExprWithBlock,
 };
 
-IfExprWithBlock: Expression = {
+IfExprWithBlock: ExpressionLike = {
     OpenIfExprWithBlock,
     ClosedIfExprWithBlock,
 };
 
-OpenIfExpr: Expression = {
+OpenIfExpr: ExpressionLike = {
     <start: @L> KwIf "(" <cond:Expr> ")" <then:Expr> <end: @R> => {
-        Expression::If(IfExpr {
+        ExpressionLike::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: None,
@@ -263,7 +257,7 @@ OpenIfExpr: Expression = {
         })
     },
     <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:OpenIfExpr> <end: @R> => {
-        Expression::If(IfExpr {
+        ExpressionLike::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Some(Box::new(else_)),
@@ -272,9 +266,9 @@ OpenIfExpr: Expression = {
     },
 };
 
-OpenIfExprWithBlock: Expression = {
+OpenIfExprWithBlock: ExpressionLike = {
     <start: @L> KwIf "(" <cond:Expr> ")" <then:ExprWithBlock> <end: @R> => {
-        Expression::If(IfExpr {
+        ExpressionLike::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: None,
@@ -282,7 +276,7 @@ OpenIfExprWithBlock: Expression = {
         })
     },
     <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:OpenIfExprWithBlock> <end: @R> => {
-        Expression::If(IfExpr {
+        ExpressionLike::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Some(Box::new(else_)),
@@ -291,19 +285,19 @@ OpenIfExprWithBlock: Expression = {
     },
 };
 
-ClosedExpr: Expression = {
+ClosedExpr: ExpressionLike = {
     NonIfExpr,
     ClosedIfExpr,
 }
 
-ClosedExprWithBlock: Expression = {
+ClosedExprWithBlock: ExpressionLike = {
     NonIfExprWithBlock,
     ClosedIfExprWithBlock,
 };
 
-ClosedIfExpr: Expression = {
+ClosedIfExpr: ExpressionLike = {
     <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:ClosedExpr> <end: @R> => {
-        Expression::If(IfExpr {
+        ExpressionLike::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Some(Box::new(else_)),
@@ -312,9 +306,9 @@ ClosedIfExpr: Expression = {
     },
 };
 
-ClosedIfExprWithBlock: Expression = {
+ClosedIfExprWithBlock: ExpressionLike = {
     <start: @L> KwIf "(" <cond:Expr> ")" <then:ClosedExpr> KwElse <else_:ClosedExprWithBlock> <end: @R> => {
-        Expression::If(IfExpr {
+        ExpressionLike::If(IfExpr {
             cond: Box::new(cond),
             then: Box::new(then),
             else_: Some(Box::new(else_)),
@@ -323,27 +317,27 @@ ClosedIfExprWithBlock: Expression = {
     },
 };
 
-NonIfExpr: Expression = {
+NonIfExpr: ExpressionLike = {
     BinaryOpExpr,
     BlockExpr,
     NewExpr,
 };
 
-NewExpr: Expression = {
+NewExpr: ExpressionLike = {
     <start:@L> KwNew <target_type:TypeExpr> <end:@R> => {
-        Expression::New(NewExpr {
+        ExpressionLike::New(NewExpr {
             target_type,
             span: InputSpan { file, start, end },
         })
     },
 };
 
-NonIfExprWithBlock: Expression = {
+NonIfExprWithBlock: ExpressionLike = {
     BlockExpr,
 };
 
-BlockExpr: Expression = {
-    Block => Expression::Block(<>),
+BlockExpr: ExpressionLike = {
+    Block => ExpressionLike::Block(<>),
 };
 
 // Lowest precedence level.
@@ -361,14 +355,14 @@ Expr6Op: BinaryOperator = {
     "!=" => BinaryOperator::NotEq,
 }
 
-Expr5: Expression = {
+Expr5: ExpressionLike = {
     IsExpr,
     Expr4,
 };
 
-IsExpr: Expression = {
+IsExpr: ExpressionLike = {
     <start:@L> <lhs:Expr5> KwIs <rhs:Expr4> <end:@R> => {
-        Expression::Is(IsExpr {
+        ExpressionLike::Is(IsExpr {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
             span: InputSpan { file, start, end },
@@ -397,34 +391,34 @@ Expr2Op: BinaryOperator = {
     "%" => BinaryOperator::Mod,
 }
 
-Expr1: Expression = {
+Expr1: ExpressionLike = {
     AddressExpr,
     DerefExpr,
     UnaryOpExpr,
     Expr0,
 };
 
-AddressExpr: Expression = {
+AddressExpr: ExpressionLike = {
     <start:@L> "&" <target:Expr1> <end:@R> => {
-        Expression::Address(AddressExpr {
+        ExpressionLike::Address(AddressExpr {
             target: Box::new(target),
             span: InputSpan { file, start, end },
         })
     },
 };
 
-DerefExpr: Expression = {
+DerefExpr: ExpressionLike = {
     <start:@L> "*" <pointer:Expr1> <end:@R> => {
-        Expression::Deref(DerefExpr {
+        ExpressionLike::Deref(DerefExpr {
             pointer: Box::new(pointer),
             span: InputSpan { file, start, end },
         })
     },
 };
 
-UnaryOpExpr: Expression = {
+UnaryOpExpr: ExpressionLike = {
     <start:@L> <operator:UnaryOp> <operand:Expr1> <end:@R> => {
-        Expression::UnaryOp(UnaryOperatorExpr {
+        ExpressionLike::UnaryOp(UnaryOperatorExpr {
             operator,
             operand: Box::new(operand),
             span: InputSpan { file, start, end },
@@ -436,7 +430,7 @@ UnaryOp: UnaryOperator = {
     "!" => UnaryOperator::LogicalNot,
 };
 
-Expr0: Expression = {
+Expr0: ExpressionLike = {
     VariableExpr,
     IntLiteralExpr,
     BoolLiteralExpr,
@@ -453,79 +447,79 @@ Expr0: Expression = {
     ParensExpr,
 };
 
-VariableExpr: Expression = {
+VariableExpr: ExpressionLike = {
     <start: @L> <name:Ident> <end: @R> => {
-        Expression::Variable(VariableExpr {
+        ExpressionLike::Variable(VariableExpr {
             name,
             span: InputSpan { file, start, end },
         })
     },
 };
 
-IntLiteralExpr: Expression = {
+IntLiteralExpr: ExpressionLike = {
     <start: @L> <value:IntLiteral> <end: @R> => {
-        Expression::IntLiteral(IntLiteralExpr {
+        ExpressionLike::IntLiteral(IntLiteralExpr {
             value,
             span: InputSpan { file, start, end },
         })
     },
 };
 
-BoolLiteralExpr: Expression = {
+BoolLiteralExpr: ExpressionLike = {
     <start: @L> <value:BoolLiteral> <end: @R> => {
-        Expression::BoolLiteral(BoolLiteralExpr {
+        ExpressionLike::BoolLiteral(BoolLiteralExpr {
             value,
             span: InputSpan { file, start, end },
         })
     },
 };
 
-CharLiteralExpr: Expression = {
+CharLiteralExpr: ExpressionLike = {
     <start:@L> <value:CharLiteral> <end:@R> => {
-        Expression::CharLiteral(CharLiteralExpr {
+        ExpressionLike::CharLiteral(CharLiteralExpr {
             value,
             span: InputSpan { file, start, end },
         })
     },
 };
 
-StringLiteralExpr: Expression = {
+StringLiteralExpr: ExpressionLike = {
     <start:@L> <value:StringLiteral> <end:@R> => {
-        Expression::StringLiteral(StringLiteralExpr {
+        ExpressionLike::StringLiteral(StringLiteralExpr {
             value,
             span: InputSpan { file, start, end },
         })
     },
 };
 
-NullExpr: Expression = {
+NullExpr: ExpressionLike = {
     <start:@L> KwNull <end:@R> => {
-        Expression::Null(NullExpr {
+        ExpressionLike::Null(NullExpr {
             span: InputSpan { file, start, end },
         })
     },
 };
 
-SelfExpr: Expression = {
+SelfExpr: ExpressionLike = {
     <start:@L> KwSelf <end:@R> => {
-        Expression::Self_(SelfExpr {
+        ExpressionLike::Self_(SelfExpr {
             span: InputSpan { file, start, end },
         })
     },
 };
 
-ArrayFromElementsExpr: Expression = {
+ArrayFromElementsExpr: ExpressionLike = {
     <start:@L> "[" <elements:CommaSeparated<Expr>> "]" <end:@R> => {
-        Expression::ArrayFromElements(ArrayFromElementsExpr {
+        ExpressionLike::ArrayFromElements(ArrayFromElementsExpr {
             elements,
             span: InputSpan { file, start, end },
         })
     },
 };
 
-ArrayFromCopyExpr: Expression = {
+ArrayFromCopyExpr: ExpressionLike = {
     <start:@L> "[" <element:Expr> ";" <size:Expr> "]" <end:@R> => {
-        Expression::ArrayFromCopy(ArrayFromCopyExpr {
+        ExpressionLike::ArrayFromCopy(ArrayFromCopyExpr {
             element: Box::new(element),
             size: Box::new(size),
             span: InputSpan { file, start, end },
@@ -533,9 +527,9 @@ ArrayFromCopyExpr: Expression = {
     },
 };
 
-IndexExpr: Expression = {
+IndexExpr: ExpressionLike = {
     <start:@L> <collection:Expr0> "[" <index:Expr> "]" <end:@R> => {
-        Expression::Index(IndexExpr {
+        ExpressionLike::Index(IndexExpr {
             collection: Box::new(collection),
             index: Box::new(index),
             span: InputSpan { file, start, end },
@@ -543,9 +537,9 @@ IndexExpr: Expression = {
     },
 };
 
-CallExpr: Expression = {
+CallExpr: ExpressionLike = {
     <start: @L> <function_name:Ident> "(" <arguments:CommaSeparated<Expr>> ")" <end: @R> => {
-        Expression::Call(CallExpr {
+        ExpressionLike::Call(CallExpr {
             function_name,
             arguments,
             span: InputSpan { file, start, end },
@@ -553,9 +547,9 @@ CallExpr: Expression = {
     },
 };
 
-FieldAccessExpr: Expression = {
+FieldAccessExpr: ExpressionLike = {
     <start:@L> <receiver:Expr0> "." <field:Ident> <end:@R> => {
-        Expression::FieldAccess(FieldAccessExpr {
+        ExpressionLike::FieldAccess(FieldAccessExpr {
             receiver: Box::new(receiver),
             field,
             span: InputSpan { file, start, end },
@@ -563,9 +557,9 @@ FieldAccessExpr: Expression = {
     },
 };
 
-MethodCallExpr: Expression = {
+MethodCallExpr: ExpressionLike = {
     <start:@L> <receiver:Expr0> "." <method:Ident> "(" <arguments:CommaSeparated<Expr>> ")" <end:@R> => {
-        Expression::MethodCall(MethodCallExpr {
+        ExpressionLike::MethodCall(MethodCallExpr {
             receiver: Box::new(receiver),
             method,
             arguments,
@@ -574,7 +568,7 @@ MethodCallExpr: Expression = {
     },
 };
 
-ParensExpr: Expression = {
+ParensExpr: ExpressionLike = {
     <start: @L> "(" <e:Expr> ")" <end: @R> => {
         e.map_span(|_| InputSpan { file, start, end })
     },
@@ -716,9 +710,9 @@ CommaSeparated<T>: Vec<T> = {
     }
 }
 
-LeftAssocBinaryOpExprTier<Ops, PrevTier>: Expression = {
+LeftAssocBinaryOpExprTier<Ops, PrevTier>: ExpressionLike = {
     <start: @L> <lhs:LeftAssocBinaryOpExprTier<Ops, PrevTier>> <operator:Ops> <rhs:PrevTier> <end: @R> => {
-        Expression::BinaryOp(BinaryOperatorExpr {
+        ExpressionLike::BinaryOp(BinaryOperatorExpr {
             operator,
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),

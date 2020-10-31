@@ -1,16 +1,22 @@
-//! Expressions are code that produces a value. Most of the CO source code is comprised of
-//! expressions.
+//! Definitions of "expression-like" code nodes.
+//!
+//! Also known as "syntactic expressions", these are nodes that are likely to be determined to be
+//! expressions after analysis.
 
-use crate::ast::statements::Statement;
+use crate::ast::statements::StmtOrExpr;
 use crate::ast::type_expressions::TypeExpr;
 use crate::ast::Identifier;
 use crate::source::InputSpan;
 use enum_dispatch::enum_dispatch;
 use std::fmt::{self, Display, Formatter};
 
+/// Expression-like code node that can turn out to be either statement or expression.
+///
+/// See `colang::ast::statements` for more context on statements and expressions. The reason why
+/// these specific nodes are grouped in a separate variant type is mostly historical.
 #[enum_dispatch]
 #[derive(Debug)]
-pub enum Expression {
+pub enum ExpressionLike {
     Variable(VariableExpr),
     IntLiteral(IntLiteralExpr),
     BoolLiteral(BoolLiteralExpr),
@@ -36,7 +42,7 @@ pub enum Expression {
 
 // We don't expose the generated methods of `Expression` to the outside, keeping usage of
 // `enum_dispatch` as opaque as possible.
-#[enum_dispatch(Expression)]
+#[enum_dispatch(ExpressionLike)]
 trait ExpressionKind {
     fn span_(&self) -> InputSpan;
     fn span_mut_(&mut self) -> &mut InputSpan;
@@ -59,12 +65,12 @@ macro_rules! impl_expr_kind {
     };
 }
 
-impl Expression {
+impl ExpressionLike {
     pub fn span(&self) -> InputSpan {
         self.span_()
     }
 
-    pub fn map_span(mut self, f: impl FnOnce(InputSpan) -> InputSpan) -> Expression {
+    pub fn map_span(mut self, f: impl FnOnce(InputSpan) -> InputSpan) -> ExpressionLike {
         *self.span_mut_() = f(self.span_());
         self
     }
@@ -125,7 +131,7 @@ impl_expr_kind!(SelfExpr);
 #[derive(Debug)]
 pub struct UnaryOperatorExpr {
     pub operator: UnaryOperator,
-    pub operand: Box<Expression>,
+    pub operand: Box<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -134,8 +140,8 @@ impl_expr_kind!(UnaryOperatorExpr);
 #[derive(Debug)]
 pub struct BinaryOperatorExpr {
     pub operator: BinaryOperator,
-    pub lhs: Box<Expression>,
-    pub rhs: Box<Expression>,
+    pub lhs: Box<ExpressionLike>,
+    pub rhs: Box<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -143,7 +149,7 @@ impl_expr_kind!(BinaryOperatorExpr);
 
 #[derive(Debug)]
 pub struct AddressExpr {
-    pub target: Box<Expression>,
+    pub target: Box<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -151,7 +157,7 @@ impl_expr_kind!(AddressExpr);
 
 #[derive(Debug)]
 pub struct DerefExpr {
-    pub pointer: Box<Expression>,
+    pub pointer: Box<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -167,8 +173,8 @@ impl_expr_kind!(NewExpr);
 
 #[derive(Debug)]
 pub struct IsExpr {
-    pub lhs: Box<Expression>,
-    pub rhs: Box<Expression>,
+    pub lhs: Box<ExpressionLike>,
+    pub rhs: Box<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -176,7 +182,7 @@ impl_expr_kind!(IsExpr);
 
 #[derive(Debug)]
 pub struct ArrayFromElementsExpr {
-    pub elements: Vec<Expression>,
+    pub elements: Vec<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -184,8 +190,8 @@ impl_expr_kind!(ArrayFromElementsExpr);
 
 #[derive(Debug)]
 pub struct ArrayFromCopyExpr {
-    pub element: Box<Expression>,
-    pub size: Box<Expression>,
+    pub element: Box<ExpressionLike>,
+    pub size: Box<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -193,8 +199,8 @@ impl_expr_kind!(ArrayFromCopyExpr);
 
 #[derive(Debug)]
 pub struct IndexExpr {
-    pub collection: Box<Expression>,
-    pub index: Box<Expression>,
+    pub collection: Box<ExpressionLike>,
+    pub index: Box<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -202,7 +208,7 @@ impl_expr_kind!(IndexExpr);
 
 #[derive(Debug)]
 pub struct FieldAccessExpr {
-    pub receiver: Box<Expression>,
+    pub receiver: Box<ExpressionLike>,
     pub field: Identifier,
 
     pub span: InputSpan,
@@ -212,7 +218,7 @@ impl_expr_kind!(FieldAccessExpr);
 #[derive(Debug)]
 pub struct CallExpr {
     pub function_name: Identifier,
-    pub arguments: Vec<Expression>,
+    pub arguments: Vec<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -220,9 +226,9 @@ impl_expr_kind!(CallExpr);
 
 #[derive(Debug)]
 pub struct MethodCallExpr {
-    pub receiver: Box<Expression>,
+    pub receiver: Box<ExpressionLike>,
     pub method: Identifier,
-    pub arguments: Vec<Expression>,
+    pub arguments: Vec<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -230,9 +236,9 @@ impl_expr_kind!(MethodCallExpr);
 
 #[derive(Debug)]
 pub struct IfExpr {
-    pub cond: Box<Expression>,
-    pub then: Box<Expression>,
-    pub else_: Option<Box<Expression>>,
+    pub cond: Box<ExpressionLike>,
+    pub then: Box<ExpressionLike>,
+    pub else_: Option<Box<ExpressionLike>>,
 
     pub span: InputSpan,
 }
@@ -240,8 +246,8 @@ impl_expr_kind!(IfExpr);
 
 #[derive(Debug)]
 pub struct BlockExpr {
-    pub statements: Vec<Statement>,
-    pub final_expr: Option<Box<Expression>>,
+    pub statements: Vec<StmtOrExpr>,
+    pub final_expr: Option<Box<ExpressionLike>>,
 
     pub span: InputSpan,
 }

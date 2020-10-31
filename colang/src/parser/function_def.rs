@@ -35,7 +35,7 @@ impl Parser for FunctionDef {
                     name,
                     parameters,
                     return_type: return_type.map(|(_, type_)| type_),
-                    body: body.map(ast::Expression::Block),
+                    body: body.map(ast::ExpressionLike::Block),
                 }
             },
         )

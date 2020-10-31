@@ -1,7 +1,7 @@
 //! AST node definitions for global program structure. Global structure is everything starting
 //! from the root `Program` node but stopping at function bodies (not including them).
 
-use crate::ast::expressions::Expression;
+use crate::ast::expressions::ExpressionLike;
 use crate::ast::type_expressions::TypeExpr;
 use crate::ast::Identifier;
 use crate::source::InputSpan;
@@ -28,7 +28,7 @@ pub struct FunctionDef {
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
     pub return_type: Option<TypeExpr>,
-    pub body: Option<Expression>,
+    pub body: Option<ExpressionLike>,
 
     pub signature_span: InputSpan,
 }

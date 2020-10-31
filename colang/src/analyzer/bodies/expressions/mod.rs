@@ -39,45 +39,51 @@ use std::rc::Rc;
 /// The sister `compile_expression` function forces the syntax-expression to be a true expression,
 /// and reports an error otherwise.
 pub fn compile_expression_or_statement(
-    expression: ast::Expression,
+    expression: ast::ExpressionLike,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,
 ) -> DualNode {
     let node = match expression {
-        ast::Expression::Block(e) => block::compile_block(e, type_hint, context),
-        ast::Expression::Call(e) => call::compile_call(e, context),
-        ast::Expression::If(e) => if_::compile_if(e, type_hint, context),
-        ast::Expression::MethodCall(e) => method_call::compile_method_call(e, context),
+        ast::ExpressionLike::Block(e) => block::compile_block(e, type_hint, context),
+        ast::ExpressionLike::Call(e) => call::compile_call(e, context),
+        ast::ExpressionLike::If(e) => if_::compile_if(e, type_hint, context),
+        ast::ExpressionLike::MethodCall(e) => method_call::compile_method_call(e, context),
 
         other => DualNode::Expression(match other {
-            ast::Expression::Variable(e) => variable::compile_variable_expr(e, context),
-            ast::Expression::IntLiteral(e) => int_literal::compile_int_literal_expr(e, context),
-            ast::Expression::BoolLiteral(e) => bool_literal::compile_bool_literal_expr(e, context),
-            ast::Expression::CharLiteral(e) => char_literal::compile_char_literal_expr(e, context),
-            ast::Expression::StringLiteral(e) => {
+            ast::ExpressionLike::Variable(e) => variable::compile_variable_expr(e, context),
+            ast::ExpressionLike::IntLiteral(e) => int_literal::compile_int_literal_expr(e, context),
+            ast::ExpressionLike::BoolLiteral(e) => {
+                bool_literal::compile_bool_literal_expr(e, context)
+            }
+            ast::ExpressionLike::CharLiteral(e) => {
+                char_literal::compile_char_literal_expr(e, context)
+            }
+            ast::ExpressionLike::StringLiteral(e) => {
                 string_literal::compile_string_literal_expr(e, context)
             }
-            ast::Expression::Null(e) => null::compile_null_expr(e, type_hint, context),
-            ast::Expression::Self_(e) => self_::compile_self_expr(e, context),
-            ast::Expression::UnaryOp(e) => unary_op::compile_unary_op_expression(e, context),
-            ast::Expression::BinaryOp(e) => binary_op::compile_binary_op_expr(e, context),
-            ast::Expression::Address(e) => address::compile_address_expr(e, type_hint, context),
-            ast::Expression::Deref(e) => deref::compile_deref_expr(e, type_hint, context),
-            ast::Expression::New(e) => new::compile_new_expr(e, context),
-            ast::Expression::Is(e) => is::compile_is_expr(e, context),
-            ast::Expression::ArrayFromElements(e) => {
+            ast::ExpressionLike::Null(e) => null::compile_null_expr(e, type_hint, context),
+            ast::ExpressionLike::Self_(e) => self_::compile_self_expr(e, context),
+            ast::ExpressionLike::UnaryOp(e) => unary_op::compile_unary_op_expression(e, context),
+            ast::ExpressionLike::BinaryOp(e) => binary_op::compile_binary_op_expr(e, context),
+            ast::ExpressionLike::Address(e) => address::compile_address_expr(e, type_hint, context),
+            ast::ExpressionLike::Deref(e) => deref::compile_deref_expr(e, type_hint, context),
+            ast::ExpressionLike::New(e) => new::compile_new_expr(e, context),
+            ast::ExpressionLike::Is(e) => is::compile_is_expr(e, context),
+            ast::ExpressionLike::ArrayFromElements(e) => {
                 array_from_elements::compile_array_from_elements_expr(e, type_hint, context)
             }
-            ast::Expression::ArrayFromCopy(e) => {
+            ast::ExpressionLike::ArrayFromCopy(e) => {
                 array_from_copy::compile_array_from_copy_expr(e, context)
             }
-            ast::Expression::Index(e) => index::compile_index_expr(e, context),
-            ast::Expression::FieldAccess(e) => field_access::compile_field_access_expr(e, context),
+            ast::ExpressionLike::Index(e) => index::compile_index_expr(e, context),
+            ast::ExpressionLike::FieldAccess(e) => {
+                field_access::compile_field_access_expr(e, context)
+            }
 
-            ast::Expression::Block(_) => unreachable!(),
-            ast::Expression::Call(_) => unreachable!(),
-            ast::Expression::If(_) => unreachable!(),
-            ast::Expression::MethodCall(_) => unreachable!(),
+            ast::ExpressionLike::Block(_) => unreachable!(),
+            ast::ExpressionLike::Call(_) => unreachable!(),
+            ast::ExpressionLike::If(_) => unreachable!(),
+            ast::ExpressionLike::MethodCall(_) => unreachable!(),
         }),
     };
 
@@ -109,7 +115,7 @@ pub fn compile_expression_or_statement(
 /// This function forcefully treats the result as a true expression, and reports an error
 /// if it is not one.
 pub fn compile_expression(
-    expression: ast::Expression,
+    expression: ast::ExpressionLike,
     type_hint: Option<Rc<RefCell<Type>>>,
     context: &mut CompilerContext,
 ) -> program::Expression {

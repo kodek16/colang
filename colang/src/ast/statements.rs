@@ -1,20 +1,28 @@
-//! Statements are code that does not produce a value. They must be enclosed in a block (which
-//! itself is an expression, see `BlockExpr`).
+//! Definitions of CO statement and expression nodes.
+//!
+//! In CO, expressions (code that produces a value on execution) cannot be distinguished from
+//! statements (code that does not produce a value) at the parser level. Their disambiguation is
+//! made later, during the analysis phase.
+//!
+//! To represent these ambiguous objects, two types are provided in `colang::ast`.
 
-use crate::ast::expressions::Expression;
+use crate::ast::expressions::ExpressionLike;
 use crate::ast::type_expressions::TypeExpr;
 use crate::ast::Identifier;
 use crate::source::InputSpan;
 
 #[derive(Debug)]
-pub enum Statement {
+pub enum StmtOrExpr {
+    // Definitely statements:
     VarDecl(VarDeclStmt),
     Read(ReadStmt),
     Write(WriteStmt),
     While(WhileStmt),
     Assign(AssignStmt),
     Return(ReturnStmt),
-    Expr(ExprStmt),
+
+    // Either a statement or an expression:
+    ExprLike(ExpressionLike),
 }
 
 #[derive(Debug)]
@@ -28,7 +36,7 @@ pub struct VarDeclStmt {
 pub struct VarDeclEntry {
     pub variable_name: Identifier,
     pub variable_type: Option<TypeExpr>,
-    pub initializer: Option<Expression>,
+    pub initializer: Option<ExpressionLike>,
 
     pub span: InputSpan,
 }
@@ -43,14 +51,14 @@ pub struct ReadStmt {
 
 #[derive(Debug)]
 pub struct ReadEntry {
-    pub target: Expression,
+    pub target: ExpressionLike,
 
     pub span: InputSpan,
 }
 
 #[derive(Debug)]
 pub struct WriteStmt {
-    pub expression: Expression,
+    pub expression: ExpressionLike,
     pub newline: bool,
 
     pub span: InputSpan,
@@ -58,30 +66,23 @@ pub struct WriteStmt {
 
 #[derive(Debug)]
 pub struct WhileStmt {
-    pub cond: Box<Expression>,
-    pub body: Box<Expression>,
+    pub cond: Box<ExpressionLike>,
+    pub body: Box<ExpressionLike>,
 
     pub span: InputSpan,
 }
 
 #[derive(Debug)]
 pub struct AssignStmt {
-    pub lhs: Box<Expression>,
-    pub rhs: Box<Expression>,
+    pub lhs: Box<ExpressionLike>,
+    pub rhs: Box<ExpressionLike>,
 
     pub span: InputSpan,
 }
 
 #[derive(Debug)]
 pub struct ReturnStmt {
-    pub expression: Option<Expression>,
-
-    pub span: InputSpan,
-}
-
-#[derive(Debug)]
-pub struct ExprStmt {
-    pub expression: Expression,
+    pub expression: Option<ExpressionLike>,
 
     pub span: InputSpan,
 }

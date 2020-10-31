@@ -182,3 +182,9 @@ pub mod word {
 
     word_parser!(KwFun, "fun");
 }
+
+// Some other modules, like `ident` and `expressions::int_literal` could use the same pattern,
+// having a "regex_parser" macro here. For now I decided not to do this because it's much more
+// likely that regex "terminals" could have idiosyncratic behavior. When const-generics land,
+// we could rework this entire idea with macros using modules parametrized with strings (ideally)
+// or at least integer ids pointing to a global static table.

@@ -14,7 +14,9 @@ mod program;
 mod repeat;
 mod scalar_type_expr;
 mod seq;
+mod stmt_or_expr;
 mod type_expr;
+mod expressions;
 
 use crate::ast;
 use crate::parser::common::{ParseResult, ParsedNode, Parser};

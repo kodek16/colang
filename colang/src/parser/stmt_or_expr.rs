@@ -18,3 +18,44 @@ impl Parser for StmtOrExpr {
         IntLiteralExpr::parse(input, ctx).map(ast::StmtOrExpr::ExprLike)
     }
 }
+
+/// Parses a statement or expression, and emits an error if the result is definitely a statement.
+pub struct ExprLike;
+
+impl Parser for ExprLike {
+    type N = ast::ExpressionLike;
+
+    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+        StmtOrExpr::parse(input, ctx).bind(|stmt_or_expr| match stmt_or_expr {
+            ast::StmtOrExpr::ExprLike(e) => ParsedNode::Ok(e),
+            s @ _ => {
+                let error = SyntaxError::StatementInExprContext(s.span());
+                ParsedNode::Recovered(synthetic_null_expr(s.span()), vec![error])
+            }
+        })
+    }
+}
+
+pub struct StmtOrExprOrSynthesize;
+
+impl SynthesizeIfMissing for StmtOrExprOrSynthesize {
+    type P = StmtOrExpr;
+
+    fn synthesize(location: InputSpan) -> ast::StmtOrExpr {
+        ast::StmtOrExpr::ExprLike(synthetic_null_expr(location))
+    }
+}
+
+pub struct ExprLikeOrSynthesize;
+
+impl SynthesizeIfMissing for ExprLikeOrSynthesize {
+    type P = ExprLike;
+
+    fn synthesize(location: InputSpan) -> ast::ExpressionLike {
+        synthetic_null_expr(location)
+    }
+}
+
+fn synthetic_null_expr(span: InputSpan) -> ast::ExpressionLike {
+    ast::ExpressionLike::Null(ast::NullExpr { span })
+}

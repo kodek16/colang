@@ -25,6 +25,20 @@ pub enum StmtOrExpr {
     ExprLike(ExpressionLike),
 }
 
+impl StmtOrExpr {
+    pub fn span(&self) -> InputSpan {
+        match self {
+            StmtOrExpr::VarDecl(VarDeclStmt { span, .. }) => *span,
+            StmtOrExpr::Read(ReadStmt { span, .. }) => *span,
+            StmtOrExpr::Write(WriteStmt { span, .. }) => *span,
+            StmtOrExpr::While(WhileStmt { span, .. }) => *span,
+            StmtOrExpr::Assign(AssignStmt { span, .. }) => *span,
+            StmtOrExpr::Return(ReturnStmt { span, .. }) => *span,
+            StmtOrExpr::ExprLike(e) => e.span(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct VarDeclStmt {
     pub entries: Vec<VarDeclEntry>,

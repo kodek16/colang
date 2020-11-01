@@ -8,6 +8,7 @@ use crate::source::InputSpan;
 #[derive(Debug)]
 pub enum SyntaxError {
     UnexpectedToken(InputSpan),
+    StatementInExprContext(InputSpan),
 }
 
 /// A parser routine that produces a node of type `N`.
@@ -47,6 +48,18 @@ impl<T> ParsedNode<T> {
             _ => false,
         }
     }
+
+    /// If `self` is a successful or recovered parse, adds a syntax error at its end.
+    pub fn add_error(self, error: SyntaxError) -> ParsedNode<T> {
+        match self {
+            ParsedNode::Ok(node) => ParsedNode::Recovered(node, vec![error]),
+            ParsedNode::Recovered(node, mut errors) => {
+                errors.push(error);
+                ParsedNode::Recovered(node, errors)
+            }
+            m @ ParsedNode::Missing(_) => m,
+        }
+    }
 }
 
 /// Result of running a parsing routine.
@@ -66,17 +79,21 @@ impl<'a, T> ParseResult<'a, T> {
         ParseResult(node, input)
     }
 
+    pub fn bind<U>(self, f: impl FnOnce(T) -> ParsedNode<U>) -> ParseResult<'a, U> {
+        let ParseResult(node, input) = self;
+        let node = match node {
+            ParsedNode::Ok(node) => f(node),
+            ParsedNode::Recovered(node, errors) => errors
+                .into_iter()
+                .fold(f(node), |acc, err| acc.add_error(err)),
+            ParsedNode::Missing(error) => ParsedNode::Missing(error),
+        };
+        ParseResult(node, input)
+    }
+
     /// If `self` is a successful or recovered parse, adds a syntax error at its end.
     pub fn add_error(self, error: SyntaxError) -> ParseResult<'a, T> {
         let ParseResult(node, input) = self;
-        let node = match node {
-            ParsedNode::Ok(node) => ParsedNode::Recovered(node, vec![error]),
-            ParsedNode::Recovered(node, mut errors) => {
-                errors.push(error);
-                ParsedNode::Recovered(node, errors)
-            }
-            m @ ParsedNode::Missing(_) => m,
-        };
-        ParseResult(node, input)
+        ParseResult(node.add_error(error), input)
     }
 }

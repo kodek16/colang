@@ -58,6 +58,18 @@ impl Add for InputSpan {
     }
 }
 
+// Allow adding spans if rhs may be absent, for convenience.
+impl Add<Option<InputSpan>> for InputSpan {
+    type Output = InputSpan;
+
+    fn add(self, rhs: Option<InputSpan>) -> Self::Output {
+        match rhs {
+            Some(rhs) => self + rhs,
+            None => self,
+        }
+    }
+}
+
 /// The original location in source code of some target language expression or statement.
 ///
 /// If an expression was synthesised (e.g. through auto-deref), this information is also contained

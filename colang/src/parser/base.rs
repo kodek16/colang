@@ -181,6 +181,7 @@ pub mod word {
     use super::*;
 
     word_parser!(KwFun, "fun");
+    word_parser!(KwVar, "var");
 }
 
 // Some other modules, like `ident` and `expressions::int_literal` could use the same pattern,

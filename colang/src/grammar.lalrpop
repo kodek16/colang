@@ -577,8 +577,7 @@ ParensExpr: ExpressionLike = {
 Block: BlockExpr = {
     <start: @L> "{" "}" <end: @R> => {
         BlockExpr {
-            statements: vec![],
-            final_expr: None,
+            items: vec![],
             span: InputSpan { file, start, end },
         }
     },
@@ -587,16 +586,16 @@ Block: BlockExpr = {
         let mut statements = statements;
         statements.push(final_stmt);
         BlockExpr {
-            statements,
-            final_expr: None,
+            items: statements,
             span: InputSpan { file, start, end },
         }
     },
 
     <start: @L> "{" <statements:(<Stmt>)*> <final_expr:Expr> "}" <end: @R> => {
+        let mut items = statements;
+        items.push(StmtOrExpr::ExprLike(final_expr));
         BlockExpr {
-            statements,
-            final_expr: Some(Box::new(final_expr)),
+            items,
             span: InputSpan { file, start, end },
         }
     },

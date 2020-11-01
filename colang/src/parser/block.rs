@@ -15,8 +15,7 @@ impl Parser for Block {
         )
         .map(|(left, stmt_or_expr, right)| ast::BlockExpr {
             span: left + right,
-            statements: stmt_or_expr.into_iter().collect(),
-            final_expr: None,
+            items: stmt_or_expr.into_iter().collect(),
         })
     }
 }

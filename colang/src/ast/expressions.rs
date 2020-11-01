@@ -246,8 +246,7 @@ impl_expr_kind!(IfExpr);
 
 #[derive(Debug)]
 pub struct BlockExpr {
-    pub statements: Vec<StmtOrExpr>,
-    pub final_expr: Option<Box<ExpressionLike>>,
+    pub items: Vec<StmtOrExpr>,
 
     pub span: InputSpan,
 }

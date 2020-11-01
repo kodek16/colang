@@ -15,22 +15,27 @@ pub fn compile_block(
 ) -> DualNode {
     context.scope.push();
     let mut builder = BlockBuilder::new();
-    for statement in block.statements {
-        compile_statement(statement, &mut builder, context);
-    }
 
-    let result = match block.final_expr {
-        Some(final_expr) => {
-            let final_node = compile_expression_or_statement(*final_expr, type_hint, context);
-
-            match final_node {
-                DualNode::Expression(final_expr) => DualNode::Expression(builder.into_expr(
-                    final_expr,
-                    context.program.types_mut(),
-                    block.span,
-                )),
-                DualNode::Statement(final_stmt) => {
-                    builder.append_statement(final_stmt);
+    let mut items = block.items;
+    let result = match items.pop() {
+        Some(last) => {
+            for item in items {
+                compile_statement(item, &mut builder, context);
+            }
+            match last {
+                ast::StmtOrExpr::ExprLike(expr_like) => {
+                    match compile_expression_or_statement(expr_like, type_hint, context) {
+                        DualNode::Expression(final_expr) => DualNode::Expression(
+                            builder.into_expr(final_expr, context.program.types_mut(), block.span),
+                        ),
+                        DualNode::Statement(final_stmt) => {
+                            builder.append_statement(final_stmt);
+                            DualNode::Statement(builder.into_stmt(block.span))
+                        }
+                    }
+                }
+                _ => {
+                    compile_statement(last, &mut builder, context);
                     DualNode::Statement(builder.into_stmt(block.span))
                 }
             }

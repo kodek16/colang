@@ -13,7 +13,7 @@ impl Parser for VarDeclStmt {
     type N = ast::VarDeclStmt;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq2<AbortIfMissing<word::KwVar>, VarDeclEntryOrSynthesize>>::parse(input, ctx).map(
+        <Seq2<AbortIfMissing<WordParser<KwVar>>, VarDeclEntryOrSynthesize>>::parse(input, ctx).map(
             |(kw_var, entry)| {
                 let span = kw_var + entry.span;
                 ast::VarDeclStmt {
@@ -33,7 +33,7 @@ impl Parser for VarDeclEntry {
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
         <Seq3<
             AbortIfMissing<Identifier>,
-            Optional<Seq2<AbortIfMissing<chars::Colon>, TypeExprOrSynthesize>>,
+            Optional<Seq2<AbortIfMissing<CharsParser<Colon>>, TypeExprOrSynthesize>>,
             Optional<Seq2<AbortIfMissing<SingleEquals>, ExprLikeOrSynthesize>>,
         >>::parse(input, ctx)
         .map(|(name, type_, initializer)| {

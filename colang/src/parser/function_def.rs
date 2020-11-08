@@ -14,12 +14,12 @@ impl Parser for FunctionDef {
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
         <Seq7<
-            AbortIfMissing<word::KwFun>,
+            AbortIfMissing<WordParser<KwFun>>,
             NameItem,
             LeftParenItem,
             ParameterListItem,
             RightParenItem,
-            Optional<Seq2<AbortIfMissing<chars::Colon>, TypeExprOrSynthesize>>,
+            Optional<Seq2<AbortIfMissing<CharsParser<Colon>>, TypeExprOrSynthesize>>,
             Optional<Block>,
         >>::parse(input, ctx)
         .map(
@@ -58,7 +58,7 @@ impl SynthesizeIfMissing for NameItem {
 struct LeftParenItem;
 
 impl SynthesizeIfMissing for LeftParenItem {
-    type P = chars::LeftParen;
+    type P = CharsParser<LeftParen>;
 
     fn synthesize(location: InputSpan) -> InputSpan {
         location
@@ -78,7 +78,7 @@ impl SynthesizeIfMissing for ParameterListItem {
 struct RightParenItem;
 
 impl SynthesizeIfMissing for RightParenItem {
-    type P = chars::RightParen;
+    type P = CharsParser<RightParen>;
 
     fn synthesize(location: InputSpan) -> InputSpan {
         location

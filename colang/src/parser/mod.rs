@@ -1,8 +1,17 @@
+use crate::ast;
+pub use crate::parser::common::SyntaxError;
+use crate::parser::common::{ParseResult, ParsedNode, Parser};
+use crate::parser::context::ParsingContext;
+use crate::parser::input::Input;
+use crate::source::InputSpanFile;
+
 mod base;
 mod block;
+mod chars;
 mod comma_list;
 mod common;
 mod context;
+mod equals;
 mod expressions;
 mod function_def;
 mod ident;
@@ -18,15 +27,7 @@ mod seq;
 mod statements;
 mod stmt_or_expr;
 mod type_expr;
-mod equals;
-
-use crate::ast;
-use crate::parser::common::{ParseResult, ParsedNode, Parser};
-use crate::parser::context::ParsingContext;
-use crate::parser::input::Input;
-use crate::source::InputSpanFile;
-
-pub use crate::parser::common::SyntaxError;
+mod words;
 
 /// Parses an entire source file, constructing an `ast::Program`.
 pub fn parse(source_code: &str, file: InputSpanFile) -> Result<ast::Program, Vec<SyntaxError>> {

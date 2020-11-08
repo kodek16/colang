@@ -10,7 +10,7 @@ impl Parser for Block {
     type N = ast::BlockExpr;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq3<AbortIfMissing<chars::LeftBrace>, Optional<StmtOrExpr>, RightBraceItem>>::parse(
+        <Seq3<AbortIfMissing<CharsParser<LeftBrace>>, Optional<StmtOrExpr>, RightBraceItem>>::parse(
             input, ctx,
         )
         .map(|(left, stmt_or_expr, right)| ast::BlockExpr {
@@ -23,7 +23,7 @@ impl Parser for Block {
 struct RightBraceItem;
 
 impl SynthesizeIfMissing for RightBraceItem {
-    type P = chars::RightBrace;
+    type P = CharsParser<RightBrace>;
 
     fn synthesize(location: InputSpan) -> InputSpan {
         location

@@ -1,11 +1,11 @@
 //! Reusable parsers for low-level nodes.
 
+use std::marker::PhantomData;
+
 use crate::parser::common::{ParseResult, ParsedNode, Parser, SyntaxError};
 use crate::parser::context::ParsingContext;
 use crate::parser::input::Input;
 use crate::source::InputSpan;
-use paste::paste;
-use std::marker::PhantomData;
 
 /// Skips comments and whitespace.
 pub struct Ignored;
@@ -58,134 +58,89 @@ impl<P: Parser> Parser for WithIgnored<P> {
     }
 }
 
-/// Consumes `$target`, expecting them to be the next non-whitespace characters on input.
+pub trait Chars {
+    const CHARS: &'static str;
+}
+
+/// Consumes `C`, expecting them to be the next non-whitespace characters on input.
 ///
-/// Unlike `word_parser`, the characters do not have to be alphanumeric, and do not have to
+/// Unlike `WordParser`, the characters do not have to be alphanumeric, and do not have to
 /// be followed by a specific boundary.
-macro_rules! chars_parser {
-    ($name: ident, $target: literal) => {
-        paste! {
-            #[allow(non_snake_case)]
-            mod [<$name _internal>] {
-                use super::*;
+pub struct CharsParser<C: Chars> {
+    phantom: PhantomData<C>,
+}
 
-                struct Internal;
+impl<C: Chars> Parser for CharsParser<C> {
+    type N = InputSpan;
 
-                impl Parser for Internal {
-                    type N = InputSpan;
+    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+        <WithIgnored<CharsParserInternal<C>>>::parse(input, ctx)
+    }
+}
 
-                    fn parse<'a>(
-                        input: Input<'a>,
-                        ctx: &ParsingContext,
-                    ) -> ParseResult<'a, Self::N> {
-                        if &input[..$target.len()] == $target {
-                            let (chars, remaining) = input.split_at($target.len());
-                            ParseResult(ParsedNode::Ok(chars.span_of_full(ctx)), remaining)
-                        } else {
-                            let error = SyntaxError::UnexpectedToken(input.span_of_first(ctx));
-                            ParseResult(ParsedNode::Missing(error), input)
-                        }
-                    }
-                }
+pub struct CharsParserInternal<C: Chars> {
+    phantom: PhantomData<C>,
+}
 
-                pub struct $name;
+impl<C: Chars> Parser for CharsParserInternal<C> {
+    type N = InputSpan;
 
-                impl Parser for $name {
-                    type N = InputSpan;
-
-                    fn parse<'a>(
-                        input: Input<'a>,
-                        ctx: &ParsingContext,
-                    ) -> ParseResult<'a, InputSpan> {
-                        <WithIgnored<Internal>>::parse(input, ctx)
-                    }
-                }
-            }
-
-            pub use [<$name _internal>]::$name;
+    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+        if &input[..C::CHARS.len()] == C::CHARS {
+            let (chars, remaining) = input.split_at(C::CHARS.len());
+            ParseResult(ParsedNode::Ok(chars.span_of_full(ctx)), remaining)
+        } else {
+            let error = SyntaxError::UnexpectedToken(input.span_of_first(ctx));
+            ParseResult(ParsedNode::Missing(error), input)
         }
-    };
+    }
 }
 
-// Because of how macros are exported it would be inconvenient to keep the instantiations in
-// their respective modules.
-
-pub mod chars {
-    use super::*;
-
-    chars_parser!(LeftBrace, "{");
-    chars_parser!(RightBrace, "}");
-    chars_parser!(LeftParen, "(");
-    chars_parser!(RightParen, ")");
-    chars_parser!(Comma, ",");
-    chars_parser!(Colon, ":");
+pub trait Word {
+    const WORD: &'static str;
 }
 
-/// Consumes the next full word if it matches the expected word (`$target`).
+/// Consumes the next full word if it matches the expected word.
 ///
-/// Unlike `chars_parser`, the word has to contain only alphanumeric characters, and must end
-/// with a word boundary (e.g. `word_parser!(_, "fun")` would not match `"fund"`.
-macro_rules! word_parser {
-    ($name: ident, $target: literal) => {
-        paste! {
-            #[allow(non_snake_case)]
-            mod [<$name _internal>] {
-                use super::*;
-
-                struct Internal;
-
-                impl Parser for Internal {
-                    type N = InputSpan;
-
-                    fn parse<'a>(
-                        input: Input<'a>,
-                        ctx: &ParsingContext,
-                    ) -> ParseResult<'a, Self::N> {
-                        let idx = input.find(|c: char| !c.is_alphanumeric());
-                        let (actual_word, remaining) = match idx {
-                            Some(idx) => input.split_at(idx),
-                            None => input.consume_all(),
-                        };
-
-                        if *actual_word == *$target {
-                            ParseResult(ParsedNode::Ok(actual_word.span_of_full(ctx)), remaining)
-                        } else {
-                            // TODO maybe see if the word is similar, and if it is, recover?
-                            let error =
-                                SyntaxError::UnexpectedToken(actual_word.span_of_first(ctx));
-                            ParseResult(ParsedNode::Missing(error), input)
-                        }
-                    }
-                }
-
-                pub struct $name;
-
-                impl Parser for $name {
-                    type N = InputSpan;
-
-                    fn parse<'a>(
-                        input: Input<'a>,
-                        ctx: &ParsingContext,
-                    ) -> ParseResult<'a, Self::N> {
-                        <WithIgnored<Internal>>::parse(input, ctx)
-                    }
-                }
-            }
-
-            pub use [<$name _internal>]::$name;
-        }
-    };
+/// Unlike `CharsParser`, the word has to contain only alphanumeric characters, and must end
+/// with a word boundary (e.g. `WordParser<KwFun>` would not match `"fund"`.
+pub struct WordParser<W: Word> {
+    phantom: PhantomData<W>,
 }
 
-pub mod word {
-    use super::*;
+impl<W: Word> Parser for WordParser<W> {
+    type N = InputSpan;
 
-    word_parser!(KwFun, "fun");
-    word_parser!(KwVar, "var");
+    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+        <WithIgnored<WordParserInternal<W>>>::parse(input, ctx)
+    }
+}
+
+struct WordParserInternal<W: Word> {
+    phantom: PhantomData<W>,
+}
+
+impl<W: Word> Parser for WordParserInternal<W> {
+    type N = InputSpan;
+
+    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+        let idx = input.find(|c: char| !c.is_alphanumeric());
+        let (actual_word, remaining) = match idx {
+            Some(idx) => input.split_at(idx),
+            None => input.consume_all(),
+        };
+
+        if *actual_word == *W::WORD {
+            ParseResult(ParsedNode::Ok(actual_word.span_of_full(ctx)), remaining)
+        } else {
+            // TODO maybe see if the word is similar, and if it is, recover?
+            let error = SyntaxError::UnexpectedToken(actual_word.span_of_first(ctx));
+            ParseResult(ParsedNode::Missing(error), input)
+        }
+    }
 }
 
 // Some other modules, like `ident` and `expressions::int_literal` could use the same pattern,
-// having a "regex_parser" macro here. For now I decided not to do this because it's much more
-// likely that regex "terminals" could have idiosyncratic behavior. When const-generics land,
-// we could rework this entire idea with macros using modules parametrized with strings (ideally)
-// or at least integer ids pointing to a global static table.
+// having a `RegexParser` generic struct here. This seems harder to do because of lazy_static!
+// use. Regex terminals also seem more likely to have some unique behavior for every instance,
+// so `RegexParser` might be less justified.

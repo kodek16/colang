@@ -26,7 +26,7 @@ impl Parser for NormalParameterDef {
 struct ColonItem;
 
 impl SynthesizeIfMissing for ColonItem {
-    type P = chars::Colon;
+    type P = CharsParser<Colon>;
 
     fn synthesize(location: InputSpan) -> InputSpan {
         location

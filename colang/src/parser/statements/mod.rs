@@ -1,1 +1,1 @@
-mod var_decl;
+pub mod var_decl;

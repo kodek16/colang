@@ -10,16 +10,16 @@ use crate::parser::type_expr::TypeExprOrSynthesize;
 pub struct VarDeclStmt;
 
 impl Parser for VarDeclStmt {
-    type N = ast::VarDeclStmt;
+    type N = ast::StmtOrExpr;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
         <Seq2<AbortIfMissing<WordParser<KwVar>>, VarDeclEntryOrSynthesize>>::parse(input, ctx).map(
             |(kw_var, entry)| {
                 let span = kw_var + entry.span;
-                ast::VarDeclStmt {
+                ast::StmtOrExpr::VarDecl(ast::VarDeclStmt {
                     span,
                     entries: vec![entry],
-                }
+                })
             },
         )
     }

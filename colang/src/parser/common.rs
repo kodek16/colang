@@ -91,6 +91,14 @@ impl<'a, T> ParseResult<'a, T> {
         ParseResult(node, input)
     }
 
+    pub fn or(self, f: impl FnOnce() -> Self) -> Self {
+        match self {
+            ParseResult(ParsedNode::Ok(_), _) => self,
+            ParseResult(ParsedNode::Recovered(_, _), _) => self,
+            ParseResult(ParsedNode::Missing(_), _) => f(),
+        }
+    }
+
     /// If `self` is a successful or recovered parse, adds a syntax error at its end.
     pub fn add_error(self, error: SyntaxError) -> ParseResult<'a, T> {
         let ParseResult(node, input) = self;

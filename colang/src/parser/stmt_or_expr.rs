@@ -8,6 +8,8 @@
 use crate::ast;
 use crate::parser::expressions::int_literal::IntLiteralExpr;
 use crate::parser::prelude::*;
+use crate::parser::statements::var_decl::VarDeclStmt;
+use std::marker::PhantomData;
 
 pub struct StmtOrExpr;
 
@@ -15,7 +17,7 @@ impl Parser for StmtOrExpr {
     type N = ast::StmtOrExpr;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        IntLiteralExpr::parse(input, ctx).map(ast::StmtOrExpr::ExprLike)
+        <OneOf2<VarDeclStmt, WrapExprLike<IntLiteralExpr>>>::parse(input, ctx)
     }
 }
 
@@ -58,4 +60,16 @@ impl SynthesizeIfMissing for ExprLikeOrSynthesize {
 
 fn synthetic_null_expr(span: InputSpan) -> ast::ExpressionLike {
     ast::ExpressionLike::Null(ast::NullExpr { span })
+}
+
+struct WrapExprLike<P: Parser<N = ast::ExpressionLike>> {
+    phantom: PhantomData<P>,
+}
+
+impl<P: Parser<N = ast::ExpressionLike>> Parser for WrapExprLike<P> {
+    type N = ast::StmtOrExpr;
+
+    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+        P::parse(input, ctx).map(ast::StmtOrExpr::ExprLike)
+    }
 }

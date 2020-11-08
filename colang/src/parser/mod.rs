@@ -17,6 +17,7 @@ mod function_def;
 mod ident;
 mod input;
 mod normal_param_def;
+mod one_of;
 mod param_def;
 mod param_list;
 mod prelude;

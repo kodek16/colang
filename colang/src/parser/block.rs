@@ -11,24 +11,14 @@ impl Parser for Block {
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
         <Seq3<
-            AbortIfMissing<CharsParser<LeftBrace>>,
+            AbortIfMissing<LeftBrace>,
             AbortIfMissing<RepeatZeroOrMore<StmtOrExpr, Recover>>,
-            RightBraceItem,
+            RightBraceOrSynthesize,
         >>::parse(input, ctx)
         .map(|(left, stmt_or_expr, right)| ast::BlockExpr {
             span: left + right,
             items: stmt_or_expr.into_iter().collect(),
         })
-    }
-}
-
-struct RightBraceItem;
-
-impl SynthesizeIfMissing for RightBraceItem {
-    type P = CharsParser<RightBrace>;
-
-    fn synthesize(location: InputSpan) -> InputSpan {
-        location
     }
 }
 

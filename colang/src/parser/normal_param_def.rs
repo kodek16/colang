@@ -11,24 +11,15 @@ impl Parser for NormalParameterDef {
     type N = ast::Parameter;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq3<AbortIfMissing<Identifier>, ColonItem, TypeExprOrSynthesize>>::parse(input, ctx).map(
-            |(name, _, type_)| {
-                ast::Parameter::Normal(ast::NormalParameter {
-                    span: name.span + type_.span(),
-                    name,
-                    type_,
-                })
-            },
+        <Seq3<AbortIfMissing<Identifier>, ColonOrSynthesize, TypeExprOrSynthesize>>::parse(
+            input, ctx,
         )
-    }
-}
-
-struct ColonItem;
-
-impl SynthesizeIfMissing for ColonItem {
-    type P = CharsParser<Colon>;
-
-    fn synthesize(location: InputSpan) -> InputSpan {
-        location
+        .map(|(name, _, type_)| {
+            ast::Parameter::Normal(ast::NormalParameter {
+                span: name.span + type_.span(),
+                name,
+                type_,
+            })
+        })
     }
 }

@@ -16,12 +16,7 @@ impl<P: Parser> Parser for CommaSeparated<P> {
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
         <Seq2<
-            Optional<
-                RepeatZeroOrMore<
-                    Seq2<AbortIfMissing<P>, AbortIfMissing<CharsParser<Comma>>>,
-                    DontRecover,
-                >,
-            >,
+            Optional<RepeatZeroOrMore<Seq2<AbortIfMissing<P>, AbortIfMissing<Comma>>, DontRecover>>,
             Optional<P>,
         >>::parse(input, ctx)
         .map(|(seq, last)| {

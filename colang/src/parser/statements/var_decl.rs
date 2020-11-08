@@ -14,11 +14,11 @@ impl Parser for VarDeclStmt {
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
         <Seq3<
-            AbortIfMissing<WordParser<KwVar>>,
+            AbortIfMissing<KwVar>,
             VarDeclEntryOrSynthesize,
             AbortIfMissing<
                 RepeatZeroOrMore<
-                    Seq2<AbortIfMissing<CharsParser<Comma>>, VarDeclEntryOrSynthesize>,
+                    Seq2<AbortIfMissing<Comma>, VarDeclEntryOrSynthesize>,
                     DontRecover,
                 >,
             >,
@@ -42,7 +42,7 @@ impl Parser for VarDeclEntry {
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
         <Seq3<
             AbortIfMissing<Identifier>,
-            Optional<Seq2<AbortIfMissing<CharsParser<Colon>>, TypeExprOrSynthesize>>,
+            Optional<Seq2<AbortIfMissing<Colon>, TypeExprOrSynthesize>>,
             Optional<Seq2<AbortIfMissing<SingleEquals>, ExprLikeOrSynthesize>>,
         >>::parse(input, ctx)
         .map(|(name, type_, initializer)| {

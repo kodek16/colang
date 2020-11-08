@@ -1,7 +1,7 @@
 //! Parser for function definitions.
 
 use crate::ast;
-use crate::parser::block::Block;
+use crate::parser::expressions::block::BlockExpr;
 use crate::parser::ident::Identifier;
 use crate::parser::param_list::ParameterList;
 use crate::parser::prelude::*;
@@ -20,7 +20,7 @@ impl Parser for FunctionDef {
             ParameterListItem,
             RightParenOrSynthesize,
             Optional<Seq2<AbortIfMissing<Colon>, TypeExprOrSynthesize>>,
-            Optional<Block>,
+            Optional<BlockExpr>,
         >>::parse(input, ctx)
         .map(
             |(kw_fun, name, _, parameters, paren_r, return_type, body)| {
@@ -35,7 +35,7 @@ impl Parser for FunctionDef {
                     name,
                     parameters,
                     return_type: return_type.map(|(_, type_)| type_),
-                    body: body.map(ast::ExpressionLike::Block),
+                    body,
                 }
             },
         )

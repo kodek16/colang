@@ -6,7 +6,6 @@ use crate::parser::input::Input;
 use crate::source::InputSpanFile;
 
 mod base;
-mod block;
 mod chars;
 mod comma_list;
 mod common;

@@ -42,3 +42,28 @@ impl<P1: Parser, P2: Parser<N = P1::N>, P3: Parser<N = P1::N>, P4: Parser<N = P1
         <OneOf2<P1, OneOf3<P2, P3, P4>>>::parse(input, ctx)
     }
 }
+
+pub struct OneOf5<
+    P1: Parser,
+    P2: Parser<N = P1::N>,
+    P3: Parser<N = P1::N>,
+    P4: Parser<N = P1::N>,
+    P5: Parser<N = P1::N>,
+> {
+    phantom: PhantomData<(P1, P2, P3, P4, P5)>,
+}
+
+impl<
+        P1: Parser,
+        P2: Parser<N = P1::N>,
+        P3: Parser<N = P1::N>,
+        P4: Parser<N = P1::N>,
+        P5: Parser<N = P1::N>,
+    > Parser for OneOf5<P1, P2, P3, P4, P5>
+{
+    type N = P1::N;
+
+    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+        <OneOf2<P1, OneOf4<P2, P3, P4, P5>>>::parse(input, ctx)
+    }
+}

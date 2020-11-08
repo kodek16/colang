@@ -6,6 +6,7 @@
 //! the two until the later analysis phase.
 
 use crate::ast;
+use crate::parser::expressions::block::BlockExpr;
 use crate::parser::expressions::if_::IfExpr;
 use crate::parser::expressions::int_literal::IntLiteralExpr;
 use crate::parser::prelude::*;
@@ -19,10 +20,13 @@ impl Parser for StmtOrExpr {
     type N = ast::StmtOrExpr;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <OneOf4<VarDeclStmt,
+        <OneOf5<
+            VarDeclStmt,
             SemicolonStmt,
+            WrapExprLike<BlockExpr>,
             WrapExprLike<IntLiteralExpr>,
-            WrapExprLike<IfExpr>>>::parse(input, ctx)
+            WrapExprLike<IfExpr>,
+        >>::parse(input, ctx)
     }
 }
 

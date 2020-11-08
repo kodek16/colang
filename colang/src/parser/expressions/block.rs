@@ -4,10 +4,10 @@ use crate::ast;
 use crate::parser::prelude::*;
 use crate::parser::stmt_or_expr::StmtOrExpr;
 
-pub struct Block;
+pub struct BlockExpr;
 
-impl Parser for Block {
-    type N = ast::BlockExpr;
+impl Parser for BlockExpr {
+    type N = ast::ExpressionLike;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
         <Seq3<
@@ -15,9 +15,11 @@ impl Parser for Block {
             AbortIfMissing<RepeatZeroOrMore<StmtOrExpr, Recover>>,
             RightBraceOrSynthesize,
         >>::parse(input, ctx)
-        .map(|(left, stmt_or_expr, right)| ast::BlockExpr {
-            span: left + right,
-            items: stmt_or_expr.into_iter().collect(),
+        .map(|(left, stmt_or_expr, right)| {
+            ast::ExpressionLike::Block(ast::BlockExpr {
+                span: left + right,
+                items: stmt_or_expr.into_iter().collect(),
+            })
         })
     }
 }

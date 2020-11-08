@@ -10,19 +10,20 @@ impl Parser for IfExpr {
     type N = ast::ExpressionLike;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq5<
+        <Seq6<
             AbortIfMissing<KwIf>,
             LeftParenOrSynthesize,
             ExprLikeOrSynthesize,
             RightParenOrSynthesize,
             ExprLikeOrSynthesize,
+            Optional<Seq2<AbortIfMissing<KwElse>, ExprLikeOrSynthesize>>,
         >>::parse(input, ctx)
-        .map(|(kw_if, _, cond, _, then)| {
-            let span = kw_if + then.span();
+        .map(|(kw_if, _, cond, _, then, else_)| {
+            let span = kw_if + then.span() + else_.as_ref().map(|(_, e)| e.span());
             ast::ExpressionLike::If(ast::IfExpr {
                 cond: Box::new(cond),
                 then: Box::new(then),
-                else_: None,
+                else_: else_.map(|(_, e)| Box::new(e)),
                 span,
             })
         })

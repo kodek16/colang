@@ -6,10 +6,9 @@
 //! the two until the later analysis phase.
 
 use crate::ast;
+use crate::parser::expressions::binary_op::BinaryOperatorExpr;
 use crate::parser::expressions::block::BlockExpr;
-use crate::parser::expressions::bool_literal::BoolLiteralExpr;
 use crate::parser::expressions::if_::IfExpr;
-use crate::parser::expressions::int_literal::IntLiteralExpr;
 use crate::parser::prelude::*;
 use crate::parser::statements::semicolon::SemicolonStmt;
 use crate::parser::statements::var_decl::VarDeclStmt;
@@ -24,7 +23,7 @@ impl Parser for StmtOrExpr {
         <OneOf3<
             VarDeclStmt,
             SemicolonStmt,
-            WrapExprLike<OneOf4<IfExpr, BlockExpr, BoolLiteralExpr, IntLiteralExpr>>,
+            WrapExprLike<OneOf3<IfExpr, BlockExpr, BinaryOperatorExpr>>,
         >>::parse(input, ctx)
     }
 }

@@ -1,4 +1,7 @@
+pub mod binary_op;
 pub mod block;
-pub mod bool_literal;
 pub mod if_;
-pub mod int_literal;
+
+mod bool_literal;
+mod int_literal;
+mod primary;

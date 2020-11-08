@@ -6,6 +6,10 @@ mod internal {
     pub struct Colon;
     pub struct Semicolon;
     pub struct Comma;
+    pub struct Plus;
+    pub struct Minus;
+    pub struct Asterisk;
+    pub struct Slash;
     pub struct LeftParen;
     pub struct RightParen;
     pub struct LeftBrace;
@@ -22,6 +26,22 @@ impl Chars for internal::Semicolon {
 
 impl Chars for internal::Comma {
     const CHARS: &'static str = ",";
+}
+
+impl Chars for internal::Plus {
+    const CHARS: &'static str = "+";
+}
+
+impl Chars for internal::Minus {
+    const CHARS: &'static str = "-";
+}
+
+impl Chars for internal::Asterisk {
+    const CHARS: &'static str = "*";
+}
+
+impl Chars for internal::Slash {
+    const CHARS: &'static str = "/";
 }
 
 impl Chars for internal::LeftParen {
@@ -43,6 +63,10 @@ impl Chars for internal::RightBrace {
 pub type Colon = CharsParser<internal::Colon>;
 pub type Semicolon = CharsParser<internal::Semicolon>;
 pub type Comma = CharsParser<internal::Comma>;
+pub type Plus = CharsParser<internal::Plus>;
+pub type Minus = CharsParser<internal::Minus>;
+pub type Asterisk = CharsParser<internal::Asterisk>;
+pub type Slash = CharsParser<internal::Slash>;
 pub type LeftParen = CharsParser<internal::LeftParen>;
 pub type RightParen = CharsParser<internal::RightParen>;
 pub type LeftBrace = CharsParser<internal::LeftBrace>;

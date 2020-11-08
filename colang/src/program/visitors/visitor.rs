@@ -23,6 +23,7 @@ pub trait LocalVisitor {
             Statement::If(statement) => self.visit_if(statement),
             Statement::Read(statement) => self.visit_read(statement),
             Statement::Return(statement) => self.visit_return(statement),
+            Statement::Semicolon(statement) => self.visit_semicolon(statement),
             Statement::While(statement) => self.visit_while(statement),
             Statement::Write(statement) => self.visit_write(statement),
         }
@@ -44,6 +45,10 @@ pub trait LocalVisitor {
     }
 
     fn visit_return(&mut self, statement: &mut ReturnStmt) {
+        self.walk(statement);
+    }
+
+    fn visit_semicolon(&mut self, statement: &mut SemicolonStmt) {
         self.walk(statement);
     }
 

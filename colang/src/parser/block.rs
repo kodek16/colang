@@ -10,9 +10,11 @@ impl Parser for Block {
     type N = ast::BlockExpr;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq3<AbortIfMissing<CharsParser<LeftBrace>>, Optional<StmtOrExpr>, RightBraceItem>>::parse(
-            input, ctx,
-        )
+        <Seq3<
+            AbortIfMissing<CharsParser<LeftBrace>>,
+            AbortIfMissing<RepeatZeroOrMore<StmtOrExpr, Recover>>,
+            RightBraceItem,
+        >>::parse(input, ctx)
         .map(|(left, stmt_or_expr, right)| ast::BlockExpr {
             span: left + right,
             items: stmt_or_expr.into_iter().collect(),
@@ -27,5 +29,17 @@ impl SynthesizeIfMissing for RightBraceItem {
 
     fn synthesize(location: InputSpan) -> InputSpan {
         location
+    }
+}
+
+struct Recover;
+
+impl RecoveryConsumer for Recover {
+    fn recover<'a>(input: Input<'a>, _: &ParsingContext) -> Input<'a> {
+        static ANCHORS: [char; 4] = [';', '\n', '{', '}'];
+        match input.find(&ANCHORS[..]) {
+            Some(idx) => input.split_at(idx).1,
+            None => input,
+        }
     }
 }

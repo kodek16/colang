@@ -8,6 +8,7 @@
 use crate::ast;
 use crate::parser::expressions::int_literal::IntLiteralExpr;
 use crate::parser::prelude::*;
+use crate::parser::statements::semicolon::SemicolonStmt;
 use crate::parser::statements::var_decl::VarDeclStmt;
 use std::marker::PhantomData;
 
@@ -17,7 +18,7 @@ impl Parser for StmtOrExpr {
     type N = ast::StmtOrExpr;
 
     fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <OneOf2<VarDeclStmt, WrapExprLike<IntLiteralExpr>>>::parse(input, ctx)
+        <OneOf3<VarDeclStmt, SemicolonStmt, WrapExprLike<IntLiteralExpr>>>::parse(input, ctx)
     }
 }
 
@@ -35,16 +36,6 @@ impl Parser for ExprLike {
                 ParsedNode::Recovered(synthetic_null_expr(s.span()), vec![error])
             }
         })
-    }
-}
-
-pub struct StmtOrExprOrSynthesize;
-
-impl SynthesizeIfMissing for StmtOrExprOrSynthesize {
-    type P = StmtOrExpr;
-
-    fn synthesize(location: InputSpan) -> ast::StmtOrExpr {
-        ast::StmtOrExpr::ExprLike(synthetic_null_expr(location))
     }
 }
 

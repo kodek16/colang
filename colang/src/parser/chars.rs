@@ -1,19 +1,19 @@
 use crate::parser::base::Chars;
 
 pub struct Colon;
-
+pub struct Semicolon;
 pub struct Comma;
-
 pub struct LeftParen;
-
 pub struct RightParen;
-
 pub struct LeftBrace;
-
 pub struct RightBrace;
 
 impl Chars for Colon {
     const CHARS: &'static str = ":";
+}
+
+impl Chars for Semicolon {
+    const CHARS: &'static str = ";";
 }
 
 impl Chars for Comma {

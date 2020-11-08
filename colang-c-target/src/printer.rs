@@ -551,6 +551,9 @@ impl CCodePrinter {
             Statement::If(ref statement) => self.write_if(names, statement),
             Statement::Read(ref statement) => self.write_read(names, statement),
             Statement::Return(ref statement) => self.write_return(names, statement),
+            // TODO: these should be probably filtered out in the backend once the program is determined
+            //       to be valid.
+            Statement::Semicolon(_) => Ok(()),
             Statement::While(ref statement) => self.write_while(names, statement),
             Statement::Write(ref statement) => self.write_write(names, statement),
         }

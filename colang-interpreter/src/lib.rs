@@ -158,6 +158,9 @@ fn run_statement(statement: &Statement, state: &mut State) -> RunResult<()> {
         Statement::If(ref s) => run_if_stmt(s, state),
         Statement::Read(ref s) => run_read_stmt(s, state),
         Statement::Return(ref s) => run_return_stmt(s, state),
+        // TODO: these should be probably filtered out in the backend once the program is determined
+        //       to be valid.
+        Statement::Semicolon(_) => Ok(()),
         Statement::While(ref s) => run_while_stmt(s, state),
         Statement::Write(ref s) => run_write_stmt(s, state),
     }

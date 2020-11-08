@@ -150,6 +150,7 @@ impl ToSexp for Statement {
             Statement::If(statement) => statement.to_sexp(),
             Statement::Read(statement) => statement.to_sexp(),
             Statement::Return(statement) => statement.to_sexp(),
+            Statement::Semicolon(statement) => statement.to_sexp(),
             Statement::While(statement) => statement.to_sexp(),
             Statement::Write(statement) => statement.to_sexp(),
         }
@@ -208,6 +209,12 @@ impl ToSexp for ReturnStmt {
         }
 
         Sexp::List(list)
+    }
+}
+
+impl ToSexp for SemicolonStmt {
+    fn to_sexp(&self) -> Sexp {
+        Sexp::str("pass")
     }
 }
 

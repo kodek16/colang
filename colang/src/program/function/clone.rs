@@ -56,6 +56,7 @@ fn clone_statement(statement: &Statement, context: &mut CloneContext) -> Stateme
         If(statement) => If(clone_if_stmt(statement, context)),
         Read(statement) => Read(clone_read_stmt(statement, context)),
         Return(statement) => Return(clone_return_stmt(statement, context)),
+        Semicolon(statement) => Semicolon(clone_semicolon_stmt(statement)),
         While(statement) => While(clone_while_stmt(statement, context)),
         Write(statement) => Write(clone_write_stmt(statement, context)),
     }
@@ -101,6 +102,12 @@ fn clone_return_stmt(statement: &ReturnStmt, context: &mut CloneContext) -> Retu
             .expression
             .as_ref()
             .map(|expression| clone_expression(expression, context)),
+        location: statement.location,
+    }
+}
+
+fn clone_semicolon_stmt(statement: &SemicolonStmt) -> SemicolonStmt {
+    SemicolonStmt {
         location: statement.location,
     }
 }

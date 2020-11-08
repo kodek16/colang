@@ -2,6 +2,7 @@ mod assign;
 mod expr_like;
 mod read;
 mod return_;
+mod semicolon;
 mod var_decl;
 mod while_;
 mod write;
@@ -22,6 +23,9 @@ pub fn compile_statement(
         ast::StmtOrExpr::While(s) => while_::compile_while_stmt(s, current_block, context),
         ast::StmtOrExpr::Assign(s) => assign::compile_assign_stmt(s, current_block, context),
         ast::StmtOrExpr::Return(s) => return_::compile_return_stmt(s, current_block, context),
+        ast::StmtOrExpr::Semicolon(s) => {
+            semicolon::compile_semicolon_stmt(s, current_block, context)
+        }
         ast::StmtOrExpr::ExprLike(e) => expr_like::compile_expr_like(e, current_block, context),
     }
 }

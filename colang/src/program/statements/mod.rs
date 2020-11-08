@@ -7,6 +7,7 @@ pub mod eval;
 pub mod if_;
 pub mod read;
 pub mod return_;
+pub mod semicolon;
 pub mod while_;
 pub mod write;
 
@@ -20,6 +21,7 @@ pub enum Statement {
     If(if_::IfStmt),
     Read(read::ReadStmt),
     Return(return_::ReturnStmt),
+    Semicolon(semicolon::SemicolonStmt),
     While(while_::WhileStmt),
     Write(write::WriteStmt),
 }

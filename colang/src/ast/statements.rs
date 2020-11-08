@@ -20,6 +20,7 @@ pub enum StmtOrExpr {
     While(WhileStmt),
     Assign(AssignStmt),
     Return(ReturnStmt),
+    Semicolon(SemicolonStmt),
 
     // Either a statement or an expression:
     ExprLike(ExpressionLike),
@@ -34,6 +35,7 @@ impl StmtOrExpr {
             StmtOrExpr::While(WhileStmt { span, .. }) => *span,
             StmtOrExpr::Assign(AssignStmt { span, .. }) => *span,
             StmtOrExpr::Return(ReturnStmt { span, .. }) => *span,
+            StmtOrExpr::Semicolon(SemicolonStmt { span }) => *span,
             StmtOrExpr::ExprLike(e) => e.span(),
         }
     }
@@ -98,5 +100,17 @@ pub struct AssignStmt {
 pub struct ReturnStmt {
     pub expression: Option<ExpressionLike>,
 
+    pub span: InputSpan,
+}
+
+/// A no-op statement produced from a semicolon.
+///
+/// `SemicolonStmt` is a curious case. In CO, semicolons are somewhat similar to Rust in that
+/// they force expressions to be statements, dropping their value. Unlike Rust, from a syntactic
+/// perspective semicolons are not _required_ for this: even without semicolons expression values
+/// will be dropped where context requires this. Semicolons in CO behave exactly as an empty
+/// statement, which is mostly useful for syntactic purposes (delimitation), and not semantic.
+#[derive(Debug)]
+pub struct SemicolonStmt {
     pub span: InputSpan,
 }

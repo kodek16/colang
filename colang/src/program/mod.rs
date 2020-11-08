@@ -169,6 +169,7 @@ pub use statements::eval::EvalStmt;
 pub use statements::if_::IfStmt;
 pub use statements::read::ReadStmt;
 pub use statements::return_::ReturnStmt;
+pub use statements::semicolon::SemicolonStmt;
 pub use statements::while_::WhileStmt;
 pub use statements::write::WriteStmt;
 pub use statements::{Statement, StatementKind};

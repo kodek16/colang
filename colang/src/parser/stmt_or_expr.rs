@@ -19,12 +19,12 @@ pub struct StmtOrExpr;
 impl Parser for StmtOrExpr {
     type N = ast::StmtOrExpr;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+    fn parse(input: Input) -> ParseResult<Self::N> {
         <OneOf3<
             VarDeclStmt,
             SemicolonStmt,
             WrapExprLike<OneOf3<IfExpr, BlockExpr, BinaryOperatorExpr>>,
-        >>::parse(input, ctx)
+        >>::parse(input)
     }
 }
 
@@ -34,8 +34,8 @@ pub struct ExprLike;
 impl Parser for ExprLike {
     type N = ast::ExpressionLike;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        StmtOrExpr::parse(input, ctx).bind(|stmt_or_expr| match stmt_or_expr {
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        StmtOrExpr::parse(input).bind(|stmt_or_expr| match stmt_or_expr {
             ast::StmtOrExpr::ExprLike(e) => ParsedNode::Ok(e),
             s @ _ => {
                 let error = SyntaxError::StatementInExprContext(s.span());
@@ -66,7 +66,7 @@ struct WrapExprLike<P: Parser<N = ast::ExpressionLike>> {
 impl<P: Parser<N = ast::ExpressionLike>> Parser for WrapExprLike<P> {
     type N = ast::StmtOrExpr;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        P::parse(input, ctx).map(ast::StmtOrExpr::ExprLike)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        P::parse(input).map(ast::StmtOrExpr::ExprLike)
     }
 }

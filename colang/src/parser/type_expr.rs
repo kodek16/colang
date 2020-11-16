@@ -9,8 +9,8 @@ pub struct TypeExpr;
 impl Parser for TypeExpr {
     type N = ast::TypeExpr;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        ScalarTypeExpr::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        ScalarTypeExpr::parse(input)
     }
 }
 

@@ -9,7 +9,7 @@ pub struct ParameterDef;
 impl Parser for ParameterDef {
     type N = ast::Parameter;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        NormalParameterDef::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        NormalParameterDef::parse(input)
     }
 }

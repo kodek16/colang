@@ -12,7 +12,7 @@ pub struct FunctionDef;
 impl Parser for FunctionDef {
     type N = ast::FunctionDef;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+    fn parse(input: Input) -> ParseResult<Self::N> {
         <Seq7<
             AbortIfMissing<KwFun>,
             NameItem,
@@ -21,7 +21,7 @@ impl Parser for FunctionDef {
             RightParenOrSynthesize,
             Optional<Seq2<AbortIfMissing<Colon>, TypeExprOrSynthesize>>,
             Optional<BlockExpr>,
-        >>::parse(input, ctx)
+        >>::parse(input)
         .map(
             |(kw_fun, name, _, parameters, paren_r, return_type, body)| {
                 let signature_span = kw_fun

@@ -10,7 +10,7 @@ pub struct ParameterList;
 impl Parser for ParameterList {
     type N = Vec<ast::Parameter>;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <CommaSeparated<ParameterDef>>::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        <CommaSeparated<ParameterDef>>::parse(input)
     }
 }

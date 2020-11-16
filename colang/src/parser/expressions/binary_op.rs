@@ -14,8 +14,8 @@ pub struct BinaryOperatorExpr;
 impl Parser for BinaryOperatorExpr {
     type N = ast::ExpressionLike;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        Expr2::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        Expr2::parse(input)
     }
 }
 
@@ -31,13 +31,13 @@ impl<Lower: Parser<N = ast::ExpressionLike>, Ops: Parser<N = ast::BinaryOperator
 {
     type N = ast::ExpressionLike;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+    fn parse(input: Input) -> ParseResult<Self::N> {
         <Seq2<
             AbortIfMissing<Lower>,
             AbortIfMissing<
                 RepeatZeroOrMore<Seq2<AbortIfMissing<Ops>, OrSynthesizeExpr<Lower>>, DontRecover>,
             >,
-        >>::parse(input, ctx)
+        >>::parse(input)
         .map(|(head, tail)| {
             tail.into_iter().fold(head, |lhs, (operator, rhs)| {
                 ast::ExpressionLike::BinaryOp(ast::BinaryOperatorExpr {
@@ -64,14 +64,14 @@ impl<P: Parser<N = ast::ExpressionLike>> SynthesizeIfMissing for OrSynthesizeExp
 }
 
 pub trait OpParser {
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, ast::BinaryOperator>;
+    fn parse(input: Input) -> ParseResult<ast::BinaryOperator>;
 }
 
 impl<P: OpParser> Parser for P {
     type N = ast::BinaryOperator;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        P::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        P::parse(input)
     }
 }
 
@@ -84,8 +84,8 @@ type Expr0 = PrimaryExpr;
 struct Ops1;
 
 impl OpParser for Ops1 {
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, BinaryOperator> {
-        <OneOf2<Mul, Div>>::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        <OneOf2<Mul, Div>>::parse(input)
     }
 }
 
@@ -93,14 +93,14 @@ struct Mul;
 struct Div;
 
 impl OpParser for Mul {
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, BinaryOperator> {
-        Asterisk::parse(input, ctx).map(|_| ast::BinaryOperator::Mul)
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        Asterisk::parse(input).map(|_| ast::BinaryOperator::Mul)
     }
 }
 
 impl OpParser for Div {
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, BinaryOperator> {
-        Slash::parse(input, ctx).map(|_| ast::BinaryOperator::Div)
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        Slash::parse(input).map(|_| ast::BinaryOperator::Div)
     }
 }
 
@@ -111,8 +111,8 @@ type Expr1 = InfixLeftPrecedenceTier<Expr0, Ops1>;
 struct Ops2;
 
 impl OpParser for Ops2 {
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, BinaryOperator> {
-        <OneOf2<Add, Sub>>::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        <OneOf2<Add, Sub>>::parse(input)
     }
 }
 
@@ -120,14 +120,14 @@ struct Add;
 struct Sub;
 
 impl OpParser for Add {
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, BinaryOperator> {
-        Plus::parse(input, ctx).map(|_| ast::BinaryOperator::Add)
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        Plus::parse(input).map(|_| ast::BinaryOperator::Add)
     }
 }
 
 impl OpParser for Sub {
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, BinaryOperator> {
-        Minus::parse(input, ctx).map(|_| ast::BinaryOperator::Sub)
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        Minus::parse(input).map(|_| ast::BinaryOperator::Sub)
     }
 }
 

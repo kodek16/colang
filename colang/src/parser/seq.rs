@@ -95,8 +95,8 @@ pub struct OptionalParser<P: Parser> {
 impl<P: Parser> Parser for OptionalParser<P> {
     type N = Option<P::N>;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        let ParseResult(node, input) = <WithIgnored<P>>::parse(input, ctx);
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        let ParseResult(node, input) = P::parse(input);
         let node = match node {
             ParsedNode::Ok(node) => ParsedNode::Ok(Some(node)),
             ParsedNode::Recovered(node, errors) => ParsedNode::Recovered(Some(node), errors),
@@ -119,17 +119,20 @@ pub struct Seq2<I1: Item, I2: Item> {
 impl<I1: Item, I2: Item> Parser for Seq2<I1, I2> {
     type N = (<I1::P as Parser>::N, <I2::P as Parser>::N);
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        let initial_input = input;
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        // A potential optimization scenario for the future:
+        // `Abort`s on non-first sequence items seem to be pretty rare in the grammar.
+        // If we restrict this function to only abort on first, we can avoid `clone()` here.
+        let initial_input = input.clone();
         let mut errors = Vec::new();
-        let ParseResult(first, input) = <WithIgnored<I1::P>>::parse(input, ctx);
+        let ParseResult(first, input) = <I1::P>::parse(input);
         let first = match first {
             ParsedNode::Ok(first) => first,
             ParsedNode::Recovered(first, mut es) => {
                 errors.append(&mut es);
                 first
             }
-            ParsedNode::Missing(error) => match I1::O::on_missing(input.span_of_first(ctx)) {
+            ParsedNode::Missing(error) => match I1::O::on_missing(input.span_of_first()) {
                 OnMissingStrategyOutput::Synthesize(first) => {
                     errors.push(error);
                     first
@@ -140,14 +143,14 @@ impl<I1: Item, I2: Item> Parser for Seq2<I1, I2> {
             },
         };
 
-        let ParseResult(second, input) = <WithIgnored<I2::P>>::parse(input, ctx);
+        let ParseResult(second, input) = <I2::P>::parse(input);
         let second = match second {
             ParsedNode::Ok(second) => second,
             ParsedNode::Recovered(second, mut es) => {
                 errors.append(&mut es);
                 second
             }
-            ParsedNode::Missing(error) => match I2::O::on_missing(input.span_of_first(ctx)) {
+            ParsedNode::Missing(error) => match I2::O::on_missing(input.span_of_first()) {
                 OnMissingStrategyOutput::Synthesize(second) => {
                     errors.push(error);
                     second
@@ -176,9 +179,8 @@ impl<I1: Item, I2: Item, I3: Item> Parser for Seq3<I1, I2, I3> {
         <I3::P as Parser>::N,
     );
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq2<I1, AbortIfMissing<Seq2<I2, I3>>>>::parse(input, ctx)
-            .map(|(i1, (i2, i3))| (i1, i2, i3))
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        <Seq2<I1, AbortIfMissing<Seq2<I2, I3>>>>::parse(input).map(|(i1, (i2, i3))| (i1, i2, i3))
     }
 }
 
@@ -195,8 +197,8 @@ impl<I1: Item, I2: Item, I3: Item, I4: Item> Parser for Seq4<I1, I2, I3, I4> {
         <I4::P as Parser>::N,
     );
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq2<I1, AbortIfMissing<Seq3<I2, I3, I4>>>>::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        <Seq2<I1, AbortIfMissing<Seq3<I2, I3, I4>>>>::parse(input)
             .map(|(i1, (i2, i3, i4))| (i1, i2, i3, i4))
     }
 }
@@ -215,8 +217,8 @@ impl<I1: Item, I2: Item, I3: Item, I4: Item, I5: Item> Parser for Seq5<I1, I2, I
         <I5::P as Parser>::N,
     );
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq2<I1, AbortIfMissing<Seq4<I2, I3, I4, I5>>>>::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        <Seq2<I1, AbortIfMissing<Seq4<I2, I3, I4, I5>>>>::parse(input)
             .map(|(i1, (i2, i3, i4, i5))| (i1, i2, i3, i4, i5))
     }
 }
@@ -238,8 +240,8 @@ impl<I1: Item, I2: Item, I3: Item, I4: Item, I5: Item, I6: Item> Parser
         <I6::P as Parser>::N,
     );
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq2<I1, AbortIfMissing<Seq5<I2, I3, I4, I5, I6>>>>::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        <Seq2<I1, AbortIfMissing<Seq5<I2, I3, I4, I5, I6>>>>::parse(input)
             .map(|(i1, (i2, i3, i4, i5, i6))| (i1, i2, i3, i4, i5, i6))
     }
 }
@@ -262,8 +264,8 @@ impl<I1: Item, I2: Item, I3: Item, I4: Item, I5: Item, I6: Item, I7: Item> Parse
         <I7::P as Parser>::N,
     );
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq2<I1, AbortIfMissing<Seq6<I2, I3, I4, I5, I6, I7>>>>::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        <Seq2<I1, AbortIfMissing<Seq6<I2, I3, I4, I5, I6, I7>>>>::parse(input)
             .map(|(i1, (i2, i3, i4, i5, i6, i7))| (i1, i2, i3, i4, i5, i6, i7))
     }
 }

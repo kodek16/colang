@@ -10,16 +10,14 @@ pub struct NormalParameterDef;
 impl Parser for NormalParameterDef {
     type N = ast::Parameter;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <Seq3<AbortIfMissing<Identifier>, ColonOrSynthesize, TypeExprOrSynthesize>>::parse(
-            input, ctx,
-        )
-        .map(|(name, _, type_)| {
-            ast::Parameter::Normal(ast::NormalParameter {
-                span: name.span + type_.span(),
-                name,
-                type_,
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        <Seq3<AbortIfMissing<Identifier>, ColonOrSynthesize, TypeExprOrSynthesize>>::parse(input)
+            .map(|(name, _, type_)| {
+                ast::Parameter::Normal(ast::NormalParameter {
+                    span: name.span + type_.span(),
+                    name,
+                    type_,
+                })
             })
-        })
     }
 }

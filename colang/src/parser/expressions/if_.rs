@@ -9,7 +9,7 @@ pub struct IfExpr;
 impl Parser for IfExpr {
     type N = ast::ExpressionLike;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+    fn parse(input: Input) -> ParseResult<Self::N> {
         <Seq6<
             AbortIfMissing<KwIf>,
             LeftParenOrSynthesize,
@@ -17,7 +17,7 @@ impl Parser for IfExpr {
             RightParenOrSynthesize,
             ExprLikeOrSynthesize,
             Optional<Seq2<AbortIfMissing<KwElse>, ExprLikeOrSynthesize>>,
-        >>::parse(input, ctx)
+        >>::parse(input)
         .map(|(kw_if, _, cond, _, then, else_)| {
             let span = kw_if + then.span() + else_.as_ref().map(|(_, e)| e.span());
             ast::ExpressionLike::If(ast::IfExpr {

@@ -2,19 +2,21 @@
 
 use crate::ast;
 use crate::parser::prelude::*;
+use crate::parser::repeat::RecoverToToken;
 use crate::parser::stmt_or_expr::StmtOrExpr;
+use crate::parser::tokens::primary::{PrimaryToken, PrimaryTokenPayload};
 
 pub struct BlockExpr;
 
 impl Parser for BlockExpr {
     type N = ast::ExpressionLike;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+    fn parse(input: Input) -> ParseResult<Self::N> {
         <Seq3<
             AbortIfMissing<LeftBrace>,
             AbortIfMissing<RepeatZeroOrMore<StmtOrExpr, Recover>>,
             RightBraceOrSynthesize,
-        >>::parse(input, ctx)
+        >>::parse(input)
         .map(|(left, stmt_or_expr, right)| {
             ast::ExpressionLike::Block(ast::BlockExpr {
                 span: left + right,
@@ -26,12 +28,14 @@ impl Parser for BlockExpr {
 
 struct Recover;
 
-impl RecoveryConsumer for Recover {
-    fn recover<'a>(input: Input<'a>, _: &ParsingContext) -> Input<'a> {
-        static ANCHORS: [char; 4] = [';', '\n', '{', '}'];
-        match input.find(&ANCHORS[..]) {
-            Some(idx) => input.split_at(idx).1,
-            None => input,
+impl RecoverToToken for Recover {
+    fn is_anchor(token: PrimaryToken) -> bool {
+        // TODO: also recover to newline.
+        match token.payload {
+            PrimaryTokenPayload::Semicolon => true,
+            PrimaryTokenPayload::LeftBrace => true,
+            PrimaryTokenPayload::RightBrace => true,
+            _ => false,
         }
     }
 }

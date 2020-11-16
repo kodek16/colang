@@ -3,45 +3,41 @@
 use crate::ast;
 use crate::parser::function_def::FunctionDef;
 use crate::parser::prelude::*;
-use lazy_static::lazy_static;
-use regex::Regex;
+use crate::parser::repeat::RecoverToToken;
+use crate::parser::tokens::primary::{PrimaryToken, PrimaryTokenPayload};
 
 pub struct Program;
 
 impl Parser for Program {
     type N = ast::Program;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        let ParseResult(node, input) = <RepeatZeroOrMore<FunctionDef, RecoverToNextGlobal>>::parse(
-            input, ctx,
-        )
-        .map(|functions| ast::Program {
-            functions,
-            structs: vec![],
-            traits: vec![],
-        });
-        let ParseResult(_, input) = Ignored::parse(input, ctx);
-        if input.is_fully_consumed() {
-            ParseResult(node, input)
-        } else {
-            let error = SyntaxError::UnexpectedToken(input.span_of_first(ctx));
-            ParseResult(node, input).add_error(error)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        let ParseResult(node, input) =
+            <RepeatZeroOrMore<FunctionDef, RecoverToNextGlobal>>::parse(input).map(|functions| {
+                ast::Program {
+                    functions,
+                    structs: vec![],
+                    traits: vec![],
+                }
+            });
+
+        match input.with_primary_tokenizer().peek() {
+            Some(token) => {
+                let error = SyntaxError::UnexpectedToken(token.span);
+                ParseResult(node, input).add_error(error)
+            }
+            None => ParseResult(node, input),
         }
     }
 }
 
 struct RecoverToNextGlobal;
 
-lazy_static! {
-    static ref GLOBAL_ANCHOR_RE: Regex = Regex::new(r"\b(fun|struct|trait)\b").unwrap();
-}
-
-impl RecoveryConsumer for RecoverToNextGlobal {
-    fn recover<'a>(input: Input<'a>, _: &ParsingContext) -> Input<'a> {
-        let (_, remaining) = match GLOBAL_ANCHOR_RE.find(&input) {
-            Some(match_) => input.split_at(match_.start()),
-            None => input.consume_all(),
-        };
-        remaining
+impl RecoverToToken for RecoverToNextGlobal {
+    fn is_anchor(token: PrimaryToken) -> bool {
+        match token.payload {
+            PrimaryTokenPayload::KwFun => true,
+            _ => false,
+        }
     }
 }

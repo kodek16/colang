@@ -12,7 +12,7 @@ pub struct PrimaryExpr;
 impl Parser for PrimaryExpr {
     type N = ast::ExpressionLike;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        <OneOf4<BlockExpr, BoolLiteralExpr, IntLiteralExpr, VariableExpr>>::parse(input, ctx)
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        <OneOf4<BlockExpr, BoolLiteralExpr, IntLiteralExpr, VariableExpr>>::parse(input)
     }
 }

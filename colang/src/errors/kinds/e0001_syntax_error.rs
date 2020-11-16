@@ -38,6 +38,7 @@ pub fn syntax_error(err: ParseError, file: InputSpanFile) -> CompilationError {
 pub fn syntax_error_new(err: SyntaxError) -> CompilationError {
     let (message, location) = match err {
         SyntaxError::UnexpectedToken(location) => ("unexpected token", location),
+        SyntaxError::UnexpectedEOF(location) => ("program ended unexpectedly", location),
         SyntaxError::StatementInExprContext(location) => {
             ("statement cannot be used as expression", location)
         }

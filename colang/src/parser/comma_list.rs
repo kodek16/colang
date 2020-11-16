@@ -14,11 +14,11 @@ pub struct CommaSeparated<P: Parser> {
 impl<P: Parser> Parser for CommaSeparated<P> {
     type N = Vec<P::N>;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+    fn parse(input: Input) -> ParseResult<Self::N> {
         <Seq2<
             Optional<RepeatZeroOrMore<Seq2<AbortIfMissing<P>, AbortIfMissing<Comma>>, DontRecover>>,
             Optional<P>,
-        >>::parse(input, ctx)
+        >>::parse(input)
         .map(|(seq, last)| {
             let mut result = Vec::new();
             if let Some(seq) = seq {

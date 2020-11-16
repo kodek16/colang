@@ -8,8 +8,7 @@ pub struct SemicolonStmt;
 impl Parser for SemicolonStmt {
     type N = ast::StmtOrExpr;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
-        Semicolon::parse(input, ctx)
-            .map(|span| ast::StmtOrExpr::Semicolon(ast::SemicolonStmt { span }))
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        Semicolon::parse(input).map(|span| ast::StmtOrExpr::Semicolon(ast::SemicolonStmt { span }))
     }
 }

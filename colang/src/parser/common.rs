@@ -1,13 +1,14 @@
 //! Definitions of abstractions used throughout the `parser` module tree.
 
-use crate::parser::context::ParsingContext;
 use crate::parser::input::Input;
+use crate::parser::tokens::primary::PrimaryToken;
 use crate::source::InputSpan;
 
 /// A syntax error found in the user program.
 #[derive(Debug)]
 pub enum SyntaxError {
     UnexpectedToken(InputSpan),
+    UnexpectedEOF(InputSpan),
     StatementInExprContext(InputSpan),
 }
 
@@ -17,7 +18,7 @@ pub enum SyntaxError {
 /// derive other, constituent rules.
 pub trait Parser {
     type N;
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N>;
+    fn parse(input: Input) -> ParseResult<Self::N>;
 }
 
 /// Node parsed by a parsing routine.
@@ -91,17 +92,33 @@ impl<'a, T> ParseResult<'a, T> {
         ParseResult(node, input)
     }
 
-    pub fn or(self, f: impl FnOnce() -> Self) -> Self {
-        match self {
-            ParseResult(ParsedNode::Ok(_), _) => self,
-            ParseResult(ParsedNode::Recovered(_, _), _) => self,
-            ParseResult(ParsedNode::Missing(_), _) => f(),
-        }
-    }
-
     /// If `self` is a successful or recovered parse, adds a syntax error at its end.
     pub fn add_error(self, error: SyntaxError) -> ParseResult<'a, T> {
         let ParseResult(node, input) = self;
         ParseResult(node.add_error(error), input)
+    }
+}
+
+/// Helper function for typical single-token parsers.
+pub fn parse_from_next_primary_token<N>(
+    input: Input,
+    f: impl FnOnce(PrimaryToken) -> Option<N>,
+) -> ParseResult<N> {
+    let tokens = input.with_primary_tokenizer();
+    match tokens.peek() {
+        Some(token) => {
+            let span = token.span;
+            match f(token) {
+                Some(node) => ParseResult(ParsedNode::Ok(node), tokens.pop()),
+                None => {
+                    let error = SyntaxError::UnexpectedToken(span);
+                    ParseResult(ParsedNode::Missing(error), input)
+                }
+            }
+        }
+        None => {
+            let error = SyntaxError::UnexpectedEOF(input.span_of_first());
+            ParseResult(ParsedNode::Missing(error), input)
+        }
     }
 }

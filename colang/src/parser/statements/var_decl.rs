@@ -1,7 +1,6 @@
 //! Variable declaration statement parser.
 
 use crate::ast;
-use crate::parser::equals::SingleEquals;
 use crate::parser::ident::Identifier;
 use crate::parser::prelude::*;
 use crate::parser::stmt_or_expr::ExprLikeOrSynthesize;
@@ -12,7 +11,7 @@ pub struct VarDeclStmt;
 impl Parser for VarDeclStmt {
     type N = ast::StmtOrExpr;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+    fn parse(input: Input) -> ParseResult<Self::N> {
         <Seq3<
             AbortIfMissing<KwVar>,
             VarDeclEntryOrSynthesize,
@@ -22,7 +21,7 @@ impl Parser for VarDeclStmt {
                     DontRecover,
                 >,
             >,
-        >>::parse(input, ctx)
+        >>::parse(input)
         .map(|(kw_var, head, tail)| {
             let span = kw_var + head.span + tail.last().map(|(_, e)| e.span);
             let mut entries = vec![head];
@@ -39,12 +38,12 @@ struct VarDeclEntry;
 impl Parser for VarDeclEntry {
     type N = ast::VarDeclEntry;
 
-    fn parse<'a>(input: Input<'a>, ctx: &ParsingContext) -> ParseResult<'a, Self::N> {
+    fn parse(input: Input) -> ParseResult<Self::N> {
         <Seq3<
             AbortIfMissing<Identifier>,
             Optional<Seq2<AbortIfMissing<Colon>, TypeExprOrSynthesize>>,
             Optional<Seq2<AbortIfMissing<SingleEquals>, ExprLikeOrSynthesize>>,
-        >>::parse(input, ctx)
+        >>::parse(input)
         .map(|(name, type_, initializer)| {
             let type_ = type_.map(|(_, t)| t);
             let initializer = initializer.map(|(_, i)| i);

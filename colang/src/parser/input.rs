@@ -30,6 +30,7 @@ impl<'a> Input<'a> {
         }
     }
 
+    /// Accesses a view to tokens produced by the primary tokenizer at the current location.
     pub fn with_primary_tokenizer<'b>(&'b self) -> PrimaryTokenizerInputView<'a, 'b> {
         PrimaryTokenizerInputView { input: self }
     }
@@ -84,6 +85,7 @@ pub struct PrimaryTokenizerInputView<'a, 'b> {
 }
 
 impl<'a, 'b> PrimaryTokenizerInputView<'a, 'b> {
+    /// Returns the token at point of `Input`, or `None` is there are no remaining tokens.
     pub fn peek(&self) -> Option<PrimaryToken> {
         if !self.state().is_eof.get() {
             if let Some((token, _)) = self.state().tokens_buffer.peek() {
@@ -97,6 +99,7 @@ impl<'a, 'b> PrimaryTokenizerInputView<'a, 'b> {
         }
     }
 
+    /// Returns a new `Input` that points to a location directly after the token returned by `peek`.
     pub fn pop(&self) -> Input<'a> {
         if self.state().tokens_buffer.is_empty() {
             self.tokenize_next();

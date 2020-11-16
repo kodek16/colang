@@ -1,4 +1,7 @@
-//! Primary expression parser.
+//! "Primary" expression parser.
+//!
+//! A primary expression is an expression that can be used in a binary operator context but is
+//! itself not rooted with a binary operator node.
 
 use crate::ast;
 use crate::parser::expressions::block::BlockExpr;

@@ -1,4 +1,6 @@
 //! Semicolon parser.
+//!
+//! A semicolon is a no-op statement in CO.
 
 use crate::ast;
 use crate::parser::prelude::*;

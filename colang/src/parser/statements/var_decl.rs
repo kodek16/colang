@@ -3,6 +3,7 @@
 use crate::ast;
 use crate::parser::ident::Identifier;
 use crate::parser::prelude::*;
+use crate::parser::seq::PanicIfMissing;
 use crate::parser::stmt_or_expr::ExprLikeOrSynthesize;
 use crate::parser::type_expr::TypeExprOrSynthesize;
 
@@ -15,7 +16,7 @@ impl Parser for VarDeclStmt {
         <Seq3<
             AbortIfMissing<KwVar>,
             VarDeclEntryOrSynthesize,
-            AbortIfMissing<
+            PanicIfMissing<
                 RepeatZeroOrMore<
                     Seq2<AbortIfMissing<Comma>, VarDeclEntryOrSynthesize>,
                     DontRecover,

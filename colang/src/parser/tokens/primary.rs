@@ -1,4 +1,6 @@
 //! Primary tokenizer definitions.
+//!
+//! Primary tokenizer is used most of the time, except in some special cases like string literals.
 
 use crate::parser::tokens::token::{Token, TokenPayload};
 use crate::parser::tokens::tokenizer::{Tokenizer, TokenizerRules};

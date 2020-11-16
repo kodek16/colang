@@ -1,4 +1,13 @@
 //! Binary operator expressions parser.
+//!
+//! "Binary operator expressions" do not necessarily have to contain a binary operator: an
+//! expression that _may_ be used in a binary operator context is itself a
+//! "binary operator expression". Put another way, a binary operator expression is a tree of
+//! primary expressions joined by binary operators.
+//!
+//! Only a handful of expression kinds are not binary operator expressions (for the sake of
+//! syntax clarity), but they can be converted to binary operator expressions by being wrapped
+//! in parentheses.
 
 use crate::ast;
 use crate::ast::BinaryOperator;
@@ -19,6 +28,7 @@ impl Parser for BinaryOperatorExpr {
     }
 }
 
+/// A "precedence tier" definition for operators of the same precedence with left associativity.
 struct InfixLeftPrecedenceTier<
     Lower: Parser<N = ast::ExpressionLike>,
     Ops: Parser<N = ast::BinaryOperator>,
@@ -63,6 +73,7 @@ impl<P: Parser<N = ast::ExpressionLike>> SynthesizeIfMissing for OrSynthesizeExp
     }
 }
 
+/// A convenience substitute trait for `Parser` that assumes `N` to be `ast::BinaryOperator`.
 pub trait OpParser {
     fn parse(input: Input) -> ParseResult<ast::BinaryOperator>;
 }

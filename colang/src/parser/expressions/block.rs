@@ -3,6 +3,7 @@
 use crate::ast;
 use crate::parser::prelude::*;
 use crate::parser::repeat::RecoverToToken;
+use crate::parser::seq::PanicIfMissing;
 use crate::parser::stmt_or_expr::StmtOrExpr;
 use crate::parser::tokens::primary::{PrimaryToken, PrimaryTokenPayload};
 
@@ -14,7 +15,7 @@ impl Parser for BlockExpr {
     fn parse(input: Input) -> ParseResult<Self::N> {
         <Seq3<
             AbortIfMissing<LeftBrace>,
-            AbortIfMissing<RepeatZeroOrMore<StmtOrExpr, Recover>>,
+            PanicIfMissing<RepeatZeroOrMore<StmtOrExpr, Recover>>,
             RightBraceOrSynthesize,
         >>::parse(input)
         .map(|(left, stmt_or_expr, right)| {

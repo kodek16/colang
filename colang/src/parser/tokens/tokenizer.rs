@@ -1,3 +1,5 @@
+//! Definitions related to tokenizers.
+
 use crate::parser::input::Input;
 use crate::parser::tokens::token::{Token, TokenPayload};
 use lazy_static::lazy_static;
@@ -11,6 +13,11 @@ pub trait TokenizerRules<Payload: TokenPayload> {
     fn ignored_rule() -> Regex;
 }
 
+/// Regex-based tokenizer.
+///
+/// Tokenizers are defined by a list of rules represented by `Rules`: `Rules::rules()` should
+/// contain rules for tokens, ordered by precedence. The tokenizer will try all rules, and choose
+/// the one that produces the longest match. In case of conflict, the first such rule is chosen.
 pub struct Tokenizer<Payload: TokenPayload, Rules: TokenizerRules<Payload>> {
     rules: Vec<(Regex, Handler<Payload>)>,
     ignored_rule: Regex,

@@ -79,8 +79,21 @@ impl<N> OnMissingStrategy for PanicIfMissingStrategy<N> {
     type N = N;
 
     fn on_missing(_: InputSpan) -> OnMissingStrategyOutput<Self::N> {
-        unreachable!()
+        panic!("Got `Missing` from a parser that should not ever do this")
     }
+}
+
+/// Wraps a `Parser` into an `Item` that panics if `Parser` returns `Missing`.
+///
+/// Obviously, this should only be used with parsers that never return `Missing`, such as
+/// `RepeatZeroOrMore`.
+pub struct PanicIfMissing<P: Parser> {
+    phantom: PhantomData<P>,
+}
+
+impl<P: Parser> Item for PanicIfMissing<P> {
+    type P = P;
+    type O = PanicIfMissingStrategy<P::N>;
 }
 
 /// Wraps a `Parser` into an `Item` that maps `Missing` case into `Option::None`.

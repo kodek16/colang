@@ -1,11 +1,19 @@
 //! Keeping track of input that is being parsed.
 
-use crate::parser::tokens::primary::{PrimaryToken, PrimaryTokenizer};
+use crate::parser::tokens::primary::{PrimaryTokenPayload, PrimaryTokenizer};
 use crate::parser::tokens::queue::TokenQueue;
+use crate::parser::tokens::string::{StringTokenPayload, StringTokenizer};
+use crate::parser::tokens::token::{Token, TokenPayload};
 use crate::source::{InputSpan, InputSpanFile};
 use lazy_static::lazy_static;
 use std::cell::Cell;
+use std::marker::PhantomData;
 use std::ops::Deref;
+
+lazy_static! {
+    static ref PRIMARY_TOKENIZER: PrimaryTokenizer = PrimaryTokenizer::new();
+    static ref STRING_TOKENIZER: StringTokenizer = StringTokenizer::new();
+}
 
 /// Represents a view into the program source code at a certain location.
 ///
@@ -17,7 +25,8 @@ pub struct Input<'a> {
     offset: usize,
     file: InputSpanFile,
 
-    primary_tokenizer_state: PrimaryTokenizerState,
+    primary_tokenizer_state: TokenizerState<PrimaryTokenPayload>,
+    string_tokenizer_state: TokenizerState<StringTokenPayload>,
 }
 
 impl<'a> Input<'a> {
@@ -26,13 +35,23 @@ impl<'a> Input<'a> {
             contents,
             file,
             offset: 0,
-            primary_tokenizer_state: PrimaryTokenizerState::new(),
+            primary_tokenizer_state: TokenizerState::new(),
+            string_tokenizer_state: TokenizerState::new(),
         }
     }
 
     /// Accesses a view to tokens produced by the primary tokenizer at the current location.
-    pub fn with_primary_tokenizer<'b>(&'b self) -> PrimaryTokenizerInputView<'a, 'b> {
-        PrimaryTokenizerInputView { input: self }
+    pub fn with_primary_tokenizer<'b>(
+        &'b self,
+    ) -> TokenizerInputView<'a, 'b, PrimaryTokenizerChoice> {
+        TokenizerInputView::new(self)
+    }
+
+    /// Accesses a view to tokens produced by the string tokenizer at the current location.
+    pub fn with_string_tokenizer<'b>(
+        &'b self,
+    ) -> TokenizerInputView<'a, 'b, StringTokenizerChoice> {
+        TokenizerInputView::new(self)
     }
 
     /// Creates an `InputSpan` pointing to the first character of the slice.
@@ -51,6 +70,28 @@ impl<'a> Input<'a> {
             end: self.offset + end,
         }
     }
+
+    /// Strips characters ignored by the primary tokenizer from the beginning of input.
+    ///
+    /// This should _not_ be normally used, it is only useful in certain weird contexts, like
+    /// switching tokenizers.
+    pub fn strip_ignored_prefix_from_primary(self: Input<'a>) -> Input<'a> {
+        let offset = PRIMARY_TOKENIZER.ignored_prefix(&self);
+        if offset == 0 {
+            self
+        } else {
+            Input {
+                contents: &self.contents[offset..],
+                offset: self.offset + offset,
+                file: self.file,
+
+                // We can't reuse the state because relative offsets would be now invalid.
+                // This should be fixable if needed.
+                primary_tokenizer_state: TokenizerState::new(),
+                string_tokenizer_state: TokenizerState::new(),
+            }
+        }
+    }
 }
 
 impl<'a> Deref for Input<'a> {
@@ -61,32 +102,97 @@ impl<'a> Deref for Input<'a> {
     }
 }
 
-lazy_static! {
-    static ref PRIMARY_TOKENIZER: PrimaryTokenizer = PrimaryTokenizer::new();
-}
-
 #[derive(Clone)]
-pub struct PrimaryTokenizerState {
-    tokens_buffer: TokenQueue<(PrimaryToken, usize)>,
+pub struct TokenizerState<Payload: TokenPayload> {
+    tokens_buffer: TokenQueue<(Token<Payload>, usize)>,
     is_eof: Cell<bool>,
 }
 
-impl PrimaryTokenizerState {
-    pub fn new() -> PrimaryTokenizerState {
-        PrimaryTokenizerState {
+impl<Payload: TokenPayload> TokenizerState<Payload> {
+    pub fn new() -> TokenizerState<Payload> {
+        TokenizerState {
             tokens_buffer: TokenQueue::new(),
             is_eof: Cell::new(false),
         }
     }
 }
 
-pub struct PrimaryTokenizerInputView<'a, 'b> {
-    input: &'b Input<'a>,
+/// Abstracts away certain operations with input over a choice of tokenizer.
+pub trait TokenizerChoice {
+    type Payload: TokenPayload;
+
+    fn state<'a>(input: &'a Input) -> &'a TokenizerState<Self::Payload>;
+    fn next(input: &Input) -> Option<(Token<Self::Payload>, usize)>;
+
+    fn advance_primary(view: &Input) -> TokenizerState<PrimaryTokenPayload>;
+    fn advance_string(view: &Input) -> TokenizerState<StringTokenPayload>;
 }
 
-impl<'a, 'b> PrimaryTokenizerInputView<'a, 'b> {
+pub struct PrimaryTokenizerChoice;
+
+impl TokenizerChoice for PrimaryTokenizerChoice {
+    type Payload = PrimaryTokenPayload;
+
+    fn state<'a>(input: &'a Input) -> &'a TokenizerState<Self::Payload> {
+        &input.primary_tokenizer_state
+    }
+
+    fn next(input: &Input) -> Option<(Token<Self::Payload>, usize)> {
+        PRIMARY_TOKENIZER.next(input)
+    }
+
+    fn advance_primary(input: &Input) -> TokenizerState<PrimaryTokenPayload> {
+        TokenizerState {
+            tokens_buffer: Self::state(input).tokens_buffer.pop(),
+            is_eof: Cell::new(false),
+        }
+    }
+
+    fn advance_string(_: &Input) -> TokenizerState<StringTokenPayload> {
+        TokenizerState::new()
+    }
+}
+
+pub struct StringTokenizerChoice;
+
+impl TokenizerChoice for StringTokenizerChoice {
+    type Payload = StringTokenPayload;
+
+    fn state<'a>(input: &'a Input) -> &'a TokenizerState<Self::Payload> {
+        &input.string_tokenizer_state
+    }
+
+    fn next(input: &Input) -> Option<(Token<Self::Payload>, usize)> {
+        STRING_TOKENIZER.next(input)
+    }
+
+    fn advance_primary(_: &Input) -> TokenizerState<PrimaryTokenPayload> {
+        TokenizerState::new()
+    }
+
+    fn advance_string(input: &Input) -> TokenizerState<StringTokenPayload> {
+        TokenizerState {
+            tokens_buffer: Self::state(input).tokens_buffer.pop(),
+            is_eof: Cell::new(false),
+        }
+    }
+}
+
+pub struct TokenizerInputView<'a, 'b, Choice: TokenizerChoice> {
+    input: &'b Input<'a>,
+    phantom: PhantomData<Choice>,
+}
+
+impl<'a, 'b, Choice: TokenizerChoice> TokenizerInputView<'a, 'b, Choice> {
+    pub fn new(input: &'b Input<'a>) -> Self {
+        TokenizerInputView {
+            input,
+            phantom: PhantomData,
+        }
+    }
+
     /// Returns the token at point of `Input`, or `None` is there are no remaining tokens.
-    pub fn peek(&self) -> Option<PrimaryToken> {
+    pub fn peek(&self) -> Option<Token<Choice::Payload>> {
         if !self.state().is_eof.get() {
             if let Some((token, _)) = self.state().tokens_buffer.peek() {
                 Some(token.clone())
@@ -116,15 +222,13 @@ impl<'a, 'b> PrimaryTokenizerInputView<'a, 'b> {
             file: self.input.file,
             contents: &self.input.contents[new_offset - self.input.offset..],
             offset: new_offset,
-            primary_tokenizer_state: PrimaryTokenizerState {
-                tokens_buffer: self.state().tokens_buffer.pop(),
-                is_eof: Cell::new(false),
-            },
+            primary_tokenizer_state: Choice::advance_primary(self.input),
+            string_tokenizer_state: Choice::advance_string(self.input),
         }
     }
 
     fn tokenize_next(&self) {
-        match PRIMARY_TOKENIZER.next(&self.input) {
+        match Choice::next(&self.input) {
             Some((token, offset)) => self.state().tokens_buffer.push((token, offset)),
             None => {
                 self.state().is_eof.set(true);
@@ -132,7 +236,7 @@ impl<'a, 'b> PrimaryTokenizerInputView<'a, 'b> {
         }
     }
 
-    fn state(&self) -> &PrimaryTokenizerState {
-        &self.input.primary_tokenizer_state
+    fn state(&self) -> &TokenizerState<Choice::Payload> {
+        Choice::state(self.input)
     }
 }

@@ -1,4 +1,4 @@
-//! Primary tokenizer definitions.
+//! Primary tokenizer definition.
 //!
 //! Primary tokenizer is used most of the time, except in some special cases like string literals.
 
@@ -156,8 +156,8 @@ impl TokenizerRules<PrimaryTokenPayload> for PrimaryRules {
         ]
     }
 
-    fn ignored_rule() -> Regex {
-        Regex::new(r"^(\s*|//.*)*").unwrap()
+    fn ignored_rule() -> Option<Regex> {
+        Some(Regex::new(r"^(\s*|//.*)*").unwrap())
     }
 }
 

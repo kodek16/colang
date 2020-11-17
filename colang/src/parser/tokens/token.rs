@@ -3,7 +3,7 @@
 use crate::source::InputSpan;
 
 /// All information carried by a token except the input span that it covers.
-pub trait TokenPayload {
+pub trait TokenPayload: Clone {
     /// Create an instance that signifies a tokenizer error.
     fn error() -> Self;
 }

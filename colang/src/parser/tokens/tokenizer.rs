@@ -10,7 +10,7 @@ type Handler<T> = Box<dyn Sync + Fn(&str) -> T>;
 
 pub trait TokenizerRules<Payload: TokenPayload> {
     fn rules() -> Vec<(Regex, Handler<Payload>)>;
-    fn ignored_rule() -> Regex;
+    fn ignored_rule() -> Option<Regex>;
 }
 
 /// Regex-based tokenizer.
@@ -20,7 +20,7 @@ pub trait TokenizerRules<Payload: TokenPayload> {
 /// the one that produces the longest match. In case of conflict, the first such rule is chosen.
 pub struct Tokenizer<Payload: TokenPayload, Rules: TokenizerRules<Payload>> {
     rules: Vec<(Regex, Handler<Payload>)>,
-    ignored_rule: Regex,
+    ignored_rule: Option<Regex>,
     phantom: PhantomData<Rules>,
 }
 
@@ -44,10 +44,7 @@ impl<Payload: TokenPayload, Rules: TokenizerRules<Payload>> Tokenizer<Payload, R
     }
 
     pub fn next(&self, input: &Input) -> Option<(Token<Payload>, usize)> {
-        let start_offset = match self.ignored_rule.find(&input) {
-            Some(match_) => match_.end(),
-            None => 0,
-        };
+        let start_offset = self.ignored_prefix(input);
         match self
             .rules
             .iter()
@@ -75,5 +72,17 @@ impl<Payload: TokenPayload, Rules: TokenizerRules<Payload>> Tokenizer<Payload, R
                 }
             },
         }
+    }
+
+    /// Counts ignored characters at the beginning of the input.
+    ///
+    /// This should _not_ be normally used, it only makes sense in certain weird contexts, like
+    /// switching between tokenizers.
+    pub fn ignored_prefix(&self, input: &Input) -> usize {
+        self.ignored_rule
+            .as_ref()
+            .and_then(|ignored_rule| ignored_rule.find(input))
+            .map(|match_| match_.end())
+            .unwrap_or(0)
     }
 }

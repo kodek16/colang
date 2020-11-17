@@ -1,7 +1,9 @@
 //! Definitions of abstractions used throughout the `parser` module tree.
 
-use crate::parser::input::Input;
+use crate::parser::input::{Input, TokenizerChoice, TokenizerInputView};
 use crate::parser::tokens::primary::PrimaryToken;
+use crate::parser::tokens::string::StringToken;
+use crate::parser::tokens::token::Token;
 use crate::source::InputSpan;
 
 /// A syntax error found in the user program.
@@ -92,12 +94,40 @@ impl<'a, T> ParseResult<'a, T> {
     }
 }
 
-/// Helper function for typical single-token parsers.
+/// Can be used at tokenizer boundaries to strip characters ignored by the primary tokenizer.
+pub struct SkipIgnoredByPrimaryTokenizer;
+
+impl Parser for SkipIgnoredByPrimaryTokenizer {
+    type N = ();
+
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        let input = input.strip_ignored_prefix_from_primary();
+        ParseResult(ParsedNode::Ok(()), input)
+    }
+}
+
+/// Helper function for typical single-token parsers using the primary tokenizer.
 pub fn parse_from_next_primary_token<N>(
     input: Input,
     f: impl FnOnce(PrimaryToken) -> Option<N>,
 ) -> ParseResult<N> {
-    let tokens = input.with_primary_tokenizer();
+    parse_from_next_token(input, Input::with_primary_tokenizer, f)
+}
+
+/// Helper function for typical single-token parsers using the string tokenizer.
+pub fn parse_from_next_string_token<N>(
+    input: Input,
+    f: impl FnOnce(StringToken) -> Option<N>,
+) -> ParseResult<N> {
+    parse_from_next_token(input, Input::with_string_tokenizer, f)
+}
+
+fn parse_from_next_token<'a, N, Choice: TokenizerChoice>(
+    input: Input<'a>,
+    to_tokens: impl for<'b> FnOnce(&'b Input<'a>) -> TokenizerInputView<'a, 'b, Choice>,
+    f: impl FnOnce(Token<Choice::Payload>) -> Option<N>,
+) -> ParseResult<N> {
+    let tokens = to_tokens(&input);
     match tokens.peek() {
         Some(token) => {
             let span = token.span;

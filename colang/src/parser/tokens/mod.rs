@@ -10,5 +10,6 @@
 
 pub mod primary;
 pub mod queue;
+pub mod string;
 pub mod token;
 pub mod tokenizer;

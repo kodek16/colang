@@ -1,11 +1,15 @@
 //! Terminal node parsers for nodes that are trivially converted from empty tokens.
 
-use crate::parser::common::{parse_from_next_primary_token, ParseResult, Parser};
+use crate::parser::common::{
+    parse_from_next_primary_token, parse_from_next_string_token, ParseResult, Parser,
+};
 use crate::parser::input::Input;
 use crate::parser::seq::SynthesizeIfMissing;
 use crate::parser::tokens::primary::PrimaryTokenPayload;
+use crate::parser::tokens::string::StringTokenPayload;
 use crate::source::InputSpan;
 
+// Primary token-backed terminals:
 pub struct Colon;
 pub struct Semicolon;
 pub struct Comma;
@@ -32,7 +36,11 @@ pub struct KwIf;
 pub struct KwTrue;
 pub struct KwVar;
 
-macro_rules! impl_parser_from_token {
+// String token-backed terminals:
+pub struct SingleQuote;
+pub struct DoubleQuote;
+
+macro_rules! impl_parser_from_primary_token {
     ($name: ident) => {
         impl Parser for $name {
             type N = InputSpan;
@@ -47,36 +55,57 @@ macro_rules! impl_parser_from_token {
     };
 }
 
-impl_parser_from_token!(Colon);
-impl_parser_from_token!(Semicolon);
-impl_parser_from_token!(Comma);
-impl_parser_from_token!(Plus);
-impl_parser_from_token!(Minus);
-impl_parser_from_token!(Asterisk);
-impl_parser_from_token!(Slash);
-impl_parser_from_token!(SingleEqual);
-impl_parser_from_token!(DoubleEqual);
-impl_parser_from_token!(NotEqual);
-impl_parser_from_token!(LessEqual);
-impl_parser_from_token!(GreaterEqual);
-impl_parser_from_token!(Less);
-impl_parser_from_token!(Greater);
-impl_parser_from_token!(LeftParen);
-impl_parser_from_token!(RightParen);
-impl_parser_from_token!(LeftBrace);
-impl_parser_from_token!(RightBrace);
+macro_rules! impl_parser_from_string_token {
+    ($name: ident) => {
+        impl Parser for $name {
+            type N = InputSpan;
 
-impl_parser_from_token!(KwElse);
-impl_parser_from_token!(KwFalse);
-impl_parser_from_token!(KwFun);
-impl_parser_from_token!(KwIf);
-impl_parser_from_token!(KwTrue);
-impl_parser_from_token!(KwVar);
+            fn parse(input: Input) -> ParseResult<InputSpan> {
+                parse_from_next_string_token(input, |token| match token.payload {
+                    StringTokenPayload::$name => Some(token.span),
+                    _ => None,
+                })
+            }
+        }
+    };
+}
+
+impl_parser_from_primary_token!(Colon);
+impl_parser_from_primary_token!(Semicolon);
+impl_parser_from_primary_token!(Comma);
+impl_parser_from_primary_token!(Plus);
+impl_parser_from_primary_token!(Minus);
+impl_parser_from_primary_token!(Asterisk);
+impl_parser_from_primary_token!(Slash);
+impl_parser_from_primary_token!(SingleEqual);
+impl_parser_from_primary_token!(DoubleEqual);
+impl_parser_from_primary_token!(NotEqual);
+impl_parser_from_primary_token!(LessEqual);
+impl_parser_from_primary_token!(GreaterEqual);
+impl_parser_from_primary_token!(Less);
+impl_parser_from_primary_token!(Greater);
+impl_parser_from_primary_token!(LeftParen);
+impl_parser_from_primary_token!(RightParen);
+impl_parser_from_primary_token!(LeftBrace);
+impl_parser_from_primary_token!(RightBrace);
+
+impl_parser_from_primary_token!(KwElse);
+impl_parser_from_primary_token!(KwFalse);
+impl_parser_from_primary_token!(KwFun);
+impl_parser_from_primary_token!(KwIf);
+impl_parser_from_primary_token!(KwTrue);
+impl_parser_from_primary_token!(KwVar);
+
+impl_parser_from_string_token!(SingleQuote);
+impl_parser_from_string_token!(DoubleQuote);
 
 pub struct ColonOrSynthesize;
 pub struct LeftParenOrSynthesize;
 pub struct RightParenOrSynthesize;
 pub struct RightBraceOrSynthesize;
+
+pub struct SingleQuoteOrSynthesize;
+pub struct DoubleQuoteOrSynthesize;
 
 impl SynthesizeIfMissing for ColonOrSynthesize {
     type P = Colon;
@@ -104,6 +133,22 @@ impl SynthesizeIfMissing for RightParenOrSynthesize {
 
 impl SynthesizeIfMissing for RightBraceOrSynthesize {
     type P = RightBrace;
+
+    fn synthesize(location: InputSpan) -> InputSpan {
+        location
+    }
+}
+
+impl SynthesizeIfMissing for SingleQuoteOrSynthesize {
+    type P = SingleQuote;
+
+    fn synthesize(location: InputSpan) -> InputSpan {
+        location
+    }
+}
+
+impl SynthesizeIfMissing for DoubleQuoteOrSynthesize {
+    type P = DoubleQuote;
 
     fn synthesize(location: InputSpan) -> InputSpan {
         location

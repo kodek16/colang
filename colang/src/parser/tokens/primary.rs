@@ -25,6 +25,10 @@ pub enum PrimaryTokenPayload {
     Slash,
     DoubleEquals,
     SingleEquals,
+    LessEqual,
+    GreaterEqual,
+    Less,
+    Greater,
     LeftParen,
     RightParen,
     LeftBrace,
@@ -111,6 +115,22 @@ impl TokenizerRules<PrimaryTokenPayload> for PrimaryRules {
             (
                 Regex::new(r"^=").unwrap(),
                 Box::new(|_| PrimaryTokenPayload::SingleEquals),
+            ),
+            (
+                Regex::new(r"^<=").unwrap(),
+                Box::new(|_| PrimaryTokenPayload::LessEqual),
+            ),
+            (
+                Regex::new(r"^>=").unwrap(),
+                Box::new(|_| PrimaryTokenPayload::GreaterEqual),
+            ),
+            (
+                Regex::new(r"^<").unwrap(),
+                Box::new(|_| PrimaryTokenPayload::Less),
+            ),
+            (
+                Regex::new(r"^>").unwrap(),
+                Box::new(|_| PrimaryTokenPayload::Greater),
             ),
             (
                 Regex::new(r"^\(").unwrap(),

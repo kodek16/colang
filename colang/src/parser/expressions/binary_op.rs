@@ -13,6 +13,7 @@ use crate::ast;
 use crate::ast::BinaryOperator;
 use crate::parser::expressions::primary::PrimaryExpr;
 use crate::parser::prelude::*;
+use crate::parser::terminals;
 use std::marker::PhantomData;
 
 /// Parses any expression that participates in precedence resolution mechanism.
@@ -24,7 +25,7 @@ impl Parser for BinaryOperatorExpr {
     type N = ast::ExpressionLike;
 
     fn parse(input: Input) -> ParseResult<Self::N> {
-        Expr2::parse(input)
+        Expr3::parse(input)
     }
 }
 
@@ -143,3 +144,44 @@ impl OpParser for Sub {
 }
 
 type Expr2 = InfixLeftPrecedenceTier<Expr1, Ops2>;
+
+// Tier 3: comparison operators.
+
+struct Ops3;
+
+impl OpParser for Ops3 {
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        <OneOf4<Less, Greater, LessEqual, GreaterEqual>>::parse(input)
+    }
+}
+
+struct Less;
+struct Greater;
+struct LessEqual;
+struct GreaterEqual;
+
+impl OpParser for Less {
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        terminals::Less::parse(input).map(|_| ast::BinaryOperator::Less)
+    }
+}
+
+impl OpParser for Greater {
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        terminals::Greater::parse(input).map(|_| ast::BinaryOperator::Greater)
+    }
+}
+
+impl OpParser for LessEqual {
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        terminals::LessEqual::parse(input).map(|_| ast::BinaryOperator::LessEq)
+    }
+}
+
+impl OpParser for GreaterEqual {
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        terminals::GreaterEqual::parse(input).map(|_| ast::BinaryOperator::GreaterEq)
+    }
+}
+
+type Expr3 = InfixLeftPrecedenceTier<Expr2, Ops3>;

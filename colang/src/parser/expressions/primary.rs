@@ -4,7 +4,6 @@
 //! itself not rooted with a binary operator node.
 
 use crate::ast;
-use crate::parser::expressions::block::BlockExpr;
 use crate::parser::expressions::bool_literal::BoolLiteralExpr;
 use crate::parser::expressions::int_literal::IntLiteralExpr;
 use crate::parser::expressions::variable::VariableExpr;
@@ -16,6 +15,6 @@ impl Parser for PrimaryExpr {
     type N = ast::ExpressionLike;
 
     fn parse(input: Input) -> ParseResult<Self::N> {
-        <OneOf4<BlockExpr, BoolLiteralExpr, IntLiteralExpr, VariableExpr>>::parse(input)
+        <OneOf3<BoolLiteralExpr, IntLiteralExpr, VariableExpr>>::parse(input)
     }
 }

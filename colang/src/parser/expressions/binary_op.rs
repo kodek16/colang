@@ -25,7 +25,7 @@ impl Parser for BinaryOperatorExpr {
     type N = ast::ExpressionLike;
 
     fn parse(input: Input) -> ParseResult<Self::N> {
-        Expr3::parse(input)
+        Expr4::parse(input)
     }
 }
 
@@ -185,3 +185,30 @@ impl OpParser for GreaterEqual {
 }
 
 type Expr3 = InfixLeftPrecedenceTier<Expr2, Ops3>;
+
+// Tier 4: equality test operators.
+
+struct Ops4;
+
+impl OpParser for Ops4 {
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        <OneOf2<Equal, NotEqual>>::parse(input)
+    }
+}
+
+struct Equal;
+struct NotEqual;
+
+impl OpParser for Equal {
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        terminals::DoubleEqual::parse(input).map(|_| ast::BinaryOperator::Eq)
+    }
+}
+
+impl OpParser for NotEqual {
+    fn parse(input: Input) -> ParseResult<BinaryOperator> {
+        terminals::NotEqual::parse(input).map(|_| ast::BinaryOperator::NotEq)
+    }
+}
+
+type Expr4 = InfixLeftPrecedenceTier<Expr3, Ops4>;

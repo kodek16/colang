@@ -43,13 +43,6 @@ impl<T> ParsedNode<T> {
         }
     }
 
-    pub fn is_ok(&self) -> bool {
-        match &self {
-            ParsedNode::Ok(_) => true,
-            _ => false,
-        }
-    }
-
     /// If `self` is a successful or recovered parse, adds a syntax error at its end.
     pub fn add_error(self, error: SyntaxError) -> ParsedNode<T> {
         match self {

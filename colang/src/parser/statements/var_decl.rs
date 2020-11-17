@@ -43,7 +43,7 @@ impl Parser for VarDeclEntry {
         <Seq3<
             AbortIfMissing<Identifier>,
             Optional<Seq2<AbortIfMissing<Colon>, TypeExprOrSynthesize>>,
-            Optional<Seq2<AbortIfMissing<SingleEquals>, ExprLikeOrSynthesize>>,
+            Optional<Seq2<AbortIfMissing<SingleEqual>, ExprLikeOrSynthesize>>,
         >>::parse(input)
         .map(|(name, type_, initializer)| {
             let type_ = type_.map(|(_, t)| t);

@@ -8,6 +8,8 @@ edition = "2018"
 [dependencies]
 codespan-reporting = "0.9.1"
 clap = "2.33.0"
+cursive = "0.15"
+
 colang = { path = "../colang" }
 colang-interpreter = { path = "../colang-interpreter" }
 colang-c-target = { path = "../colang-c-target" }

@@ -1,8 +1,9 @@
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use colang::backends::Backend;
 use colang::errors::CompilationError;
+use colang::options::{AnalyzerOptions, ParserOptions};
 use colang_c_target::CBackend;
 use colang_interpreter::InterpreterBackend;
 use std::fs;
@@ -27,6 +28,9 @@ pub struct Config {
 
 /// Expected result of running the compiler.
 pub enum Target {
+    /// Display an interactive UI for exploring the AST.
+    AstGui,
+
     /// Dump the internal debug information from the frontend.
     Debug,
 
@@ -43,27 +47,27 @@ impl Config {
                 .index(1)
         };
 
-        let no_std_arg = || {
-            Arg::with_name("no-std")
-                .long("--no-std")
-                .help("Do not use standard library")
-        };
-
         let matches = App::new("colang")
             .version(VERSION)
             .about("Compiler and interpreter for the CO language")
             .setting(AppSettings::SubcommandRequiredElseHelp)
+            .arg(
+                Arg::with_name("use-experimental-parser")
+                    .short("e")
+                    .long("--experimental-parser")
+                    .help("Use the new experimental parser")
+                    .global(true),
+            )
+            .arg(
+                Arg::with_name("no-std")
+                    .long("--no-std")
+                    .help("Do not use the standard library")
+                    .global(true),
+            )
             .subcommand(
                 SubCommand::with_name("run")
                     .about("Executes the program in an interpreter")
-                    .arg(program())
-                    .arg(
-                        Arg::with_name("use-experimental-parser")
-                            .short("e")
-                            .long("--experimental-parser")
-                            .help("Use the new experimental parser"),
-                    )
-                    .arg(no_std_arg()),
+                    .arg(program()),
             )
             .subcommand(
                 SubCommand::with_name("compile")
@@ -75,30 +79,46 @@ impl Config {
                             .long("--output")
                             .takes_value(true)
                             .help("Path to use for the generated C file"),
-                    )
-                    .arg(no_std_arg()),
+                    ),
             )
             .subcommand(
-                SubCommand::with_name("internal-dump-ir")
-                    .about("Prints the internal program IR (internal command)")
-                    .arg(program()),
+                SubCommand::with_name("tools")
+                    .about("Various language-level tools most useful for colang devs")
+                    .subcommand(
+                        SubCommand::with_name("ast")
+                            .about("Displays the AST obtained from the parser")
+                            .arg(program()),
+                    )
+                    .subcommand(
+                        SubCommand::with_name("ir")
+                            .about("Prints the compiled program IR")
+                            .arg(program()),
+                    ),
             )
             .get_matches();
 
-        let (subcommand, sub_matches) = matches.subcommand();
-        let sub_matches = sub_matches.unwrap();
-
-        Config {
-            source_path: sub_matches.value_of("PROGRAM").unwrap().to_string(),
-            experimental_parser: sub_matches.is_present("use-experimental-parser"),
-            no_std: sub_matches.is_present("no-std"),
-            target: match subcommand {
-                "run" => Target::Run(Box::new(InterpreterBackend)),
-                "compile" => Target::Run(Box::new(CBackend::new(sub_matches.value_of("output")))),
-                "internal-dump-ir" => Target::Debug,
-                _ => panic!("Unknown subcommand"),
-            },
+        let config_from_leaf_matches = |matches: &ArgMatches, target| Config {
+            source_path: matches.value_of("PROGRAM").unwrap().to_string(),
+            experimental_parser: matches.is_present("use-experimental-parser"),
+            no_std: matches.is_present("no-std"),
             plaintext_compilation_errors: false,
+            target,
+        };
+
+        match matches.subcommand() {
+            ("run", Some(matches)) => {
+                config_from_leaf_matches(matches, Target::Run(Box::new(InterpreterBackend)))
+            }
+            ("compile", Some(matches)) => config_from_leaf_matches(
+                matches,
+                Target::Run(Box::new(CBackend::new(matches.value_of("output")))),
+            ),
+            ("tools", Some(matches)) => match matches.subcommand() {
+                ("ast", Some(matches)) => config_from_leaf_matches(matches, Target::AstGui),
+                ("ir", Some(matches)) => config_from_leaf_matches(matches, Target::Debug),
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
         }
     }
 }
@@ -124,9 +144,37 @@ pub fn run(config: Config) -> RunResult {
         }
     };
 
+    let parser_options = if config.experimental_parser {
+        ParserOptions::Experimental
+    } else {
+        ParserOptions::Old
+    };
+
+    let analyzer_options = AnalyzerOptions {
+        no_std: config.no_std,
+    };
+
     match config.target {
+        Target::AstGui => {
+            let result = colang::parse(&source_code, parser_options);
+            match result {
+                Ok(_ast) => {
+                    println!("Ok!");
+                    RunResult::Ok
+                }
+                Err(errors) => {
+                    report_compilation_errors(
+                        &config.source_path,
+                        &source_code,
+                        &errors,
+                        config.plaintext_compilation_errors,
+                    );
+                    RunResult::CompilerError
+                }
+            }
+        }
         Target::Debug => {
-            let result = colang::debug(&source_code);
+            let result = colang::debug(&source_code, parser_options, analyzer_options);
             if result.is_ok() {
                 RunResult::Ok
             } else {
@@ -134,19 +182,18 @@ pub fn run(config: Config) -> RunResult {
             }
         }
         Target::Run(backend) => {
-            let program =
-                match colang::compile(&source_code, config.experimental_parser, config.no_std) {
-                    Ok(program) => program,
-                    Err(errors) => {
-                        report_compilation_errors(
-                            &config.source_path,
-                            &source_code,
-                            &errors,
-                            config.plaintext_compilation_errors,
-                        );
-                        return RunResult::CompilerError;
-                    }
-                };
+            let program = match colang::compile(&source_code, parser_options, analyzer_options) {
+                Ok(program) => program,
+                Err(errors) => {
+                    report_compilation_errors(
+                        &config.source_path,
+                        &source_code,
+                        &errors,
+                        config.plaintext_compilation_errors,
+                    );
+                    return RunResult::CompilerError;
+                }
+            };
 
             match backend.run(&config.source_path, &source_code, program) {
                 Ok(()) => RunResult::Ok,

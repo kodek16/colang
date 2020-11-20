@@ -18,6 +18,7 @@ lalrpop_mod!(grammar);
 
 pub mod backends;
 pub mod errors;
+pub mod options;
 pub mod program;
 pub mod source;
 pub mod stdlib;
@@ -25,6 +26,7 @@ pub mod stdlib;
 use crate::analyzer::GlobalVisitor;
 use crate::context::CompilerContext;
 use crate::errors::CompilationError;
+use crate::options::{AnalyzerOptions, ParserOptions};
 use crate::program::visitors::valid::ValidityChecker;
 use crate::scope::FunctionEntity;
 use crate::source::InputSpanFile;
@@ -37,11 +39,11 @@ use std::rc::Rc;
 /// a target language.
 pub fn compile(
     source_code: &str,
-    experimental_parser: bool,
-    no_std: bool,
+    parser_options: ParserOptions,
+    analyzer_options: AnalyzerOptions,
 ) -> Result<program::Program, Vec<CompilationError>> {
-    let std_ast = if !no_std {
-        parse(stdlib::STD_SOURCE, InputSpanFile::Std, experimental_parser)?
+    let std_ast = if !analyzer_options.no_std {
+        parse_file(stdlib::STD_SOURCE, InputSpanFile::Std, parser_options)?
     } else {
         ast::Program {
             traits: vec![],
@@ -49,11 +51,7 @@ pub fn compile(
             functions: vec![],
         }
     };
-    let program_ast = parse(
-        &source_code,
-        InputSpanFile::UserProgram,
-        experimental_parser,
-    )?;
+    let program_ast = parse_file(&source_code, InputSpanFile::UserProgram, parser_options)?;
 
     let mut program = analyze(vec![std_ast, program_ast]).map_err(|(_, errors)| errors)?;
 
@@ -74,10 +72,22 @@ pub fn compile(
 ///
 /// This function prints the program even if it is invalid because of some encountered errors.
 /// To see these errors, `compile` should be used.
-pub fn debug(source_code: &str) -> Result<(), ()> {
-    let std_ast =
-        parse(stdlib::STD_SOURCE, InputSpanFile::Std, false).expect("Syntax error in stdlib");
-    let program_ast = parse(&source_code, InputSpanFile::UserProgram, false)
+pub fn debug(
+    source_code: &str,
+    parser_options: ParserOptions,
+    analyzer_options: AnalyzerOptions,
+) -> Result<(), ()> {
+    let std_ast = if !analyzer_options.no_std {
+        parse_file(stdlib::STD_SOURCE, InputSpanFile::Std, parser_options)
+            .expect("Syntax error in stdlib")
+    } else {
+        ast::Program {
+            traits: vec![],
+            structs: vec![],
+            functions: vec![],
+        }
+    };
+    let program_ast = parse_file(&source_code, InputSpanFile::UserProgram, parser_options)
         .expect("Syntax error in source file");
 
     let result = analyze(vec![std_ast, program_ast]);
@@ -96,22 +106,29 @@ pub fn debug(source_code: &str) -> Result<(), ()> {
     }
 }
 
+/// Parses a CO program and returns the AST without doing any analysis.
+pub fn parse(
+    source_code: &str,
+    parser_options: ParserOptions,
+) -> Result<ast::Program, Vec<CompilationError>> {
+    parse_file(source_code, InputSpanFile::UserProgram, parser_options)
+}
+
 /// Parses the source code of a file and returns an AST root node.
-fn parse(
+fn parse_file(
     source_code: &str,
     file: InputSpanFile,
-    experimental_parser: bool,
+    parser_options: ParserOptions,
 ) -> Result<ast::Program, Vec<CompilationError>> {
-    if experimental_parser {
-        parser::parse(source_code, file).map_err(|es| {
+    match parser_options {
+        ParserOptions::Old => grammar::ProgramParser::new()
+            .parse(file, source_code)
+            .map_err(|err| vec![errors::syntax_error(err, file)]),
+        ParserOptions::Experimental => parser::parse(source_code, file).map_err(|es| {
             es.into_iter()
                 .map(errors::syntax_error_new)
                 .collect::<Vec<_>>()
-        })
-    } else {
-        grammar::ProgramParser::new()
-            .parse(file, source_code)
-            .map_err(|err| vec![errors::syntax_error(err, file)])
+        }),
     }
 }
 

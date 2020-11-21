@@ -8,7 +8,6 @@
 use lalrpop_util::lalrpop_mod;
 
 mod analyzer;
-mod ast;
 mod context;
 mod escapes;
 mod parser;
@@ -16,6 +15,7 @@ mod scope;
 mod utils;
 lalrpop_mod!(grammar);
 
+pub mod ast;
 pub mod backends;
 pub mod errors;
 pub mod options;

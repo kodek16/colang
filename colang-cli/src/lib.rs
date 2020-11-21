@@ -1,3 +1,5 @@
+mod ast_gui;
+
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
@@ -158,8 +160,8 @@ pub fn run(config: Config) -> RunResult {
         Target::AstGui => {
             let result = colang::parse(&source_code, parser_options);
             match result {
-                Ok(_ast) => {
-                    println!("Ok!");
+                Ok(program) => {
+                    ast_gui::display(&source_code, program);
                     RunResult::Ok
                 }
                 Err(errors) => {

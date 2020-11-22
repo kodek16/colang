@@ -3,7 +3,7 @@ use colang::ast::{
     TypeExpr,
 };
 use colang::source::InputSpan;
-use cursive::theme::{Effect, Style};
+use cursive::theme::{BorderStyle, Color, Effect, Style};
 use cursive::traits::*;
 use cursive::utils::markup::StyledString;
 use cursive::views::{LinearLayout, NamedView, Panel, ResizedView, TextView};
@@ -14,6 +14,7 @@ use std::fmt::{self, Display, Formatter};
 pub fn display(source_code: &str, program: Program) {
     let mut siv = cursive::default();
 
+    configure_theme(&mut siv);
     siv.add_global_callback('q', |s| s.quit());
 
     siv.add_fullscreen_layer(
@@ -23,6 +24,35 @@ pub fn display(source_code: &str, program: Program) {
     );
 
     siv.run();
+}
+
+fn configure_theme(siv: &mut Cursive) {
+    let mut theme = siv.current_theme().clone();
+
+    theme.shadow = false;
+    theme.borders = BorderStyle::Simple;
+
+    // A very basic dark theme.
+    for key in &[
+        "shadow",
+        "view",
+        "secondary",
+        "tertiary",
+        "title_primary",
+        "title_secondary",
+        "highlight",
+        "highlight_inactive",
+    ] {
+        theme.palette.set_color(key, Color::TerminalDefault);
+    }
+    theme
+        .palette
+        .set_color("background", Color::parse("#262626").unwrap());
+    theme
+        .palette
+        .set_color("primary", Color::parse("#bcbcbc").unwrap());
+
+    siv.set_theme(theme);
 }
 
 fn ast_view(program: Program) -> ResizedView<Panel<NamedView<TreeView<AstNodeContent>>>> {
@@ -44,7 +74,7 @@ fn ast_view(program: Program) -> ResizedView<Panel<NamedView<TreeView<AstNodeCon
                 styled.append_plain(&source_code[..span.start]);
                 styled.append_styled(
                     &source_code[span.start..span.end],
-                    Style::from(Effect::Bold),
+                    Style::from(Effect::Bold).combine(Effect::Reverse),
                 );
                 styled.append_plain(&source_code[span.end..]);
                 styled

@@ -165,9 +165,9 @@ impl From<FunctionDef> for AstTree {
         if let Some(return_type) = function.return_type {
             children.push(field("return_type", return_type.into()));
         }
-        // if let Some(body) = function.return_type {
-        //     children.push(body.into());
-        // }
+        if let Some(body) = function.body {
+            children.push(field("body", body.into()));
+        }
         AstTree {
             node: AstNodeContent {
                 text: String::from("<FunctionDef>"),
@@ -295,6 +295,334 @@ impl From<TemplateInstanceTypeExpr> for AstTree {
                 ),
             ],
         }
+    }
+}
+
+impl From<ExpressionLike> for AstTree {
+    fn from(expression: ExpressionLike) -> Self {
+        use ExpressionLike::*;
+        match expression {
+            Variable(expression) => expression.into(),
+            IntLiteral(expression) => expression.into(),
+            BoolLiteral(expression) => expression.into(),
+            CharLiteral(expression) => expression.into(),
+            StringLiteral(expression) => expression.into(),
+            Null(expression) => expression.into(),
+            Self_(expression) => expression.into(),
+            UnaryOp(expression) => expression.into(),
+            BinaryOp(expression) => expression.into(),
+            Address(expression) => expression.into(),
+            Deref(expression) => expression.into(),
+            New(expression) => expression.into(),
+            Is(expression) => expression.into(),
+            ArrayFromElements(expression) => expression.into(),
+            ArrayFromCopy(expression) => expression.into(),
+            Index(expression) => expression.into(),
+            Call(expression) => expression.into(),
+            FieldAccess(expression) => expression.into(),
+            MethodCall(expression) => expression.into(),
+            If(expression) => expression.into(),
+            Block(expression) => expression.into(),
+        }
+    }
+}
+
+impl From<VariableExpr> for AstTree {
+    fn from(expression: VariableExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<VariableExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![field("name", expression.name.into())],
+        }
+    }
+}
+
+impl From<IntLiteralExpr> for AstTree {
+    fn from(expression: IntLiteralExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: format!("<IntLiteralExpr>: {}", expression.value),
+                span: Some(expression.span),
+            },
+            children: vec![],
+        }
+    }
+}
+
+impl From<BoolLiteralExpr> for AstTree {
+    fn from(expression: BoolLiteralExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: format!("<BoolLiteralExpr>: {}", expression.value),
+                span: Some(expression.span),
+            },
+            children: vec![],
+        }
+    }
+}
+
+impl From<CharLiteralExpr> for AstTree {
+    fn from(expression: CharLiteralExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: format!("<CharLiteralExpr>: '{}'", expression.value),
+                span: Some(expression.span),
+            },
+            children: vec![],
+        }
+    }
+}
+
+impl From<StringLiteralExpr> for AstTree {
+    fn from(expression: StringLiteralExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: format!("<StringLiteralExpr>: \"{}\"", expression.value),
+                span: Some(expression.span),
+            },
+            children: vec![],
+        }
+    }
+}
+
+impl From<NullExpr> for AstTree {
+    fn from(expression: NullExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<NullExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![],
+        }
+    }
+}
+
+impl From<SelfExpr> for AstTree {
+    fn from(expression: SelfExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<SelfExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![],
+        }
+    }
+}
+
+impl From<UnaryOperatorExpr> for AstTree {
+    fn from(expression: UnaryOperatorExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: format!("<UnaryOperatorExpr>: {}", expression.operator),
+                span: Some(expression.span),
+            },
+            children: vec![field("operand", (*expression.operand).into())],
+        }
+    }
+}
+
+impl From<BinaryOperatorExpr> for AstTree {
+    fn from(expression: BinaryOperatorExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: format!("<BinaryOperatorExpr>: {}", expression.operator),
+                span: Some(expression.span),
+            },
+            children: vec![
+                field("lhs", (*expression.lhs).into()),
+                field("rhs", (*expression.rhs).into()),
+            ],
+        }
+    }
+}
+
+impl From<AddressExpr> for AstTree {
+    fn from(expression: AddressExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<AddressExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![field("target", (*expression.target).into())],
+        }
+    }
+}
+
+impl From<DerefExpr> for AstTree {
+    fn from(expression: DerefExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<DerefExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![field("pointer", (*expression.pointer).into())],
+        }
+    }
+}
+
+impl From<NewExpr> for AstTree {
+    fn from(expression: NewExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<NewExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![field("target_type", expression.target_type.into())],
+        }
+    }
+}
+
+impl From<IsExpr> for AstTree {
+    fn from(expression: IsExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<IsExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![
+                field("lhs", (*expression.lhs).into()),
+                field("rhs", (*expression.rhs).into()),
+            ],
+        }
+    }
+}
+
+impl From<ArrayFromElementsExpr> for AstTree {
+    fn from(expression: ArrayFromElementsExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<ArrayFromElementsExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![field_vec(
+                "elements",
+                expression.elements.into_iter().map(|e| e.into()).collect(),
+            )],
+        }
+    }
+}
+
+impl From<ArrayFromCopyExpr> for AstTree {
+    fn from(expression: ArrayFromCopyExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<ArrayFromCopyExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![
+                field("element", (*expression.element).into()),
+                field("size", (*expression.size).into()),
+            ],
+        }
+    }
+}
+
+impl From<IndexExpr> for AstTree {
+    fn from(expression: IndexExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<IndexExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![
+                field("collection", (*expression.collection).into()),
+                field("index", (*expression.index).into()),
+            ],
+        }
+    }
+}
+
+impl From<FieldAccessExpr> for AstTree {
+    fn from(expression: FieldAccessExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<FieldAccessExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![
+                field("receiver", (*expression.receiver).into()),
+                field("field", expression.field.into()),
+            ],
+        }
+    }
+}
+
+impl From<CallExpr> for AstTree {
+    fn from(expression: CallExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<CallExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![
+                field("function_name", expression.function_name.into()),
+                field_vec(
+                    "arguments",
+                    expression.arguments.into_iter().map(|a| a.into()).collect(),
+                ),
+            ],
+        }
+    }
+}
+
+impl From<MethodCallExpr> for AstTree {
+    fn from(expression: MethodCallExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<MethodCallExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![
+                field("receiver", (*expression.receiver).into()),
+                field("method", expression.method.into()),
+                field_vec(
+                    "arguments",
+                    expression.arguments.into_iter().map(|a| a.into()).collect(),
+                ),
+            ],
+        }
+    }
+}
+
+impl From<IfExpr> for AstTree {
+    fn from(expression: IfExpr) -> Self {
+        let mut children = vec![
+            field("cond", (*expression.cond).into()),
+            field("then", (*expression.then).into()),
+        ];
+        if let Some(else_) = expression.else_ {
+            children.push((*else_).into());
+        }
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<IfExpr>"),
+                span: Some(expression.span),
+            },
+            children,
+        }
+    }
+}
+
+impl From<BlockExpr> for AstTree {
+    fn from(expression: BlockExpr) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<BlockExpr>"),
+                span: Some(expression.span),
+            },
+            children: vec![field_vec(
+                "items",
+                expression.items.into_iter().map(|i| i.into()).collect(),
+            )],
+        }
+    }
+}
+
+impl From<StmtOrExpr> for AstTree {
+    fn from(stmt_or_expr: StmtOrExpr) -> Self {
+        todo!()
     }
 }
 

@@ -96,6 +96,7 @@ fn construct_tree_view(view: &mut TreeView<AstNodeContent>, row: usize, node: As
     for child in node.children {
         construct_tree_view(view, row, child);
     }
+    view.collapse_item(row);
 }
 
 fn source_code_view(source_code: &str) -> ResizedView<Panel<LinearLayout>> {
@@ -133,23 +134,102 @@ impl From<Program> for AstTree {
                 span: None,
             },
             children: vec![
-                // AstTree {
-                //     node: String::from("Traits"),
-                //     span: InputSpan::top_of_file(),
-                //     children: program.traits.into_iter().map(|x| x.into()).collect(),
-                // },
-                // AstTree {
-                //     node: String::from("Structs"),
-                //     span: InputSpan::top_of_file(),
-                //     children: program.structs.into_iter().map(|x| x.into()).collect(),
-                // },
+                AstTree {
+                    node: AstNodeContent {
+                        text: String::from("structs"),
+                        span: None,
+                    },
+                    children: program.structs.into_iter().map(|s| s.into()).collect(),
+                },
+                AstTree {
+                    node: AstNodeContent {
+                        text: String::from("traits"),
+                        span: None,
+                    },
+                    children: program.traits.into_iter().map(|t| t.into()).collect(),
+                },
                 AstTree {
                     node: AstNodeContent {
                         text: String::from("functions"),
                         span: None,
                     },
-                    children: program.functions.into_iter().map(|x| x.into()).collect(),
+                    children: program.functions.into_iter().map(|f| f.into()).collect(),
                 },
+            ],
+        }
+    }
+}
+
+impl From<TypeDef> for AstTree {
+    fn from(type_def: TypeDef) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<TypeDef>"),
+                span: Some(type_def.signature_span),
+            },
+            children: vec![
+                field("name", type_def.name.into()),
+                field_vec(
+                    "type_parameters",
+                    type_def
+                        .type_parameters
+                        .into_iter()
+                        .map(|tp| tp.into())
+                        .collect(),
+                ),
+                field_vec(
+                    "implemented_traits",
+                    type_def
+                        .implemented_traits
+                        .into_iter()
+                        .map(|te| te.into())
+                        .collect(),
+                ),
+                field_vec(
+                    "fields",
+                    type_def.fields.into_iter().map(|f| f.into()).collect(),
+                ),
+                field_vec(
+                    "methods",
+                    type_def.methods.into_iter().map(|m| m.into()).collect(),
+                ),
+            ],
+        }
+    }
+}
+
+impl From<TypeParameter> for AstTree {
+    fn from(type_parameter: TypeParameter) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<TypeParameter>"),
+                span: Some(type_parameter.span),
+            },
+            children: vec![
+                field("name", type_parameter.name.into()),
+                field_vec(
+                    "trait_bounds",
+                    type_parameter
+                        .trait_bounds
+                        .into_iter()
+                        .map(|te| te.into())
+                        .collect(),
+                ),
+            ],
+        }
+    }
+}
+
+impl From<FieldDef> for AstTree {
+    fn from(field_def: FieldDef) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<FieldDef>"),
+                span: Some(field_def.span),
+            },
+            children: vec![
+                field("name", field_def.name.into()),
+                field("type_", field_def.type_.into()),
             ],
         }
     }
@@ -622,7 +702,152 @@ impl From<BlockExpr> for AstTree {
 
 impl From<StmtOrExpr> for AstTree {
     fn from(stmt_or_expr: StmtOrExpr) -> Self {
-        todo!()
+        use StmtOrExpr::*;
+        match stmt_or_expr {
+            VarDecl(statement) => statement.into(),
+            Read(statement) => statement.into(),
+            Write(statement) => statement.into(),
+            While(statement) => statement.into(),
+            Assign(statement) => statement.into(),
+            Return(statement) => statement.into(),
+            Semicolon(statement) => statement.into(),
+            ExprLike(expression) => expression.into(),
+        }
+    }
+}
+
+impl From<VarDeclStmt> for AstTree {
+    fn from(statement: VarDeclStmt) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<VarDeclStmt>"),
+                span: Some(statement.span),
+            },
+            children: vec![field_vec(
+                "entries",
+                statement.entries.into_iter().map(|e| e.into()).collect(),
+            )],
+        }
+    }
+}
+
+impl From<VarDeclEntry> for AstTree {
+    fn from(entry: VarDeclEntry) -> Self {
+        let mut children = vec![field("variable_name", entry.variable_name.into())];
+        if let Some(variable_type) = entry.variable_type {
+            children.push(field("variable_type", variable_type.into()));
+        }
+        if let Some(initializer) = entry.initializer {
+            children.push(field("initializer", initializer.into()));
+        }
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<VarDeclEntry>"),
+                span: Some(entry.span),
+            },
+            children,
+        }
+    }
+}
+
+impl From<ReadStmt> for AstTree {
+    fn from(statement: ReadStmt) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from(if statement.whole_line {
+                    "<ReadStmt>: whole_line"
+                } else {
+                    "<ReadStmt>"
+                }),
+                span: Some(statement.span),
+            },
+            children: vec![field_vec(
+                "entries",
+                statement.entries.into_iter().map(|e| e.into()).collect(),
+            )],
+        }
+    }
+}
+
+impl From<ReadEntry> for AstTree {
+    fn from(entry: ReadEntry) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<ReadEntry>"),
+                span: Some(entry.span),
+            },
+            children: vec![field("target", entry.target.into())],
+        }
+    }
+}
+
+impl From<WriteStmt> for AstTree {
+    fn from(statement: WriteStmt) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from(if statement.newline {
+                    "<WriteStmt>: newline"
+                } else {
+                    "<WriteStmt>"
+                }),
+                span: Some(statement.span),
+            },
+            children: vec![field("expression", statement.expression.into())],
+        }
+    }
+}
+
+impl From<WhileStmt> for AstTree {
+    fn from(statement: WhileStmt) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<WhileStmt>"),
+                span: Some(statement.span),
+            },
+            children: vec![
+                field("cond", (*statement.cond).into()),
+                field("body", (*statement.body).into()),
+            ],
+        }
+    }
+}
+
+impl From<AssignStmt> for AstTree {
+    fn from(statement: AssignStmt) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<AssignStmt>"),
+                span: Some(statement.span),
+            },
+            children: vec![
+                field("lhs", (*statement.lhs).into()),
+                field("rhs", (*statement.rhs).into()),
+            ],
+        }
+    }
+}
+
+impl From<ReturnStmt> for AstTree {
+    fn from(statement: ReturnStmt) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<ReturnStmt>"),
+                span: Some(statement.span),
+            },
+            children: statement.expression.into_iter().map(|e| e.into()).collect(),
+        }
+    }
+}
+
+impl From<SemicolonStmt> for AstTree {
+    fn from(statement: SemicolonStmt) -> Self {
+        AstTree {
+            node: AstNodeContent {
+                text: String::from("<SemicolonStmt>"),
+                span: Some(statement.span),
+            },
+            children: vec![],
+        }
     }
 }
 

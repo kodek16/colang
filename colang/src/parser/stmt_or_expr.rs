@@ -12,6 +12,7 @@ use crate::parser::expressions::if_::IfExpr;
 use crate::parser::prelude::*;
 use crate::parser::statements::semicolon::SemicolonStmt;
 use crate::parser::statements::var_decl::VarDeclStmt;
+use crate::parser::statements::write::WriteStmt;
 use std::marker::PhantomData;
 
 pub struct StmtOrExpr;
@@ -20,8 +21,9 @@ impl Parser for StmtOrExpr {
     type N = ast::StmtOrExpr;
 
     fn parse(input: Input) -> ParseResult<Self::N> {
-        <OneOf3<
+        <OneOf4<
             VarDeclStmt,
+            WriteStmt,
             SemicolonStmt,
             WrapExprLike<OneOf3<IfExpr, BlockExpr, BinaryOperatorExpr>>,
         >>::parse(input)

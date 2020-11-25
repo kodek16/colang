@@ -35,6 +35,8 @@ pub struct KwFun;
 pub struct KwIf;
 pub struct KwTrue;
 pub struct KwVar;
+pub struct KwWrite;
+pub struct KwWriteLn;
 
 // String token-backed terminals:
 pub struct SingleQuote;
@@ -95,6 +97,8 @@ impl_parser_from_primary_token!(KwFun);
 impl_parser_from_primary_token!(KwIf);
 impl_parser_from_primary_token!(KwTrue);
 impl_parser_from_primary_token!(KwVar);
+impl_parser_from_primary_token!(KwWrite);
+impl_parser_from_primary_token!(KwWriteLn);
 
 impl_parser_from_string_token!(SingleQuote);
 impl_parser_from_string_token!(DoubleQuote);

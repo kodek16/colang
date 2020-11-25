@@ -26,13 +26,19 @@ mod tokens;
 mod type_expr;
 
 /// Parses an entire source file, constructing an `ast::Program`.
-pub fn parse(source_code: &str, file: InputSpanFile) -> Result<ast::Program, Vec<SyntaxError>> {
+///
+/// If any errors are encountered, a best-effort recovered version of the program is returned
+/// alongside the errors.
+pub fn parse(
+    source_code: &str,
+    file: InputSpanFile,
+) -> Result<ast::Program, (ast::Program, Vec<SyntaxError>)> {
     let input = Input::new(source_code, file);
 
     let ParseResult(program, _) = program::Program::parse(input);
     match program {
         ParsedNode::Ok(program) => Ok(program),
-        ParsedNode::Recovered(_, errors) => Err(errors),
-        ParsedNode::Missing(error) => Err(vec![error]),
+        ParsedNode::Recovered(program, errors) => Err((program, errors)),
+        ParsedNode::Missing(error) => Err((ast::Program::empty(), vec![error])),
     }
 }

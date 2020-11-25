@@ -8,7 +8,7 @@ use colang::errors::CompilationError;
 use colang::options::{AnalyzerOptions, ParserOptions};
 use colang_c_target::CBackend;
 use colang_interpreter::InterpreterBackend;
-use std::fs;
+use std::{fs, io};
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -161,16 +161,22 @@ pub fn run(config: Config) -> RunResult {
             let result = colang::parse(&source_code, parser_options);
             match result {
                 Ok(program) => {
-                    ast_gui::display(&source_code, program);
+                    ast_gui::display(&source_code, program, &vec![]);
                     RunResult::Ok
                 }
-                Err(errors) => {
+                Err((program, errors)) => {
                     report_compilation_errors(
                         &config.source_path,
                         &source_code,
                         &errors,
                         config.plaintext_compilation_errors,
                     );
+                    println!("Press enter to continue to the GUI...");
+                    let mut input_line = String::new();
+                    io::stdin()
+                        .read_line(&mut input_line)
+                        .expect("Failed to read input key");
+                    ast_gui::display(&source_code, program, &errors);
                     RunResult::CompilerError
                 }
             }

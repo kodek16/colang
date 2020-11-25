@@ -1,6 +1,7 @@
 //! Implements an interactive terminal GUI for exploring ASTs.
 
 use colang::ast::*;
+use colang::errors::CompilationError;
 use colang::source::InputSpan;
 use cursive::theme::{BorderStyle, Color, Effect, Style};
 use cursive::traits::*;
@@ -10,7 +11,7 @@ use cursive::Cursive;
 use cursive_tree_view::{Placement, TreeView};
 use std::fmt::{self, Display, Formatter};
 
-pub fn display(source_code: &str, program: Program) {
+pub fn display(source_code: &str, program: Program, errors: &[CompilationError]) {
     let mut siv = cursive::default();
 
     configure_theme(&mut siv);
@@ -18,7 +19,11 @@ pub fn display(source_code: &str, program: Program) {
 
     siv.add_fullscreen_layer(
         LinearLayout::horizontal()
-            .child(ast_view(program))
+            .child(
+                LinearLayout::vertical()
+                    .child(ast_view(program))
+                    .child(errors_view(errors)),
+            )
             .child(source_code_view(source_code)),
     );
 
@@ -61,32 +66,86 @@ fn ast_view(program: Program) -> ResizedView<Panel<NamedView<TreeView<AstNodeCon
 
     tree.set_on_select(|siv: &mut Cursive, row: usize| {
         let span = siv
-            .call_on_name("tree", move |tree: &mut TreeView<AstNodeContent>| {
+            .call_on_name("ast-tree", move |tree: &mut TreeView<AstNodeContent>| {
                 tree.borrow_item(row).unwrap().span
             })
             .unwrap();
-        siv.call_on_name("source", move |text: &mut TextView| {
-            let new_content = {
-                let content = text.get_content();
-                let source_code = content.source();
-                let mut styled = StyledString::new();
-                if let Some(span) = span {
-                    styled.append_plain(&source_code[..span.start]);
-                    styled.append_styled(
-                        &source_code[span.start..span.end],
-                        Style::from(Effect::Bold).combine(Effect::Reverse),
-                    );
-                    styled.append_plain(&source_code[span.end..]);
-                } else {
-                    styled.append_plain(source_code);
-                }
-                styled
-            };
-            text.set_content(new_content);
-        });
+        update_source_highlight(siv, span);
     });
 
-    Panel::new(tree.with_name("tree")).full_width()
+    Panel::new(tree.with_name("ast-tree")).full_width()
+}
+
+fn errors_view(
+    errors: &[CompilationError],
+) -> ResizedView<Panel<NamedView<TreeView<ErrorNodeContent>>>> {
+    let mut tree = TreeView::new();
+    // Root node.
+    tree.insert_item(
+        ErrorNodeContent {
+            text: format!("Errors ({})", errors.len()),
+            span: None,
+        },
+        Placement::FirstChild,
+        0,
+    );
+
+    for error in errors {
+        tree.insert_item(
+            ErrorNodeContent {
+                text: error.message.clone(),
+                span: error.location,
+            },
+            Placement::LastChild,
+            0,
+        );
+    }
+
+    tree.set_on_select(|siv: &mut Cursive, row: usize| {
+        let span = siv
+            .call_on_name(
+                "error-tree",
+                move |tree: &mut TreeView<ErrorNodeContent>| tree.borrow_item(row).unwrap().span,
+            )
+            .unwrap();
+        update_source_highlight(siv, span);
+    });
+
+    Panel::new(tree.with_name("error-tree")).full_width()
+}
+
+fn update_source_highlight(siv: &mut Cursive, span: Option<InputSpan>) {
+    siv.call_on_name("source", move |text: &mut TextView| {
+        let new_content = {
+            let content = text.get_content();
+            let source_code = content.source();
+            let mut styled = StyledString::new();
+            if let Some(span) = span {
+                styled.append_plain(&source_code[..span.start]);
+                styled.append_styled(
+                    &source_code[span.start..span.end],
+                    Style::from(Effect::Bold).combine(Effect::Reverse),
+                );
+                styled.append_plain(&source_code[span.end..]);
+            } else {
+                styled.append_plain(source_code);
+            }
+            styled
+        };
+        text.set_content(new_content);
+    });
+}
+
+#[derive(Debug)]
+struct ErrorNodeContent {
+    text: String,
+    span: Option<InputSpan>,
+}
+
+impl Display for ErrorNodeContent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.text)
+    }
 }
 
 fn construct_tree_view(view: &mut TreeView<AstNodeContent>, row: usize, node: AstTree) {

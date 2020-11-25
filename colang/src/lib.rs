@@ -43,7 +43,8 @@ pub fn compile(
     analyzer_options: AnalyzerOptions,
 ) -> Result<program::Program, Vec<CompilationError>> {
     let std_ast = if !analyzer_options.no_std {
-        parse_file(stdlib::STD_SOURCE, InputSpanFile::Std, parser_options)?
+        parse_file(stdlib::STD_SOURCE, InputSpanFile::Std, parser_options)
+            .map_err(|(_, errors)| errors)?
     } else {
         ast::Program {
             traits: vec![],
@@ -51,7 +52,8 @@ pub fn compile(
             functions: vec![],
         }
     };
-    let program_ast = parse_file(&source_code, InputSpanFile::UserProgram, parser_options)?;
+    let program_ast = parse_file(&source_code, InputSpanFile::UserProgram, parser_options)
+        .map_err(|(_, errors)| errors)?;
 
     let mut program = analyze(vec![std_ast, program_ast]).map_err(|(_, errors)| errors)?;
 
@@ -110,7 +112,7 @@ pub fn debug(
 pub fn parse(
     source_code: &str,
     parser_options: ParserOptions,
-) -> Result<ast::Program, Vec<CompilationError>> {
+) -> Result<ast::Program, (ast::Program, Vec<CompilationError>)> {
     parse_file(source_code, InputSpanFile::UserProgram, parser_options)
 }
 
@@ -119,16 +121,17 @@ fn parse_file(
     source_code: &str,
     file: InputSpanFile,
     parser_options: ParserOptions,
-) -> Result<ast::Program, Vec<CompilationError>> {
+) -> Result<ast::Program, (ast::Program, Vec<CompilationError>)> {
     match parser_options {
         ParserOptions::Old => grammar::ProgramParser::new()
             .parse(file, source_code)
-            .map_err(|err| vec![errors::syntax_error(err, file)]),
-        ParserOptions::Experimental => parser::parse(source_code, file).map_err(|es| {
-            es.into_iter()
-                .map(errors::syntax_error_new)
-                .collect::<Vec<_>>()
-        }),
+            .map_err(|err| (ast::Program::empty(), vec![errors::syntax_error(err, file)])),
+        ParserOptions::Experimental => {
+            parser::parse(source_code, file).map_err(|(program, errors)| {
+                let errors: Vec<_> = errors.into_iter().map(errors::syntax_error_new).collect();
+                (program, errors)
+            })
+        }
     }
 }
 

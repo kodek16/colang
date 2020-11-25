@@ -14,7 +14,7 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn new() -> Program {
+    pub fn empty() -> Program {
         Program {
             structs: vec![],
             traits: vec![],

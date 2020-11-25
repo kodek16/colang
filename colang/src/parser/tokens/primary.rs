@@ -14,6 +14,8 @@ pub enum PrimaryTokenPayload {
     KwIf,
     KwTrue,
     KwVar,
+    KwWrite,
+    KwWriteLn,
     Ident(String),
     Int(i32),
     Colon,
@@ -71,6 +73,14 @@ impl TokenizerRules<PrimaryTokenPayload> for PrimaryRules {
             (
                 Regex::new(r"^var\b").unwrap(),
                 Box::new(|_| PrimaryTokenPayload::KwVar),
+            ),
+            (
+                Regex::new(r"^write\b").unwrap(),
+                Box::new(|_| PrimaryTokenPayload::KwWrite),
+            ),
+            (
+                Regex::new(r"^writeln\b").unwrap(),
+                Box::new(|_| PrimaryTokenPayload::KwWriteLn),
             ),
             (
                 Regex::new(r"^[A-Za-z_][A-Za-z0-9_]*\b").unwrap(),

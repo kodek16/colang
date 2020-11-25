@@ -5,17 +5,17 @@ grammar(file: InputSpanFile);
 
 pub Program: Program = {
     <program:Program?> <struct_:StructDef> => {
-        let mut program = program.unwrap_or(Program::new());
+        let mut program = program.unwrap_or(Program::empty());
         program.structs.push(struct_);
         program
     },
     <program:Program?> <trait_:TraitDef> => {
-        let mut program = program.unwrap_or(Program::new());
+        let mut program = program.unwrap_or(Program::empty());
         program.traits.push(trait_);
         program
     },
     <program:Program?> <function:FunctionDef> => {
-        let mut program = program.unwrap_or(Program::new());
+        let mut program = program.unwrap_or(Program::empty());
         program.functions.push(function);
         program
     },

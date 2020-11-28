@@ -11,7 +11,6 @@ use crate::source::InputSpan;
 pub enum SyntaxError {
     UnexpectedToken(InputSpan),
     UnexpectedEOF(InputSpan),
-    StatementInExprContext(InputSpan),
 }
 
 /// A parser routine that produces a node of type `N`.
@@ -70,18 +69,6 @@ impl<'a, T> ParseResult<'a, T> {
         let node = match node {
             ParsedNode::Ok(node) => ParsedNode::Ok(f(node)),
             ParsedNode::Recovered(node, errors) => ParsedNode::Recovered(f(node), errors),
-            ParsedNode::Missing(error) => ParsedNode::Missing(error),
-        };
-        ParseResult(node, input)
-    }
-
-    pub fn bind<U>(self, f: impl FnOnce(T) -> ParsedNode<U>) -> ParseResult<'a, U> {
-        let ParseResult(node, input) = self;
-        let node = match node {
-            ParsedNode::Ok(node) => f(node),
-            ParsedNode::Recovered(node, errors) => errors
-                .into_iter()
-                .fold(f(node), |acc, err| acc.add_error(err)),
             ParsedNode::Missing(error) => ParsedNode::Missing(error),
         };
         ParseResult(node, input)

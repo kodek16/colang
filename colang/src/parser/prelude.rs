@@ -5,7 +5,7 @@ pub use crate::parser::common::ParsedNode;
 pub use crate::parser::common::Parser;
 pub use crate::parser::common::SyntaxError;
 pub use crate::parser::input::Input;
-pub use crate::parser::one_of::{OneOf2, OneOf3, OneOf4, OneOf5};
+pub use crate::parser::one_of::{OneOf2, OneOf3, OneOf4, OneOf5, OneOf6};
 pub use crate::parser::repeat::DontRecover;
 pub use crate::parser::repeat::RecoveryConsumer;
 pub use crate::parser::repeat::RepeatZeroOrMore;

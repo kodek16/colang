@@ -35,6 +35,7 @@ pub struct KwFun;
 pub struct KwIf;
 pub struct KwTrue;
 pub struct KwVar;
+pub struct KwWhile;
 pub struct KwWrite;
 pub struct KwWriteLn;
 
@@ -97,6 +98,7 @@ impl_parser_from_primary_token!(KwFun);
 impl_parser_from_primary_token!(KwIf);
 impl_parser_from_primary_token!(KwTrue);
 impl_parser_from_primary_token!(KwVar);
+impl_parser_from_primary_token!(KwWhile);
 impl_parser_from_primary_token!(KwWrite);
 impl_parser_from_primary_token!(KwWriteLn);
 

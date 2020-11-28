@@ -10,8 +10,10 @@ use crate::parser::expressions::binary_op::BinaryOperatorExpr;
 use crate::parser::expressions::block::BlockExpr;
 use crate::parser::expressions::if_::IfExpr;
 use crate::parser::prelude::*;
+use crate::parser::statements::assign::AssignStmt;
 use crate::parser::statements::semicolon::SemicolonStmt;
 use crate::parser::statements::var_decl::VarDeclStmt;
+use crate::parser::statements::while_::WhileStmt;
 use crate::parser::statements::write::WriteStmt;
 use std::marker::PhantomData;
 
@@ -21,29 +23,25 @@ impl Parser for StmtOrExpr {
     type N = ast::StmtOrExpr;
 
     fn parse(input: Input) -> ParseResult<Self::N> {
-        <OneOf4<
+        <OneOf6<
             VarDeclStmt,
+            WhileStmt,
             WriteStmt,
             SemicolonStmt,
-            WrapExprLike<OneOf3<IfExpr, BlockExpr, BinaryOperatorExpr>>,
+            AssignStmt,
+            WrapExprLike<ExprLike>,
         >>::parse(input)
     }
 }
 
-/// Parses a statement or expression, and emits an error if the result is definitely a statement.
+/// Parses only expression-like nodes.
 pub struct ExprLike;
 
 impl Parser for ExprLike {
     type N = ast::ExpressionLike;
 
     fn parse(input: Input) -> ParseResult<Self::N> {
-        StmtOrExpr::parse(input).bind(|stmt_or_expr| match stmt_or_expr {
-            ast::StmtOrExpr::ExprLike(e) => ParsedNode::Ok(e),
-            s @ _ => {
-                let error = SyntaxError::StatementInExprContext(s.span());
-                ParsedNode::Recovered(synthetic_null_expr(s.span()), vec![error])
-            }
-        })
+        <OneOf3<IfExpr, BlockExpr, BinaryOperatorExpr>>::parse(input)
     }
 }
 

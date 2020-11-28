@@ -40,3 +40,16 @@ impl RecoverToToken for Recover {
         }
     }
 }
+
+pub struct BlockExprOrSynthesize;
+
+impl SynthesizeIfMissing for BlockExprOrSynthesize {
+    type P = BlockExpr;
+
+    fn synthesize(location: InputSpan) -> ast::ExpressionLike {
+        ast::ExpressionLike::Block(ast::BlockExpr {
+            items: vec![],
+            span: location,
+        })
+    }
+}

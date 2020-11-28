@@ -6,6 +6,7 @@
 use crate::ast;
 use crate::parser::expressions::bool_literal::BoolLiteralExpr;
 use crate::parser::expressions::call::CallExpr;
+use crate::parser::expressions::char_literal::CharLiteralExpr;
 use crate::parser::expressions::int_literal::IntLiteralExpr;
 use crate::parser::expressions::parens::ParensExpr;
 use crate::parser::expressions::string_literal::StringLiteralExpr;
@@ -18,10 +19,11 @@ impl Parser for PrimaryExpr {
     type N = ast::ExpressionLike;
 
     fn parse(input: Input) -> ParseResult<Self::N> {
-        <OneOf6<
+        <OneOf7<
             ParensExpr,
             BoolLiteralExpr,
             IntLiteralExpr,
+            CharLiteralExpr,
             StringLiteralExpr,
             CallExpr,
             VariableExpr,

@@ -98,3 +98,32 @@ impl<
         <OneOf2<P1, OneOf5<P2, P3, P4, P5, P6>>>::parse(input)
     }
 }
+
+pub struct OneOf7<
+    P1: Parser,
+    P2: Parser<N = P1::N>,
+    P3: Parser<N = P1::N>,
+    P4: Parser<N = P1::N>,
+    P5: Parser<N = P1::N>,
+    P6: Parser<N = P1::N>,
+    P7: Parser<N = P1::N>,
+> {
+    phantom: PhantomData<(P1, P2, P3, P4, P5, P6, P7)>,
+}
+
+impl<
+        P1: Parser,
+        P2: Parser<N = P1::N>,
+        P3: Parser<N = P1::N>,
+        P4: Parser<N = P1::N>,
+        P5: Parser<N = P1::N>,
+        P6: Parser<N = P1::N>,
+        P7: Parser<N = P1::N>,
+    > Parser for OneOf7<P1, P2, P3, P4, P5, P6, P7>
+{
+    type N = P1::N;
+
+    fn parse(input: Input) -> ParseResult<Self::N> {
+        <OneOf2<P1, OneOf6<P2, P3, P4, P5, P6, P7>>>::parse(input)
+    }
+}
